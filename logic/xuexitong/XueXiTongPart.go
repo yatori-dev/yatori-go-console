@@ -120,10 +120,6 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 
 	for index, _ := range nodes {
 		if isFinished(index) { //如果完成了的那么直接跳过
-			//log.Printf("ID.%d(%s/%s)任务点已完成忽略\n",
-			//	item,
-			//	pointAction.Knowledge[index].Label, pointAction.Knowledge[index].Name)
-			//time.Sleep(500 * time.Millisecond)
 			continue
 		}
 		_, fetchCards, err := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
@@ -134,7 +130,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil {
 			log.Fatal("没有可学习的内容")
 		}
-		// 暂时只测试视频
+		// 视屏类型
 		if videoDTOs != nil {
 			for _, videoDTO := range videoDTOs {
 				card, err := xuexitong.PageMobileChapterCardAction(
@@ -147,6 +143,23 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				time.Sleep(5 * time.Second)
 			}
 		}
+		// 文档类型
+		if documentDTOs != nil {
+			for _, documentDTO := range documentDTOs {
+				card, err := xuexitong.PageMobileChapterCardAction(
+					userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
+				if err != nil {
+					log.Fatal(err)
+				}
+				documentDTO.AttachmentsDetection(card)
+				point.ExecuteDocument(userCache, &documentDTO)
+				if err != nil {
+					log.Fatal(err)
+				}
+				time.Sleep(5 * time.Second)
+			}
+		}
+
 	}
 	videosLock.Done()
 }
