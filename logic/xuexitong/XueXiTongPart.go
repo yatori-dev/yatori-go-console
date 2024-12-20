@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/thedevsaddam/gojsonq"
 	xuexitong "github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
-	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong/point"
 	"github.com/yatori-dev/yatori-go-core/api/entity"
 	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
@@ -153,10 +152,8 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					log.Fatal(err)
 				}
 				documentDTO.AttachmentsDetection(card)
-				point.ExecuteDocument(userCache, &documentDTO)
-				if err != nil {
-					log.Fatal(err)
-				}
+				//point.ExecuteDocument(userCache, &documentDTO)
+				ExecuteDocument(userCache, &documentDTO)
 				time.Sleep(5 * time.Second)
 			}
 		}
@@ -165,13 +162,13 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	videosLock.Done()
 }
 
-// 常规刷视屏逻辑
+// 常规刷视频逻辑
 func ExecuteVideo(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) {
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 		var playingTime = p.PlayTime
 		for {
 			if p.Duration-playingTime >= 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, playingTime, 0)
+				playReport, err := cache.VideoDtoPlayReport(p, playingTime, 0, 8, nil)
 				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
 					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				}
@@ -183,7 +180,7 @@ func ExecuteVideo(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) 
 				playingTime = playingTime + 58
 				time.Sleep(58 * time.Second)
 			} else if p.Duration-playingTime < 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2)
+				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2, 8, nil)
 				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
 					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				}
@@ -197,5 +194,17 @@ func ExecuteVideo(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) 
 		}
 	} else {
 		log.Fatal("视频解析失败")
+	}
+}
+
+// 常规刷文档逻辑
+func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, p *entity.PointDocumentDto) {
+	report, err := cache.DocumentDtoReadingReport(p)
+	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil {
+		lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", report, err.Error())
+		log.Fatalln(err)
+	}
+	if gojsonq.New().JSONString(report).Find("status").(bool) {
+		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "文档阅览状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
 	}
 }
