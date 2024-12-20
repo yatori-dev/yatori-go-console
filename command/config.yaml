@@ -13,7 +13,7 @@ setting:
     API_KEY: "" #AI平台对应的apikey
 users:
   - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE
-    url: "url" #对应平台的url链接,学习公社和CQIE可以不用填且可以直接把这一行去掉
+    url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
     account: "账号" #账号
     password: "密码" #密码
     coursesCustom:
@@ -23,24 +23,24 @@ users:
       includeCourses: []  #include和exclude填一个即可，include代表只有这里面的课程才刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
       excludeCourses: []  #include和exclude填一个即可，exclude代表除了这里面的课程其他都刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
 # 添加多个账号的时候像下面这样接着添加多个用户信息就行
-  # - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXIT、重庆工业学院：CQIE
-  #   url: "url" #对应平台的url链接,学习公社和CQIE可以不用填且可以直接把这一行去掉
-  #   account: "账号" #账号
-  #   password: "密码" #密码
+  # - accountType: "YINGHUA"
+  #   url: "url"
+  #   account: "账号" 
+  #   password: "密码"
   #   coursesCustom:
-  #     videoModel: 1 #刷视频模式，0代表不刷，1代表普通模式，2代表暴力模式
-  #     autoExam: 0 #是否自动考试，0代表不考试，1代表考试
-  #     examAutoSubmit: 1 #是否考完试自动提交试卷，0代表不自动提交，1代表自动提交
-  #     includeCourses: []  #include和exclude填一个即可，include代表只有这里面的课程才刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
-  #     excludeCourses: []  #include和exclude填一个即可，exclude代表除了这里面的课程其他都刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
-  # - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXIT、重庆工业学院：CQIE
-  #   url: "url" #对应平台的url链接,学习公社和CQIE可以不用填且可以直接把这一行去掉
-  #   account: "账号" #账号
-  #   password: "密码" #密码
+  #     videoModel: 1 
+  #     autoExam: 0 
+  #     examAutoSubmit: 1 
+  #     includeCourses: []  
+  #     excludeCourses: []  
+  # - accountType: "YINGHUA"
+  #   url: "url"
+  #   account: "账号" 
+  #   password: "密码"
   #   coursesCustom:
-  #     videoModel: 1 #刷视频模式，0代表不刷，1代表普通模式，2代表暴力模式
-  #     autoExam: 0 #是否自动考试，0代表不考试，1代表考试
-  #     examAutoSubmit: 1 #是否考完试自动提交试卷，0代表不自动提交，1代表自动提交
-  #     includeCourses: []  #include和exclude填一个即可，include代表只有这里面的课程才刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
-  #     excludeCourses: []  #include和exclude填一个即可，exclude代表除了这里面的课程其他都刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
+  #     videoModel: 1 
+  #     autoExam: 0 
+  #     examAutoSubmit: 1 
+  #     includeCourses: []  
+  #     excludeCourses: []  
 # 更多详细配置文件说明请参考官方文档：https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html
