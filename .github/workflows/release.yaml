@@ -23,7 +23,8 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复学习通文档类型章节点无法刷取的BUG
+    - [‍👏] 优化学习通部分日志显示
+    - [‍👏] 优化学习通提交学时算法
     
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
