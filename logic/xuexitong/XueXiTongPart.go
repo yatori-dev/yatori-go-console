@@ -2,17 +2,18 @@ package xuexitong
 
 import (
 	"fmt"
-	"github.com/thedevsaddam/gojsonq"
-	xuexitong "github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
-	"github.com/yatori-dev/yatori-go-core/api/entity"
-	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"log"
 	"strconv"
 	"sync"
 	"time"
 	"yatori-go-console/config"
 	utils2 "yatori-go-console/utils"
+
+	"github.com/thedevsaddam/gojsonq"
+	xuexitong "github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/api/entity"
+	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
+	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 )
 
 var videosLock sync.WaitGroup //视频锁
@@ -95,7 +96,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		return
 	}
 	key, _ := strconv.Atoi(courseItem.Key)
-	action, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
+	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
 	if err != nil {
 		log.Fatal(err)
 	}

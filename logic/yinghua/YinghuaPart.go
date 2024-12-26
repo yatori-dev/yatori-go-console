@@ -75,8 +75,8 @@ func userBlock(setting config.Setting, user *config.Users, cache *yinghuaApi.Yin
 		nodesLock.Add(1)
 		go nodeListStudy(setting, user, cache, &item) //多携程刷课
 	}
-	nodesLock.Wait() //等待所有视频刷完
-	nodesLock.Wait() //等待所有节点结束
+	nodesLock.Wait()  //等待所有节点结束
+	videosLock.Wait() //等待所有视频刷完
 	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	if setting.BasicSetting.CompletionTone == 1 { //如果声音提示开启，那么播放
 		soundMut.Lock()
@@ -272,18 +272,22 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在AI自动写章节作业...")
 	//开始写作业
 	for _, work := range detailAction {
-		err := yinghua.StartWorkAction(userCache, work, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+		err := yinghua.StartWorkAction(userCache, work, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType, user.CoursesCustom.ExamAutoSubmit)
 		if err != nil {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, "该章节作业无法正常执行，服务器返回信息：", err.Error())
 			continue
 		}
-		//打印最终分数
-		s, error := yinghua.WorkedFinallyScoreAction(userCache, work)
-		if error != nil {
-			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, error)
-			continue
+		if user.CoursesCustom.ExamAutoSubmit == 1 {
+			//打印最终分数
+			s, error := yinghua.WorkedFinallyScoreAction(userCache, work)
+			if error != nil {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, error)
+				continue
+			}
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "章节作业AI答题完毕，最高分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", work.Score))
+		} else {
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "AI考试完毕,,请自行前往主页提交试卷")
 		}
-		lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "章节作业AI答题完毕，最高分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", work.Score))
 	}
 
 }
@@ -312,17 +316,23 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	//开始考试
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在AI自动考试...")
 	for _, exam := range detailAction {
-		err := yinghua.StartExamAction(userCache, exam, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+		err := yinghua.StartExamAction(userCache, exam, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType, user.CoursesCustom.ExamAutoSubmit)
 		if err != nil {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, "该考试无法正常执行，服务器返回信息：", err.Error())
 			continue
 		}
-		//打印最终分数
-		s, error := yinghua.ExamFinallyScoreAction(userCache, exam)
-		if error != nil {
-			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, error.Error())
-			continue
+
+		if user.CoursesCustom.ExamAutoSubmit == 1 {
+			//打印最终分数
+			s, error := yinghua.ExamFinallyScoreAction(userCache, exam)
+			if error != nil {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, error.Error())
+				continue
+			}
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "AI考试完毕,最终分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", exam.Score))
+		} else {
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "AI考试完毕,请自行前往主页提交试卷")
 		}
-		lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "AI考试完毕,最终分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", exam.Score))
+
 	}
 }
