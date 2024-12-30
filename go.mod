@@ -14,7 +14,7 @@ require (
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
 
-require github.com/yatori-dev/yatori-go-core v1.2.2
+require github.com/yatori-dev/yatori-go-core v1.2.3
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.0 // indirect
