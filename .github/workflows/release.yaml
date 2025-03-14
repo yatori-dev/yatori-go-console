@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.0-Beta.8'  # Default tag name
+        default: 'v2.5.0-Beta.9'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -23,7 +23,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍👏] 学习通视屏学习通添加绕过人脸逻辑
+    - [‍👏] 优化英华学堂刷课逻辑
     
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
