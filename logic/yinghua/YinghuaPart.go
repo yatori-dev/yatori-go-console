@@ -151,15 +151,18 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
-	if int(node.Progress) == 100 { //过滤看完了的视屏
+	if user.OverBrush == 0 && int(node.Progress) == 100 { //过滤看完了的视屏
 		return
 	}
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.Name+"】 ")
-	time := node.ViewedDuration //设置当前观看时间为最后看视频的时间
-	studyId := "0"              //服务器端分配的学习ID
+	time := 0                //设置当前观看时间为最后看视频的时间
+	if user.OverBrush == 0 { //是否为覆刷
+		time = node.ViewedDuration
+	}
+	studyId := "0" //服务器端分配的学习ID
 	for {
 		time += 5
-		if node.Progress == 100 {
+		if user.OverBrush == 0 && node.Progress == 100 {
 			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", " ", lg.Blue, "学习完毕")
 			break //如果看完了，也就是进度为100那么直接跳过
 		}

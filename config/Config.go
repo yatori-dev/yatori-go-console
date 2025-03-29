@@ -58,6 +58,7 @@ type Users struct {
 	URL           string        `json:"url"`
 	Account       string        `json:"account"`
 	Password      string        `json:"password"`
+	OverBrush     int           `json:"overBrush"` // 覆刷模式选择，0代表不覆刷，1代表覆刷
 	CoursesCustom CoursesCustom `json:"coursesCustom"`
 }
 
