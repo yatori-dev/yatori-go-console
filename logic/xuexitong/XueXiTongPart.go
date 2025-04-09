@@ -98,7 +98,8 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	key, _ := strconv.Atoi(courseItem.Key)
 	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
 	if err != nil {
-		log.Fatal(err)
+		lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
+		log.Fatal()
 	}
 
 	var nodes []int
@@ -121,6 +122,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
 	}
 
+	lg.Print(lg.INFO, "[", lg.Green, courseItem.CourseName, lg.Default, "] ", lg.Purple, "正在学习该课程")
 	for index, _ := range nodes {
 		if isFinished(index) { //如果完成了的那么直接跳过
 			continue
@@ -131,9 +133,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		}
 		videoDTOs, workDTOs, documentDTOs := entity.ParsePointDto(fetchCards)
 		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil {
-			//log.Fatal("没有可学习的内容")
 			lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "课程数据没有需要刷的课，可能接口访问异常。若需要继续可以配置中添加排除此异常课程。")
-			//log.Println("没有可学习的内容")
 			log.Fatal()
 		}
 		// 视屏类型
@@ -165,6 +165,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		}
 
 	}
+	lg.Print(lg.INFO, "[", lg.Green, courseItem.CourseName, lg.Default, "] ", lg.Purple, "课程学习完毕")
 	videosLock.Done()
 }
 

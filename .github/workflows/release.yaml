@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.1-Beta.1'  # Default tag name
+        default: 'v2.5.1-Beta.2'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -23,7 +23,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍👏] 添加覆刷模式（目前只支持英华）
+    - [‍👏] 学习通小幅度优化日志显示
     
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
