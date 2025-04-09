@@ -100,6 +100,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	var nodes []int
 	for _, item := range action.Knowledge {
 		nodes = append(nodes, item.ID)
@@ -109,7 +110,8 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	// 检测节点完成情况
 	pointAction, err := xuexitong.ChapterFetchPointAction(userCache, nodes, &action, key, userId, courseItem.Cpi, courseId)
 	if err != nil {
-		log.Fatal(err)
+		lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
+		log.Fatal()
 	}
 	var isFinished = func(index int) bool {
 		if index < 0 || index >= len(pointAction.Knowledge) {
@@ -129,7 +131,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		}
 		videoDTOs, workDTOs, documentDTOs := entity.ParsePointDto(fetchCards)
 		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil {
-			log.Fatal("没有可学习的内容")
+			//log.Fatal("没有可学习的内容")
+			lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "课程数据没有需要刷的课，可能接口访问异常。若需要继续可以配置中添加排除此异常课程。")
+			//log.Println("没有可学习的内容")
+			log.Fatal()
 		}
 		// 视屏类型
 		if videoDTOs != nil {
