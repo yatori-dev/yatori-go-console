@@ -145,16 +145,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					log.Fatal(err)
 				}
 				videoDTO.AttachmentsDetection(card)
-
-				switch user.AccountType {
-				case "XUEXITONG":
-					ExecuteVideo(userCache, &videoDTO)
-				case "XUEXITONG1":
-					ExecuteVideo(userCache, &videoDTO)
-				case "XUEXITONG2":
-					ExecuteVideo2(userCache, &videoDTO)
-				}
-
+				ExecuteVideo2(userCache, &videoDTO)
 				time.Sleep(5 * time.Second)
 			}
 		}
