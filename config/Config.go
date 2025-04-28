@@ -58,6 +58,7 @@ type Users struct {
 	URL           string        `json:"url"`
 	Account       string        `json:"account"`
 	Password      string        `json:"password"`
+	OverBrush     int           `json:"overBrush"` // 覆刷模式选择，0代表不覆刷，1代表覆刷
 	CoursesCustom CoursesCustom `json:"coursesCustom"`
 }
 
@@ -97,7 +98,7 @@ func ReadConfig(filePath string) JSONDataForConfig {
 	return configJson
 }
 
-// CmpCourse 比较是否存在对应课程
+// CmpCourse 比较是否存在对应课程,匹配上了则true，没有匹配上则是false
 func CmpCourse(course string, courseList []string) bool {
 	for i := range courseList {
 		if courseList[i] == course {

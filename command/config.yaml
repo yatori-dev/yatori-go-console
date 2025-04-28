@@ -16,6 +16,7 @@ users:
     url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
     account: "账号" #账号
     password: "密码" #密码
+    overBrush: 0 #覆刷模式，目前只支持英华，0代表关闭，1代表开启
     coursesCustom:
       videoModel: 1 #刷视频模式，0代表不刷，1代表普通模式，2代表暴力模式
       autoExam: 0 #是否自动考试，0代表不考试，1代表考试

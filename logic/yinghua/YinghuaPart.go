@@ -109,6 +109,14 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 		return
 	}
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, " 【"+course.Name+"】 ")
+
+	//如果课程时间未到开课时间则直接return
+	//{"_code":9,"status":false,"msg":"课程还未开始!","result":{}}
+	if time2.Now().Before(course.StartDate) {
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", " 【", course.Name, "】 >>> ", lg.Red, "该课程还未开始已自动跳过")
+		nodesLock.Done()
+		return
+	}
 	//执行刷课---------------------------------
 	nodeList, _ := yinghua.VideosListAction(userCache, *course) //拉取对应课程的视频列表
 	// 提交学时
@@ -143,15 +151,18 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
-	if int(node.Progress) == 100 { //过滤看完了的视屏
+	if user.OverBrush == 0 && int(node.Progress) == 100 { //过滤看完了的视屏
 		return
 	}
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.Name+"】 ")
-	time := node.ViewedDuration //设置当前观看时间为最后看视频的时间
-	studyId := "0"              //服务器端分配的学习ID
+	time := 0                //设置当前观看时间为最后看视频的时间
+	if user.OverBrush == 0 { //是否为覆刷
+		time = node.ViewedDuration
+	}
+	studyId := "0" //服务器端分配的学习ID
 	for {
 		time += 5
-		if node.Progress == 100 {
+		if user.OverBrush == 0 && node.Progress == 100 {
 			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", " ", lg.Blue, "学习完毕")
 			break //如果看完了，也就是进度为100那么直接跳过
 		}
@@ -167,8 +178,8 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 		if gojsonq.New().JSONString(sub).Find("msg") != "提交学时成功!" {
 			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
 			//{"_code":9,"status":false,"msg":"该课程解锁时间【2024-11-14 12:00:00】未到!","result":{}}，如果未到解锁时间则跳过
-			reg := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
-			if reg.MatchString(gojsonq.New().JSONString(sub).Find("msg").(string)) {
+			reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
+			if reg1.MatchString(gojsonq.New().JSONString(sub).Find("msg").(string)) {
 				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
 				break
 			}
@@ -224,8 +235,8 @@ func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *
 			if gojsonq.New().JSONString(sub).Find("msg") != "提交学时成功!" {
 				lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
 				//{"_code":9,"status":false,"msg":"该课程解锁时间【2024-11-14 12:00:00】未到!","result":{}}，如果未到解锁时间则跳过
-				reg := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
-				if reg.MatchString(gojsonq.New().JSONString(sub).Find("msg").(string)) {
+				reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
+				if reg1.MatchString(gojsonq.New().JSONString(sub).Find("msg").(string)) {
 					modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
 					break
 				}
