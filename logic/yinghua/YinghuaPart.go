@@ -268,10 +268,12 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 		return
 	}
 	//检测AI可用性
-	err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
-	if err != nil {
-		lg.Print(lg.INFO, lg.BoldRed, "AI不可用，错误信息："+err.Error())
-		os.Exit(0)
+	if user.CoursesCustom.AutoExam == 1 {
+		err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+		if err != nil {
+			lg.Print(lg.INFO, lg.BoldRed, "AI不可用，错误信息："+err.Error())
+			os.Exit(0)
+		}
 	}
 
 	//获取作业详细信息
@@ -320,11 +322,14 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	if !node.TabExam { //过滤非考试节点
 		return
 	}
-	//检测AI可用性
-	err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
-	if err != nil {
-		lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
-		os.Exit(0)
+
+	if user.CoursesCustom.AutoExam == 1 {
+		//检测AI可用性
+		err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+		if err != nil {
+			lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
+			os.Exit(0)
+		}
 	}
 
 	//获取作业详细信息
