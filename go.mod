@@ -15,7 +15,7 @@ require (
 )
 
 require (
-	github.com/yatori-dev/yatori-go-core v1.3.2
+	github.com/yatori-dev/yatori-go-core v1.3.4
 	golang.org/x/sys v0.30.0
 )
 

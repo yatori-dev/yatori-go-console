@@ -35,10 +35,16 @@ type AiSetting struct {
 	Model  string       `json:"model"`
 	APIKEY string       `json:"API_KEY" yaml:"API_KEY" mapstructure:"API_KEY"`
 }
+
+type ApiQueSetting struct {
+	Url string `json:"url"`
+}
+
 type Setting struct {
-	BasicSetting BasicSetting `json:"basicSetting"`
-	EmailInform  EmailInform  `json:"emailInform"`
-	AiSetting    AiSetting    `json:"aiSetting"`
+	BasicSetting  BasicSetting  `json:"basicSetting"`
+	EmailInform   EmailInform   `json:"emailInform"`
+	AiSetting     AiSetting     `json:"aiSetting"`
+	ApiQueSetting ApiQueSetting `json:"apiQueSetting"`
 }
 type CoursesSettings struct {
 	Name         string   `json:"name"`

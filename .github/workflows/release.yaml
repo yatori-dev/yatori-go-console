@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.1-Beta.7'  # Default tag name
+        default: 'v2.5.2-Beta.1'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -23,7 +23,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 学习通上线暴力模式，现在学习通可进行秒刷（只记录完成度，总学习时长可能不达标。且大概率会打回，慎用。大概58倍速）。
+    - [👏] 添加外部题库对接接口（测试阶段）。
     
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整

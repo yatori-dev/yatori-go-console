@@ -283,7 +283,16 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在AI自动写章节作业...")
 	//开始写作业
 	for _, work := range detailAction {
-		err := yinghua.StartWorkAction(userCache, work, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType, user.CoursesCustom.ExamAutoSubmit)
+		var err error
+		switch user.CoursesCustom.AutoExam {
+		case 1:
+			err = yinghua.StartWorkAction(userCache, work, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType, user.CoursesCustom.ExamAutoSubmit)
+			break
+		case 2:
+			err = yinghua.StartWorkForExternalAction(userCache, setting.ApiQueSetting.Url, work, user.CoursesCustom.ExamAutoSubmit)
+			break
+		}
+
 		if err != nil {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, "该章节作业无法正常执行，服务器返回信息：", err.Error())
 			continue
@@ -327,7 +336,16 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	//开始考试
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在AI自动考试...")
 	for _, exam := range detailAction {
-		err := yinghua.StartExamAction(userCache, exam, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType, user.CoursesCustom.ExamAutoSubmit)
+		//err := yinghua.StartExamAction(userCache, exam, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType, user.CoursesCustom.ExamAutoSubmit)
+		var err error
+		switch user.CoursesCustom.AutoExam {
+		case 1:
+			err = yinghua.StartExamAction(userCache, exam, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType, user.CoursesCustom.ExamAutoSubmit)
+			break
+		case 2:
+			err = yinghua.StartExamForExternalAction(userCache, exam, setting.ApiQueSetting.Url, user.CoursesCustom.ExamAutoSubmit)
+			break
+		}
 		if err != nil {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, "该考试无法正常执行，服务器返回信息：", err.Error())
 			continue
