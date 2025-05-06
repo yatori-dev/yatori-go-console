@@ -90,4 +90,4 @@
 >
 > <img src="./README/images/jetbrains-variant-3.png" alt="jetbrains-variant-3" width="200px" />
 
-![https://starchart.cc/yatori-dev/yatori-go-console.svg?variant=adaptive](https://starchart.cc/yatori-dev/yatori-go-console.svg?variant=adaptive)
+![Stargazers over time](https://starchart.cc/yatori-dev/yatori-go-console.svg?variant=adaptive)
