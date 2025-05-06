@@ -14,7 +14,10 @@ require (
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 )
 
-require github.com/yatori-dev/yatori-go-core v1.3.1
+require (
+	github.com/yatori-dev/yatori-go-core v1.3.2
+	golang.org/x/sys v0.30.0
+)
 
 require (
 	github.com/PuerkitoBio/goquery v1.10.2 // indirect
@@ -46,7 +49,6 @@ require (
 	golang.org/x/image v0.24.0 // indirect
 	golang.org/x/mobile v0.0.0-20250218173827-cd096645fcd3 // indirect
 	golang.org/x/net v0.35.0 // indirect
-	golang.org/x/sys v0.30.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

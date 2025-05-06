@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.1-Beta.5'  # Default tag name
+        default: 'v2.5.1-Beta.6'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -23,8 +23,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍👏] 优化学习通提交学时策略，若百分百进度超过一定时间会自动跳转下一个节。
-    - [‍👏] 优化日志显示，现在Windows10无意外可支持彩色日志显示。
+    - [‍🔧] 修复学习通部分课程无法正常执行BUG。
     
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
