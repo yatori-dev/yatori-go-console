@@ -11,6 +11,9 @@ setting:
     aiUrl: "" #默认不填，除非你用的不是上面所指明的AI模型，比如ChatGPT
     model: "" #AI模型，不填则使用yatori默认选择的模型，如果你用的豆包则必填并且填的是接入点ID非模型名称，比如ep-2024xxxxx
     API_KEY: "" #AI平台对应的apikey
+  apiQueSetting:
+    url: "http://localhost:8083" # 外部题库对接接口
+
 users:
   - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE
     url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
