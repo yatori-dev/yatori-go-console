@@ -145,7 +145,13 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					log.Fatal(err)
 				}
 				videoDTO.AttachmentsDetection(card)
-				ExecuteVideo2(userCache, &videoDTO)
+				switch user.CoursesCustom.VideoModel {
+				case 1:
+					ExecuteVideo2(userCache, &videoDTO) //普通模式
+				case 2:
+					ExecuteVideoQuickSpeed(userCache, &videoDTO) // 暴力模式
+				}
+
 				time.Sleep(5 * time.Second)
 			}
 		}
@@ -225,6 +231,49 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto)
 				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
 				playingTime = playingTime + 58
 				time.Sleep(58 * time.Second)
+			} else if p.Duration-playingTime < 58 {
+				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2, 4, nil)
+				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
+					break
+				}
+				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+					flag = true
+					break
+				}
+				if flag {
+					lg.Print(lg.INFO, "过超提交中。。。。")
+					flag = false
+				}
+				//lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				time.Sleep(time.Second)
+			}
+		}
+	} else {
+		log.Fatal("视频解析失败")
+	}
+}
+
+// 常规刷视频逻辑
+func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) {
+	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
+		var playingTime = p.PlayTime
+		var flag = true
+		for {
+			if p.Duration-playingTime >= 58 {
+				playReport, err := cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+					break
+				}
+				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+					break
+				}
+				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+				playingTime = playingTime + 58
+				time.Sleep(time.Second)
 			} else if p.Duration-playingTime < 58 {
 				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2, 4, nil)
 				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
