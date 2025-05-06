@@ -23,7 +23,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 学习通上线暴力模式，现在学习通可进行秒刷（只记录完成度学习可能不达标且大概率会打回，慎用）。
+    - [👏] 学习通上线暴力模式，现在学习通可进行秒刷（只记录完成度学习可能不达标且大概率会打回，慎用.大概58倍速）。
     
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
