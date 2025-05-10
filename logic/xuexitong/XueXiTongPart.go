@@ -97,7 +97,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		return
 	}
 	key, _ := strconv.Atoi(courseItem.Key)
-	action, pullState, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
+	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
 
 	if err != nil {
 		if strings.Contains(err.Error(), "课程章节为空") {
@@ -108,11 +108,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
 		log.Fatal()
 	}
-
-	// 如果状态为false那么可能拉取数据异常
-	if pullState == false {
-
-	}
+	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "获取课程章节成功 (共 ", lg.Yellow, strconv.Itoa(len(action.Knowledge)), lg.Default, " 个) ")
 
 	var nodes []int
 	for _, item := range action.Knowledge {
