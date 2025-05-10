@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"yatori-go-console/config"
@@ -96,10 +97,21 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		return
 	}
 	key, _ := strconv.Atoi(courseItem.Key)
-	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
+	action, pullState, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
+
 	if err != nil {
+		if strings.Contains(err.Error(), "课程章节为空") {
+			lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
+			videosLock.Done()
+			return
+		}
 		lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
 		log.Fatal()
+	}
+
+	// 如果状态为false那么可能拉取数据异常
+	if pullState == false {
+
 	}
 
 	var nodes []int
