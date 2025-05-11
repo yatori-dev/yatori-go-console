@@ -148,54 +148,59 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 
 // videoAction 刷视频逻辑抽离
 func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, node yinghua.YingHuaNode) {
-	if !node.TabVideo { //过滤非视频节点
+	if !node.TabVideo { // 过滤非视频节点
 		return
 	}
-	if user.OverBrush == 0 && int(node.Progress) == 100 { //过滤看完了的视屏
+	if user.OverBrush == 0 && int(node.Progress) == 100 { // 过滤已完成的视频
 		return
 	}
+
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.Name+"】 ")
-	time := 0                //设置当前观看时间为最后看视频的时间
-	if user.OverBrush == 0 { //是否为覆刷
-		time = node.ViewedDuration
+
+	time := 0
+	if user.OverBrush == 0 {
+		time = node.ViewedDuration // 设置当前观看时间为最后看视频的时间
 	}
-	studyId := "0" //服务器端分配的学习ID
+	studyId := "0" // 学习ID
+
 	for {
 		time += 5
-		if user.OverBrush == 0 && node.Progress == 100 {
+		if node.Progress == 100 {
 			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", " ", lg.Blue, "学习完毕")
-			break //如果看完了，也就是进度为100那么直接跳过
+			break // 如果进度为100，直接跳过
 		}
-		//提交学时
+
 		sub, err := yinghua.SubmitStudyTimeAction(UserCache, node.Id, studyId, time)
 		if err != nil {
-			lg.Print(lg.INFO, `[`, UserCache.Account, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
-		}
-		//超时重登检测
-		yinghua.LoginTimeoutAfreshAction(UserCache, sub)
-		lg.Print(lg.DEBUG, "---", node.Id, sub)
-		//如果提交学时不成功
-		if gojsonq.New().JSONString(sub).Find("msg") != "提交学时成功!" {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
-			//{"_code":9,"status":false,"msg":"该课程解锁时间【2024-11-14 12:00:00】未到!","result":{}}，如果未到解锁时间则跳过
-			reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
-			if reg1.MatchString(gojsonq.New().JSONString(sub).Find("msg").(string)) {
-				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
-				break
-			}
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Red, "提交学时接口访问异常，返回信息：", err.Error())
+			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "网络异常，正在重连...")
+			yinghua.LoginTimeoutAfreshAction(UserCache, sub)
 			time2.Sleep(10 * time2.Second)
 			continue
 		}
-		//打印日志部分
-		studyId = strconv.Itoa(int(gojsonq.New().JSONString(sub).Find("result.data.studyId").(float64)))
-		if gojsonq.New().JSONString(sub).Find("msg").(string) == "提交学时成功!" {
-			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(sub).Find("msg").(string), lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
-		} else {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, gojsonq.New().JSONString(sub).Find("msg").(string), lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
+
+		msg, ok := gojsonq.New().JSONString(sub).Find("msg").(string)
+		if !ok || msg == "" {
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Red, "提交学时失败，返回信息为空或格式错误")
+			continue
 		}
+
+		if msg == "提交学时成功!" {
+			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
+		} else {
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
+
+			// 检查是否是课程未解锁的情况
+			reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
+			if reg1.MatchString(msg) {
+				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
+				break
+			}
+		}
+
 		time2.Sleep(5 * time2.Second)
 		if time >= node.VideoDuration {
-			break //如果看完该视频则直接下一个
+			break // 如果看完该视频则直接下一个
 		}
 	}
 }
