@@ -170,7 +170,6 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 		sub, err := yinghua.SubmitStudyTimeAction(UserCache, node.Id, studyId, time)
 		if err != nil {
 			lg.Print(lg.INFO, `[`, UserCache.Account, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
-			continue
 		}
 		//超时重登检测
 		yinghua.LoginTimeoutAfreshAction(UserCache, sub)
@@ -184,7 +183,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 			continue
 		}
 		if msg != "提交学时成功!" {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, msg)
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
 			//{"_code":9,"status":false,"msg":"该课程解锁时间【2024-11-14 12:00:00】未到!","result":{}}，如果未到解锁时间则跳过
 			reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
 			if reg1.MatchString(msg) {
