@@ -88,10 +88,14 @@ func userBlock(setting config.Setting, user *config.Users, cache *yinghuaApi.Yin
 
 // 用于登录保活
 func keepAliveLogin(UserCache *yinghuaApi.YingHuaUserCache) {
+	ticker := time2.NewTicker(time2.Minute * 5)
+	//ticker := time2.NewTicker(time2.Second * 5)
 	for {
-		api := yinghuaApi.KeepAliveApi(*UserCache)
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.DarkGray, "登录心跳保活状态：", api)
-		time2.Sleep(time2.Minute * 5) //每隔五分钟一次心跳保活
+		select {
+		case <-ticker.C:
+			api := yinghuaApi.KeepAliveApi(*UserCache)
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.DarkGray, "登录心跳保活状态：", api)
+		}
 	}
 }
 
