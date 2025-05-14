@@ -19,7 +19,7 @@ func PullAnnouncement() string {
 		},
 	}
 	client := &http.Client{
-		Timeout:   10 * time.Second,
+		Timeout:   5 * time.Second,
 		Transport: tr,
 	}
 	req, err := http.NewRequest(method, url, nil)
