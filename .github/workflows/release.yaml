@@ -23,7 +23,8 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 小幅度优化学习通抛错机制。
+    - [‍🔧] 修复英华部分登录可能msg值为空问题
+    - [👏] 针对英华url问题进行报错优化
     
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
