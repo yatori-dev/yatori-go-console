@@ -42,7 +42,7 @@ func Lunch() {
 		setConfig.Setting.AiSetting.AiType = "TONGYI"
 		setConfig.Setting.ApiQueSetting.Url = "http://localhost:8083"
 
-		accountType := config.GetUserInput("请输入平台类型 (如 YINGHUA): ")
+		accountType := config.GetUserInput("请输入平台类型 (如 YINGHUA)(全大写): ")
 		url := config.GetUserInput("请输入平台的URL链接 (可留空): ")
 		account := config.GetUserInput("请输入账号: ")
 		password := config.GetUserInput("请输入密码: ")
@@ -50,8 +50,8 @@ func Lunch() {
 		videoModel := config.GetUserInput("请输入刷视频模式 (0-不刷, 1-普通模式, 2-暴力模式): ")
 		autoExam := config.GetUserInput("是否自动考试? (0-不考试, 1-AI考试, 2-外部题库对接考试): ")
 		examAutoSubmit := config.GetUserInput("考完试是否自动提交试卷? (0-否, 1-是): ")
-		includeCourses := config.GetUserInput("请输入需要包含的课程名称，多个用逗号分隔(可留空): ")
-		excludeCourses := config.GetUserInput("请输入需要排除的课程名称，多个用逗号分隔(可留空): ")
+		includeCourses := config.GetUserInput("请输入需要包含的课程名称，多个用(英文逗号)分隔(可留空): ")
+		excludeCourses := config.GetUserInput("请输入需要排除的课程名称，多个用(英文逗号)分隔(可留空): ")
 
 		cleanStringSlice := func(s string) []string {
 			if s == "" {
