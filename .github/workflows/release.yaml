@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.2-Beta.4'  # Default tag name
+        default: 'v2.5.3-Beta.1'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -23,9 +23,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复英华部分登录可能msg值为空问题
-    - [👏] 针对英华url问题进行报错优化
-    
+    - [👏] 添加配置文件自动生成功能（移除当前配置文件可触发）
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
 jobs:
