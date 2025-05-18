@@ -1,9 +1,12 @@
 package config
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/spf13/viper"
 	"github.com/yatori-dev/yatori-go-core/models/ctype"
@@ -16,22 +19,22 @@ type JSONDataForConfig struct {
 }
 type EmailInform struct {
 	Sw       int    `json:"sw"`
-	SMTPHost string `json:"smtpHost"`
-	SMTPPort string `json:"smtpPort"`
+	SMTPHost string `json:"smtpHost" yaml:"SMTPHost"`
+	SMTPPort string `json:"smtpPort" yaml:"SMTPPort"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 type BasicSetting struct {
-	CompletionTone int    `default:"1" json:"completionTone,omitempty"` //是否开启刷完提示音，0为关闭，1为开启，默认为1
-	ColorLog       int    `json:"colorLog,omitempty"`                   //是否为彩色日志，0为关闭彩色日志，1为开启，默认为1
-	LogOutFileSw   int    `json:"logOutFileSw,omitempty"`               //是否输出日志文件0代表不输出，1代表输出，默认为1
-	LogLevel       string `json:"logLevel,omitempty"`                   //日志等级，默认INFO，DEBUG为找BUG调式用的，日志内容较详细，默认为INFO
-	LogModel       int    `json:"logModel"`                             //日志模式，0代表以视频提交学时基准打印日志，1代表以一个课程为基准打印信息，默认为0
-	IpProxySw      int    `json:"ipProxySw,omitempty"`                  //是否开启IP代理，0代表关，1代表开，默认为关
+	CompletionTone int    `default:"1" json:"completionTone,omitempty" yaml:"completionTone"` //是否开启刷完提示音，0为关闭，1为开启，默认为1
+	ColorLog       int    `json:"colorLog,omitempty" yaml:"colorLog"`                         //是否为彩色日志，0为关闭彩色日志，1为开启，默认为1
+	LogOutFileSw   int    `json:"logOutFileSw,omitempty" yaml:"logOutFileSw"`                 //是否输出日志文件0代表不输出，1代表输出，默认为1
+	LogLevel       string `json:"logLevel,omitempty" yaml:"logLevel"`                         //日志等级，默认INFO，DEBUG为找BUG调式用的，日志内容较详细，默认为INFO
+	LogModel       int    `json:"logModel" yaml:"logModel"`                                   //日志模式，0代表以视频提交学时基准打印日志，1代表以一个课程为基准打印信息，默认为0
+	IpProxySw      int    `json:"ipProxySw,omitempty" yaml:"ipProxySw"`                       //是否开启IP代理，0代表关，1代表开，默认为关
 }
 type AiSetting struct {
-	AiType ctype.AiType `json:"aiType"`
-	AiUrl  string       `json:"aiUrl"`
+	AiType ctype.AiType `json:"aiType" yaml:"aiType"`
+	AiUrl  string       `json:"aiUrl" yaml:"aiUrl"`
 	Model  string       `json:"model"`
 	APIKEY string       `json:"API_KEY" yaml:"API_KEY" mapstructure:"API_KEY"`
 }
@@ -41,31 +44,31 @@ type ApiQueSetting struct {
 }
 
 type Setting struct {
-	BasicSetting  BasicSetting  `json:"basicSetting"`
-	EmailInform   EmailInform   `json:"emailInform"`
-	AiSetting     AiSetting     `json:"aiSetting"`
-	ApiQueSetting ApiQueSetting `json:"apiQueSetting"`
+	BasicSetting  BasicSetting  `json:"basicSetting" yaml:"basicSetting"`
+	EmailInform   EmailInform   `json:"emailInform" yaml:"emailInform"`
+	AiSetting     AiSetting     `json:"aiSetting" yaml:"aiSetting"`
+	ApiQueSetting ApiQueSetting `json:"apiQueSetting" yaml:"apiQueSetting"`
 }
 type CoursesSettings struct {
 	Name         string   `json:"name"`
-	IncludeExams []string `json:"includeExams"`
-	ExcludeExams []string `json:"excludeExams"`
+	IncludeExams []string `json:"includeExams" yaml:"includeExams"`
+	ExcludeExams []string `json:"excludeExams" yaml:"excludeExams"`
 }
 type CoursesCustom struct {
-	VideoModel      int               `json:"videoModel"`     //观看视频模式
-	AutoExam        int               `json:"autoExam"`       //是否自动考试
-	ExamAutoSubmit  int               `json:"examAutoSubmit"` //是否自动提交试卷
-	ExcludeCourses  []string          `json:"excludeCourses"`
-	IncludeCourses  []string          `json:"includeCourses"`
-	CoursesSettings []CoursesSettings `json:"coursesSettings"`
+	VideoModel      int               `json:"videoModel" yaml:"videoModel"`         //观看视频模式
+	AutoExam        int               `json:"autoExam" yaml:"autoExam"`             //是否自动考试
+	ExamAutoSubmit  int               `json:"examAutoSubmit" yaml:"examAutoSubmit"` //是否自动提交试卷
+	ExcludeCourses  []string          `json:"excludeCourses" yaml:"excludeCourses"`
+	IncludeCourses  []string          `json:"includeCourses" yaml:"includeCourses"`
+	CoursesSettings []CoursesSettings `json:"coursesSettings" yaml:"coursesSettings"`
 }
 type Users struct {
-	AccountType   string        `json:"accountType"`
+	AccountType   string        `json:"accountType" yaml:"accountType"`
 	URL           string        `json:"url"`
 	Account       string        `json:"account"`
 	Password      string        `json:"password"`
-	OverBrush     int           `json:"overBrush"` // 覆刷模式选择，0代表不覆刷，1代表覆刷
-	CoursesCustom CoursesCustom `json:"coursesCustom"`
+	OverBrush     int           `json:"overBrush" yaml:"overBrush"` // 覆刷模式选择，0代表不覆刷，1代表覆刷
+	CoursesCustom CoursesCustom `json:"coursesCustom" yaml:"coursesCustom"`
 }
 
 // 读取json配置文件
@@ -112,4 +115,17 @@ func CmpCourse(course string, courseList []string) bool {
 		}
 	}
 	return false
+}
+
+func GetUserInput(prompt string) string {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print(prompt)
+	text, _ := reader.ReadString('\n')
+	return strings.TrimSpace(text)
+}
+
+func StrToInt(s string) int {
+	var res int
+	fmt.Sprintf(s, "%d", res)
+	return res
 }

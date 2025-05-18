@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"gopkg.in/yaml.v3"
 	"math/rand"
 	"os"
 	"strings"
@@ -16,7 +17,84 @@ import (
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 )
 
+func fileExists(fileName string) bool {
+	info, err := os.Stat(fileName)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
 func Lunch() {
+
+	// 检查config.yaml是否存在
+	if !fileExists("./config.yaml") {
+		// 不存在使用生成方式建立
+		setConfig := config.JSONDataForConfig{}
+		// 设置基本设置
+		setConfig.Setting.BasicSetting.CompletionTone = 1
+		setConfig.Setting.BasicSetting.ColorLog = 1
+		setConfig.Setting.BasicSetting.LogOutFileSw = 1
+		setConfig.Setting.BasicSetting.LogLevel = "INFO"
+		setConfig.Setting.BasicSetting.LogModel = 0
+		setConfig.Setting.BasicSetting.IpProxySw = 0
+
+		setConfig.Setting.AiSetting.AiType = "TONGYI"
+		setConfig.Setting.ApiQueSetting.Url = "http://localhost:8083"
+
+		accountType := config.GetUserInput("请输入平台类型 (如 YINGHUA)(全大写): ")
+		url := config.GetUserInput("请输入平台的URL链接 (可留空): ")
+		account := config.GetUserInput("请输入账号: ")
+		password := config.GetUserInput("请输入密码: ")
+
+		videoModel := config.GetUserInput("请输入刷视频模式 (0-不刷, 1-普通模式, 2-暴力模式): ")
+		autoExam := config.GetUserInput("是否自动考试? (0-不考试, 1-AI考试, 2-外部题库对接考试): ")
+		examAutoSubmit := config.GetUserInput("考完试是否自动提交试卷? (0-否, 1-是): ")
+		includeCourses := config.GetUserInput("请输入需要包含的课程名称，多个用(英文逗号)分隔(可留空): ")
+		excludeCourses := config.GetUserInput("请输入需要排除的课程名称，多个用(英文逗号)分隔(可留空): ")
+
+		cleanStringSlice := func(s string) []string {
+			if s == "" {
+				return []string{}
+			}
+			parts := strings.Split(s, ",")
+			var result []string
+			for _, part := range parts {
+				trimmed := strings.TrimSpace(part)
+				if trimmed != "" {
+					result = append(result, trimmed)
+				}
+			}
+			return result
+		}
+
+		user := config.Users{
+			AccountType: accountType,
+			URL:         url,
+			Account:     account,
+			Password:    password,
+			OverBrush:   0,
+			CoursesCustom: config.CoursesCustom{
+				VideoModel:     config.StrToInt(videoModel),
+				AutoExam:       config.StrToInt(autoExam),
+				ExamAutoSubmit: config.StrToInt(examAutoSubmit),
+				IncludeCourses: cleanStringSlice(includeCourses),
+				ExcludeCourses: cleanStringSlice(excludeCourses),
+			},
+		}
+		setConfig.Users = append(setConfig.Users, user)
+
+		data, err := yaml.Marshal(&setConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		err = os.WriteFile("./config.yaml", data, 0644)
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	//读取配置文件
 	configJson := config.ReadConfig("./config.yaml")
 	//初始化日志配置
