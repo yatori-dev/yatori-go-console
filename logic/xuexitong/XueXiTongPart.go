@@ -130,7 +130,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
 	}
 
-	lg.Print(lg.INFO, "[", lg.Green, courseItem.CourseName, lg.Default, "] ", lg.Purple, "正在学习该课程")
+	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "正在学习该课程")
 	for index, _ := range nodes {
 		if isFinished(index) { //如果完成了的那么直接跳过
 			continue
@@ -141,7 +141,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		}
 		videoDTOs, workDTOs, documentDTOs := entity.ParsePointDto(fetchCards)
 		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil {
-			lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "课程数据没有需要刷的课，可能接口访问异常。若需要继续可以配置中添加排除此异常课程。")
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "课程数据没有需要刷的课，可能接口访问异常。若需要继续可以配置中添加排除此异常课程。")
 			log.Fatal()
 		}
 		// 视屏类型
@@ -179,7 +179,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		}
 
 	}
-	lg.Print(lg.INFO, "[", lg.Green, courseItem.CourseName, lg.Default, "] ", lg.Purple, "课程学习完毕")
+	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
 	videosLock.Done()
 }
 
@@ -204,7 +204,7 @@ func ExecuteVideo(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) 
 			} else if p.Duration-playingTime < 58 {
 				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2, 4, nil)
 				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, " 【", p.Title, "】 >>> ", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
 					break
 				}
 				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
@@ -228,10 +228,10 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto)
 		for {
 			var playReport string
 			var err error
-			if playingTime != p.PlayTime {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 2, 4, nil)
-			} else {
+			if playingTime != p.Duration {
 				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+			} else {
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil) //4代表播放结束
 			}
 
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
@@ -252,20 +252,20 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto)
 			}
 			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
 
-			if overTime >= 60 { //过超提交触发
+			if overTime >= 100 { //过超提交触发
 				lg.Print(lg.INFO, lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "过超提交中。。。。")
 				break
 			}
 
-			if p.Duration-playingTime < 58 && p.Duration != playingTime { //时间小于58s时
+			if p.Duration-playingTime < 60 && p.Duration != playingTime { //时间小于58s时
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
-				overTime += 10
-				time.Sleep(10 * time.Second)
+				overTime += 1
+				time.Sleep(1 * time.Second)
 			} else { //正常计时逻辑
-				playingTime = playingTime + 58
-				time.Sleep(58 * time.Second)
+				playingTime = playingTime + 60
+				time.Sleep(60 * time.Second)
 			}
 		}
 	} else {
@@ -281,10 +281,10 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, p *entity.Point
 		for {
 			var playReport string
 			var err error
-			if playingTime != p.PlayTime {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 2, 4, nil)
-			} else {
+			if playingTime != p.Duration {
 				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+			} else {
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil) //4代表播放结束
 			}
 
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
@@ -305,7 +305,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, p *entity.Point
 			}
 			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
 
-			if overTime >= 30 { //过超提交触发
+			if overTime >= 100 { //过超提交触发
 				lg.Print(lg.INFO, lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "过超提交中。。。。")
 				break
 			}
@@ -314,7 +314,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, p *entity.Point
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
-				overTime += 10
+				overTime += 1
 				time.Sleep(1 * time.Second)
 			} else { //正常计时逻辑
 				playingTime = playingTime + 58
