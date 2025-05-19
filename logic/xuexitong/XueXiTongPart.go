@@ -310,14 +310,14 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, p *entity.Point
 				break
 			}
 
-			if p.Duration-playingTime < 58 && p.Duration != playingTime { //时间小于58s时
+			if p.Duration-playingTime < 60 && p.Duration != playingTime { //时间小于58s时
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
 				overTime += 1
 				time.Sleep(1 * time.Second)
 			} else { //正常计时逻辑
-				playingTime = playingTime + 58
+				playingTime = playingTime + 60
 				time.Sleep(1 * time.Second)
 			}
 		}
