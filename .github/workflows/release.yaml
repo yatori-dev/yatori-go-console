@@ -23,7 +23,8 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 添加配置文件自动生成功能（移除当前配置文件可触发）
+    - [‍🔧] 修复学习通提交学时有时候暂停卡住问题
+    - [👏] 优化学习通提交学时逻辑
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
 jobs:
