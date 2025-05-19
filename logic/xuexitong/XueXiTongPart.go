@@ -224,38 +224,48 @@ func ExecuteVideo(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) 
 func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) {
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 		var playingTime = p.PlayTime
-		var flag = true
+		var overTime = 0
 		for {
-			if p.Duration-playingTime >= 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
-				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+			var playReport string
+			var err error
+			if playingTime != p.PlayTime {
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 2, 4, nil)
+			} else {
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+			}
+
+			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+				break
+			}
+			//阈值超限提交
+			outTimeMsg := gojsonq.New().JSONString(playReport).Find("OutTimeMsg")
+			if outTimeMsg != nil {
+				if outTimeMsg.(string) == "观看时长超过阈值" {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), "观看时长超过阈值，已直接提交", lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
 					break
 				}
-				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-					break
-				}
-				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+			}
+			if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
+				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				break
+			}
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+
+			if overTime >= 30 { //过超提交触发
+				lg.Print(lg.INFO, lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "过超提交中。。。。")
+				break
+			}
+
+			if p.Duration-playingTime < 58 && p.Duration != playingTime { //时间小于58s时
+				playingTime = p.PlayTime
+				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
+			} else if p.Duration == playingTime { //记录过超提交触发条件
+				overTime += 10
+				time.Sleep(10 * time.Second)
+			} else { //正常计时逻辑
 				playingTime = playingTime + 58
 				time.Sleep(58 * time.Second)
-			} else if p.Duration-playingTime < 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2, 4, nil)
-				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
-					break
-				}
-				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-					flag = true
-					break
-				}
-				if flag {
-					lg.Print(lg.INFO, "过超提交中。。。。")
-					flag = false
-				}
-				//lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-				time.Sleep(time.Second)
 			}
 		}
 	} else {
@@ -263,42 +273,52 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto)
 	}
 }
 
-// 常规刷视频逻辑
+// 58倍速模式刷视频逻辑
 func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) {
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 		var playingTime = p.PlayTime
-		var flag = true
+		var overTime = 0
 		for {
-			if p.Duration-playingTime >= 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
-				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+			var playReport string
+			var err error
+			if playingTime != p.PlayTime {
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 2, 4, nil)
+			} else {
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+			}
+
+			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+				break
+			}
+			//阈值超限提交
+			outTimeMsg := gojsonq.New().JSONString(playReport).Find("OutTimeMsg")
+			if outTimeMsg != nil {
+				if outTimeMsg.(string) == "观看时长超过阈值" {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), "观看时长超过阈值，已直接提交", lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
 					break
 				}
-				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-					break
-				}
-				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+			}
+			if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
+				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				break
+			}
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+
+			if overTime >= 30 { //过超提交触发
+				lg.Print(lg.INFO, lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "过超提交中。。。。")
+				break
+			}
+
+			if p.Duration-playingTime < 58 && p.Duration != playingTime { //时间小于58s时
+				playingTime = p.PlayTime
+				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
+			} else if p.Duration == playingTime { //记录过超提交触发条件
+				overTime += 10
+				time.Sleep(1 * time.Second)
+			} else { //正常计时逻辑
 				playingTime = playingTime + 58
-				time.Sleep(time.Second)
-			} else if p.Duration-playingTime < 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2, 4, nil)
-				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
-					break
-				}
-				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-					flag = true
-					break
-				}
-				if flag {
-					lg.Print(lg.INFO, "过超提交中。。。。")
-					flag = false
-				}
-				//lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-				time.Sleep(time.Second)
+				time.Sleep(1 * time.Second)
 			}
 		}
 	} else {
