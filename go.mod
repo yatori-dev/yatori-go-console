@@ -15,8 +15,9 @@ require (
 )
 
 require (
-	github.com/yatori-dev/yatori-go-core v1.3.9
+	github.com/yatori-dev/yatori-go-core v1.4.0
 	golang.org/x/sys v0.30.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -52,6 +53,5 @@ require (
 	golang.org/x/text v0.22.0 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/gorm v1.25.12 // indirect
 )
