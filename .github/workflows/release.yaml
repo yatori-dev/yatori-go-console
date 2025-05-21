@@ -23,7 +23,9 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复外挂题库无法正常使用问题
+    - [‍🔧] 修复学习通部分课程无法正常进行报错403问题
+    - [‍🔧] 修复学习通有概率无法探测部分课程问题
+    - [👏] 优化学习通卡片消息截取逻辑
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
 jobs:
