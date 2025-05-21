@@ -296,20 +296,20 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto)
 			}
 			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
 
-			if overTime >= 100 { //过超提交触发
+			if overTime >= 60 { //过超提交触发
 				lg.Print(lg.INFO, lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "过超提交中。。。。")
 				break
 			}
 
-			if p.Duration-playingTime < 60 && p.Duration != playingTime { //时间小于58s时
+			if p.Duration-playingTime < 58 && p.Duration != playingTime { //时间小于58s时
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
-				overTime += 30
-				time.Sleep(30 * time.Second)
+				overTime += 2
+				time.Sleep(2 * time.Second)
 			} else { //正常计时逻辑
-				playingTime = playingTime + 60
-				time.Sleep(60 * time.Second)
+				playingTime = playingTime + 58
+				time.Sleep(58 * time.Second)
 			}
 		}
 	} else {
