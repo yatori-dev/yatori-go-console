@@ -2,19 +2,20 @@ package xuexitong
 
 import (
 	"fmt"
+	"github.com/thedevsaddam/gojsonq"
+	xuexitong "github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/api/entity"
+	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/utils"
+	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 	"yatori-go-console/config"
 	utils2 "yatori-go-console/utils"
-
-	"github.com/thedevsaddam/gojsonq"
-	xuexitong "github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
-	"github.com/yatori-dev/yatori-go-core/api/entity"
-	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 )
 
 var videosLock sync.WaitGroup //视频锁
@@ -145,7 +146,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			log.Fatal()
 		}
 		// 视屏类型
-		if videoDTOs != nil {
+		if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
 			for _, videoDTO := range videoDTOs {
 				card, err := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
@@ -175,6 +176,49 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				//point.ExecuteDocument(userCache, &documentDTO)
 				ExecuteDocument(userCache, &documentDTO)
 				time.Sleep(5 * time.Second)
+			}
+		}
+
+		//作业刷取
+		if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
+
+			//检测AI可用性
+			err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+			if err != nil {
+				lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
+				os.Exit(0)
+			}
+			for _, workDTO := range workDTOs {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+courseItem.CourseName+"】 ", lg.Yellow, "正在AI自动写章节作业...")
+				//以手机端拉取章节卡片数据
+				mobileCard, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
+				flag, _ := workDTO.AttachmentsDetection(mobileCard)
+				if !flag {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "该作业已完成，已自动跳过")
+					continue
+				}
+				xuexitong.WorkPageFromAction(userCache, &workDTO)
+				//for _, input := range fromAction {
+				//	fmt.Printf("Name: %s, Value: %s, Type: %s, ID: %s\n", input.Name, input.Value, input.Type, input.ID)
+				//}
+				questionAction := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
+				fmt.Println(questionAction)
+				for i := range questionAction.Choice {
+					q := &questionAction.Choice[i] // 获取对应选项
+					message := xuexitong.AIProblemMessage(q.Type.String(), entity.ExamTurn{
+						ChoiceQue: *q,
+					})
+					aiSetting := setting.AiSetting //获取AI设置
+					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+				}
+				var resultStr string
+				if user.CoursesCustom.ExamAutoSubmit == 0 {
+					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
+				} else if user.CoursesCustom.ExamAutoSubmit == 1 {
+					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true)
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
+
 			}
 		}
 
@@ -261,8 +305,8 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto)
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
-				overTime += 1
-				time.Sleep(1 * time.Second)
+				overTime += 30
+				time.Sleep(30 * time.Second)
 			} else { //正常计时逻辑
 				playingTime = playingTime + 60
 				time.Sleep(60 * time.Second)
@@ -336,4 +380,9 @@ func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, p *entity.PointDocumen
 	if gojsonq.New().JSONString(report).Find("status").(bool) {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", p.Title, "】 >>> ", "文档阅览状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
 	}
+}
+
+// 作业处理逻辑
+func WorkAction() {
+
 }
