@@ -235,7 +235,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto)
 			}
 
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-				lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				break
 			}
 			//阈值超限提交
@@ -288,7 +288,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, p *entity.Point
 			}
 
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-				lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				break
 			}
 			//阈值超限提交
