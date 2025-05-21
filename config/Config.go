@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -125,7 +126,9 @@ func GetUserInput(prompt string) string {
 }
 
 func StrToInt(s string) int {
-	var res int
-	fmt.Sprintf(s, "%d", res)
+	res, err := strconv.Atoi(s)
+	if err != nil {
+		return 0 // 其他错误处理逻辑
+	}
 	return res
 }
