@@ -182,7 +182,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 		msgVal := gojsonq.New().JSONString(sub).Find("msg")
 		msg, ok := msgVal.(string)
 		if !ok || msg == "" {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Red, "提交状态异常，msg 字段为空或格式错误")
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", lg.Red, "提交状态异常，msg 字段为空或格式错误", sub)
 			time2.Sleep(10 * time2.Second)
 			continue
 		}

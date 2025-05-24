@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.4-Beta.1'  # Default tag name
+        default: 'v2.5.4-Beta.2'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -23,8 +23,9 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 新增学习通AI大模型自动答题（暂时只支持单选、多选题）
-    - [👏] 优化学习学时提交逻辑
+    - [👏] 优化学习通学时提交逻辑和任务点检测，优化非任务点不执行过超提交
+    - [👏] 优化学习通学习通日志显示使其更为详细
+    - [👏] 优化英华日志
     
     注：当前学习通功能为测试阶段日志显示比较乱，后续版本更新会调整
 jobs:
