@@ -9,6 +9,7 @@ import (
 	"github.com/yatori-dev/yatori-go-core/utils"
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -154,6 +155,11 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					log.Fatal(err)
 				}
 				videoDTO.AttachmentsDetection(card)
+				if videoDTO.IsPassed == true { //如果已经通过了，那么直接跳过
+					continue
+				} else if videoDTO.IsPassed == false && videoDTO.Attachment == nil && videoDTO.JobID == "" && videoDTO.Duration <= videoDTO.PlayTime { //非任务点如果完成了
+					continue
+				}
 				switch user.CoursesCustom.VideoModel {
 				case 1:
 					ExecuteVideo2(userCache, pointAction.Knowledge[index], &videoDTO) //普通模式
@@ -266,12 +272,18 @@ func ExecuteVideo(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) 
 
 // 常规刷视频逻辑
 func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto) {
+
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 		var playingTime = p.PlayTime
 		var overTime = 0
+		secList := []int{58, 59, 60, 61} //停滞时间随机表
+		selectSec := 60                  //默认60s
+		extendSec := 1                   //过超提交停留时间
+		limitTime := 3000                //过超时间最大限制
 		for {
 			var playReport string
 			var err error
+			selectSec = secList[rand.Intn(len(secList))] //随机选择时间
 			if playingTime != p.Duration {
 				if playingTime == p.PlayTime {
 					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
@@ -296,21 +308,25 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 				}
 			}
 			if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
-				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				if overTime == 0 {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				} else {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "过超时间：", strconv.Itoa(overTime)+"/"+strconv.Itoa(limitTime), " ", lg.Green, "过超提交成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				}
 				break
 			}
 
 			if overTime == 0 { //正常提交
 				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
 			} else { //国超提交
-				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "过超时间：", strconv.Itoa(overTime)+"/"+strconv.Itoa(p.Duration+120), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "过超时间：", strconv.Itoa(overTime)+"/"+strconv.Itoa(limitTime), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
 			}
-			if overTime >= p.Duration+120 { //过超提交触发
-				lg.Print(lg.INFO, lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "过超提交中。。。。")
+			if overTime >= limitTime { //过超提交触发
+				lg.Print(lg.INFO, lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "过超提交失败，自动进行下一任务...")
 				break
 			}
 
-			if p.Duration-playingTime < 58 && p.Duration != playingTime { //时间小于58s时
+			if p.Duration-playingTime < selectSec && p.Duration != playingTime { //时间小于58s时
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
@@ -319,12 +335,12 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "该视频为非任务点看完后直接跳入下一视频")
 					break
 				} else {
-					overTime += 60
+					overTime += extendSec
 				}
-				time.Sleep(60 * time.Second)
+				time.Sleep(time.Duration(extendSec) * time.Second)
 			} else { //正常计时逻辑
-				playingTime = playingTime + 60
-				time.Sleep(60 * time.Second)
+				playingTime = playingTime + selectSec
+				time.Sleep(time.Duration(selectSec) * time.Second)
 			}
 		}
 	} else {
