@@ -94,8 +94,8 @@ func ReadConfig(filePath string) JSONDataForConfig {
 	viper.AddConfigPath("./")
 	err := viper.ReadInConfig()
 	if err != nil {
-		log2.Print(log2.INFO, log2.BoldRed, "找不到配置文件")
-		log.Fatal("")
+		log2.Print(log2.INFO, log2.BoldRed, "找不到配置文件或配置文件内容书写错误")
+		log.Fatal(err)
 	}
 	err = viper.Unmarshal(&configJson)
 	//viper.SetTypeByDefaultValue(true)
