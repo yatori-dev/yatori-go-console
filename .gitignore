@@ -6,3 +6,4 @@ assets/*
 ./.idea/*
 config.yaml
 .idea
+face/*
