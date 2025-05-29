@@ -23,7 +23,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 添加学习通自动过人脸(无需自己上传照片便可自动绕过)
+    - [👏] 添加学习通自动过人脸(无需自己上传照片便可自动绕过)(可能存在问题)
     - [👏] 添加支持学习通判断题答题以及填空题答题
 
 jobs:
