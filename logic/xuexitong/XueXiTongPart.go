@@ -209,10 +209,31 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				//}
 				questionAction := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
 				fmt.Println(questionAction)
+				//选择题
 				for i := range questionAction.Choice {
 					q := &questionAction.Choice[i] // 获取对应选项
-					message := xuexitong.AIProblemMessage(q.Type.String(), entity.ExamTurn{
-						ChoiceQue: *q,
+					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+						XueXChoiceQue: *q,
+					})
+
+					aiSetting := setting.AiSetting //获取AI设置
+					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+				}
+				//判断题
+				for i := range questionAction.Judge {
+					q := &questionAction.Judge[i] // 获取对应选项
+					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+						XueXJudgeQue: *q,
+					})
+
+					aiSetting := setting.AiSetting //获取AI设置
+					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+				}
+				//填空题
+				for i := range questionAction.Fill {
+					q := &questionAction.Fill[i] // 获取对应选项
+					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+						XueXFillQue: *q,
 					})
 					aiSetting := setting.AiSetting //获取AI设置
 					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
@@ -297,42 +318,21 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 			if err != nil {
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
-
-					//uuid, qrEnc, err := cache.GetFaceQrCodeApi2(p.CourseID, p.ClassID, p.Cpi)
-					if err != nil {
-						fmt.Println(err)
-					}
-					//获取token
-					tokenJson, err := cache.GetFaceUpLoadToken()
-					token := gojsonq.New().JSONString(tokenJson).Find("_token").(string)
-					if err != nil {
-						fmt.Println(err)
-					}
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "触发人脸识别，正在尝试绕过人脸...")
 					//上传人脸
-					ObjectId, err := cache.UploadFaceImage(token, "./face/"+cache.Name+".jpg")
+					faceImg, err := utils.GetFaceBase64()
+					disturbImage := utils.ImageRGBDisturb(faceImg)
 					if err != nil {
 						fmt.Println(err)
 					}
-					//uuid, qrEnc, err := cache.GetFaceQrCodeApi2(p.CourseID, p.ClassID, p.Cpi)
-					//if err != nil {
-					//	fmt.Println(err)
-					//}
-					//plan1Api, err := cache.GetCourseFaceQrPlan1Api(p.CourseID, p.ClassID, uuid, ObjectId, qrEnc, "0")
-					//if err != nil {
-					//	fmt.Println(err)
-					//}
-					//fmt.Println(plan1Api)
-					plan2Api, err := cache.GetCourseFaceQrPlan2Api(p.ClassID, p.CourseID, fmt.Sprintf("%d", p.KnowledgeID), p.Cpi, ObjectId)
+					err = xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, disturbImage)
 					if err != nil {
-						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "人脸识别失败，人脸识别状态信息：", plan2Api)
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
+					} else {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "绕过人脸成功")
 					}
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "触发人脸识别，人脸识别状态信息：", plan2Api)
-					//plan3Api, err := cache.GetCourseFaceQrPlan3Api(uuid, p.ClassID, p.CourseID, qrEnc, ObjectId)
-					//if err != nil {
-					//	lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "人脸识别失败，人脸识别状态信息：", plan3Api)
-					//}
-					//lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "触发人脸识别，人脸识别状态信息：", plan3Api)
-					time.Sleep(10 * time.Second)
+					time.Sleep(10 * time.Second) //停止10s以免太离谱
+					continue
 				}
 
 			}
@@ -403,7 +403,27 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 			} else {
 				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil) //4代表播放结束
 			}
+			if err != nil {
+				//当报错无权限的时候尝试人脸
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "触发人脸识别，正在尝试绕过人脸...")
+					//上传人脸
+					faceImg, err := utils.GetFaceBase64()
+					disturbImage := utils.ImageRGBDisturb(faceImg)
+					if err != nil {
+						fmt.Println(err)
+					}
+					err = xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, disturbImage)
+					if err != nil {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
+					} else {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "绕过人脸成功")
+					}
+					time.Sleep(10 * time.Second) //停止10s以免太离谱
+					continue
+				}
 
+			}
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
 				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				break
