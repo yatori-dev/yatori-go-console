@@ -311,14 +311,13 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 				} else {
 					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
 				}
-
 			} else {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil) //4代表播放结束
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "触发人脸识别，正在尝试绕过人脸...")
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Yellow, "触发403正在尝试绕过人脸识别...")
 					//上传人脸
 					faceImg, err := utils.GetFaceBase64()
 					disturbImage := utils.ImageRGBDisturb(faceImg)
@@ -329,9 +328,11 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					if err != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
 					} else {
-						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "绕过人脸成功")
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
-					time.Sleep(10 * time.Second) //停止10s以免太离谱
+					//触发人脸后需要再进行一次视屏的开始播放提交
+					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
+
 					continue
 				}
 
@@ -401,12 +402,12 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 			if playingTime != p.Duration {
 				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
 			} else {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil) //4代表播放结束
+				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "触发人脸识别，正在尝试绕过人脸...")
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Yellow, "触发403正在尝试绕过人脸识别...")
 					//上传人脸
 					faceImg, err := utils.GetFaceBase64()
 					disturbImage := utils.ImageRGBDisturb(faceImg)
@@ -417,9 +418,10 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					if err != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
 					} else {
-						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "绕过人脸成功")
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
-					time.Sleep(10 * time.Second) //停止10s以免太离谱
+					//触发人脸后需要再进行一次视屏的开始播放提交
+					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
 					continue
 				}
 
