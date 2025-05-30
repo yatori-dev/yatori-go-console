@@ -149,12 +149,13 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		// 视屏类型
 		if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
 			for _, videoDTO := range videoDTOs {
-				card, err := xuexitong.PageMobileChapterCardAction(
+				card, enc, err := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
 				if err != nil {
 					log.Fatal(err)
 				}
 				videoDTO.AttachmentsDetection(card)
+				videoDTO.Enc = enc             //赋值enc值
 				if videoDTO.IsPassed == true { //如果已经通过了，那么直接跳过
 					continue
 				} else if videoDTO.IsPassed == false && videoDTO.Attachment == nil && videoDTO.JobID == "" && videoDTO.Duration <= videoDTO.PlayTime { //非任务点如果完成了
@@ -173,7 +174,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		// 文档类型
 		if documentDTOs != nil {
 			for _, documentDTO := range documentDTOs {
-				card, err := xuexitong.PageMobileChapterCardAction(
+				card, _, err := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
 				if err != nil {
 					log.Fatal(err)
@@ -197,7 +198,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			for _, workDTO := range workDTOs {
 				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+courseItem.CourseName+"】 ", lg.Yellow, "正在AI自动写章节作业...")
 				//以手机端拉取章节卡片数据
-				mobileCard, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
+				mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
 				flag, _ := workDTO.AttachmentsDetection(mobileCard)
 				if !flag {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "该作业已完成，已自动跳过")
@@ -307,12 +308,12 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 			selectSec = secList[rand.Intn(len(secList))] //随机选择时间
 			if playingTime != p.Duration {
 				if playingTime == p.PlayTime {
-					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
+					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 3, 8, nil)
 				} else {
-					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 				}
 			} else {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil)
+				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
@@ -324,14 +325,16 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					if err != nil {
 						fmt.Println(err)
 					}
-					err = xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, disturbImage)
-					if err != nil {
+					//uuid,qrEnc,ObjectId
+					_, qrEnc, _, errPass := xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, disturbImage)
+					if errPass != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
 					} else {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
+					p.VideoFaceCaptureEnc = qrEnc
 					//触发人脸后需要再进行一次视屏的开始播放提交
-					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
+					//playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
 
 					continue
 				}
@@ -400,9 +403,9 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 			var playReport string
 			var err error
 			if playingTime != p.Duration {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 			} else {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil)
+				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
@@ -414,12 +417,13 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					if err != nil {
 						fmt.Println(err)
 					}
-					err = xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, disturbImage)
-					if err != nil {
+					_, qrEnc, _, errPass := xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, disturbImage)
+					if errPass != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
 					} else {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
+					p.VideoFaceCaptureEnc = qrEnc
 					//触发人脸后需要再进行一次视屏的开始播放提交
 					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
 					continue

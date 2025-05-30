@@ -147,6 +147,14 @@ github.com/yatori-dev/yatori-go-core v1.5.0 h1:d0uBOcNUFpQq3EFKZNeTbwhpJFBrRjnzx
 github.com/yatori-dev/yatori-go-core v1.5.0/go.mod h1:ZTjBRXvL4tBhlQYq5kqq4Bk6oraharbSs1GTegXu3iA=
 github.com/yatori-dev/yatori-go-core v1.5.1 h1:O6TRMwAd07fhJ6bvNMxVdw+S4FkKiTgFN6ptmszuW6g=
 github.com/yatori-dev/yatori-go-core v1.5.1/go.mod h1:ZTjBRXvL4tBhlQYq5kqq4Bk6oraharbSs1GTegXu3iA=
+github.com/yatori-dev/yatori-go-core v1.5.2 h1:BIZFXDJyt50uc/aqqQH0w5/1U4hPWddtUGstvmbdmIQ=
+github.com/yatori-dev/yatori-go-core v1.5.2/go.mod h1:ZTjBRXvL4tBhlQYq5kqq4Bk6oraharbSs1GTegXu3iA=
+github.com/yatori-dev/yatori-go-core v1.5.3 h1:lQYyi6LeByEeguOx0W09LwiTI8PnNgGxouJbmNq8j7Y=
+github.com/yatori-dev/yatori-go-core v1.5.3/go.mod h1:ZTjBRXvL4tBhlQYq5kqq4Bk6oraharbSs1GTegXu3iA=
+github.com/yatori-dev/yatori-go-core v1.5.4 h1:8f+QBQ+8LRrlhAUFvOSU5iIf8CLfcDM3UuS7lN5Yi6c=
+github.com/yatori-dev/yatori-go-core v1.5.4/go.mod h1:ZTjBRXvL4tBhlQYq5kqq4Bk6oraharbSs1GTegXu3iA=
+github.com/yatori-dev/yatori-go-core v1.5.5 h1:+sZatyp4ilukfU8yg2xqSzUh6ukqpRcviooYwyw5+PM=
+github.com/yatori-dev/yatori-go-core v1.5.5/go.mod h1:ZTjBRXvL4tBhlQYq5kqq4Bk6oraharbSs1GTegXu3iA=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
