@@ -24,7 +24,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 修复学习公社课程排除功能无法正常使用问题
+    - [‍🔧] 修复学习公社课程排除功能无法正常使用问题
 
 jobs:
   # Linux build job
