@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.5-Beta.1'  # Default tag name
+        default: 'v2.5.5-Beta.2'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -24,9 +24,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 添加学习通自动过人脸(无需自己上传照片便可自动绕过)(可能存在问题)
-    - [☠️] 弃用学习通老版本学时提交接口方式（原接口已标记废弃状态）
-    - [👏] 改用新的学时提交接口参数策略
+    - [👏] 修复学习公社课程排除功能无法正常使用问题
 
 jobs:
   # Linux build job

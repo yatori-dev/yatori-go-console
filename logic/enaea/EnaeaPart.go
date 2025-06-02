@@ -62,8 +62,18 @@ func UserLoginOperation(users []config.Users) []*enaeaApi.EnaeaUserCache {
 var soundMut sync.Mutex
 
 func userBlock(setting config.Setting, user *config.Users, cache *enaeaApi.EnaeaUserCache) {
+
 	projectList, _ := enaea.ProjectListAction(cache) //拉取项目列表
 	for _, course := range projectList {
+		//过滤项目---------------------------------
+		//排除指定项目
+		if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(course.ClusterName, user.CoursesCustom.ExcludeCourses) {
+			continue
+		}
+		//包含指定课程
+		if len(user.CoursesCustom.IncludeCourses) != 0 && !config.CmpCourse(course.ClusterName, user.CoursesCustom.IncludeCourses) {
+			continue
+		}
 		courseList, err := enaea.CourseListAction(cache, course.CircleId)
 		if err != nil {
 			lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.BoldRed, "拉取项目列表错误", err.Error())
@@ -86,15 +96,6 @@ func userBlock(setting config.Setting, user *config.Users, cache *enaeaApi.Enaea
 
 // 章节节点的抽离函数
 func nodeListStudy(setting config.Setting, user *config.Users, userCache *enaeaApi.EnaeaUserCache, course *enaea.EnaeaCourse) {
-	//过滤课程---------------------------------
-	//排除指定课程
-	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(course.TitleTag, user.CoursesCustom.ExcludeCourses) {
-		return
-	}
-	//包含指定课程
-	if len(user.CoursesCustom.IncludeCourses) != 0 && !config.CmpCourse(course.TitleTag, user.CoursesCustom.IncludeCourses) {
-		return
-	}
 	//执行刷课---------------------------------
 	nodeList, err := enaea.VideoListAction(userCache, course) //拉取对应课程的视频列表
 	//失效重登检测
