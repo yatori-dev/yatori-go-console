@@ -259,26 +259,28 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
 
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
-		//如果碰到人脸
-		pullJson, img, err2 := cache.GetHistoryFaceImg("")
-		if err2 != nil {
-			lg.Print(lg.INFO, pullJson, err2)
-			os.Exit(0)
-		}
-		disturbImage := utils.ImageRGBDisturb(img)
-		//uuid,qrEnc,ObjectId
-		_, _, _, errPass := xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, disturbImage)
-		if errPass == nil {
-			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
-			cid, _ := strconv.Atoi(p.CourseID)
-			card, enc, err := xuexitong.PageMobileChapterCardAction(
-				cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
-			if err != nil {
-				log.Fatal(err)
+		if p.VideoFaceCaptureEnc == "" {
+			//如果碰到人脸
+			pullJson, img, err2 := cache.GetHistoryFaceImg("")
+			if err2 != nil {
+				lg.Print(lg.INFO, pullJson, err2)
+				os.Exit(0)
 			}
-			p.AttachmentsDetection(card)
-			p.Enc = enc
-			time.Sleep(30 * time.Second)
+			disturbImage := utils.ImageRGBDisturb(img)
+			//uuid,qrEnc,ObjectId
+			_, qrEnc, _, errPass := xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, disturbImage)
+			if errPass == nil {
+				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
+				cid, _ := strconv.Atoi(p.CourseID)
+				card, enc, err := xuexitong.PageMobileChapterCardAction(
+					cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
+				if err != nil {
+					log.Fatal(err)
+				}
+				p.AttachmentsDetection(card)
+				p.Enc = enc
+				p.VideoFaceCaptureEnc = qrEnc
+			}
 		}
 
 		var playingTime = p.PlayTime
