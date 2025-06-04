@@ -263,23 +263,25 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 			//如果碰到人脸
 			pullJson, img, err2 := cache.GetHistoryFaceImg("")
 			if err2 != nil {
-				lg.Print(lg.INFO, pullJson, err2)
-				os.Exit(0)
+				lg.Print(lg.DEBUG, pullJson, err2.Error())
 			}
-			disturbImage := utils.ImageRGBDisturb(img)
-			//uuid,qrEnc,ObjectId
-			_, qrEnc, _, errPass := xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, disturbImage)
-			if errPass == nil {
-				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
-				cid, _ := strconv.Atoi(p.CourseID)
-				card, enc, err := xuexitong.PageMobileChapterCardAction(
-					cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
-				if err != nil {
-					log.Fatal(err)
+			if img != nil {
+				disturbImage := utils.ImageRGBDisturb(img)
+				//uuid,qrEnc,ObjectId,successEnc
+				_, _, _, successEnc, errPass := xuexitong.PassFaceAction3(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
+				if errPass == nil {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
+					cid, _ := strconv.Atoi(p.CourseID)
+					time.Sleep(3 * time.Second) //不要删！！！！一定要等待一小段时间才能请求PageMobile
+					card, enc, err := xuexitong.PageMobileChapterCardAction(
+						cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
+					if err != nil {
+						log.Fatal(err)
+					}
+					p.AttachmentsDetection(card)
+					p.Enc = enc
+					p.VideoFaceCaptureEnc = successEnc
 				}
-				p.AttachmentsDetection(card)
-				p.Enc = enc
-				p.VideoFaceCaptureEnc = qrEnc
 			}
 		}
 
@@ -319,8 +321,8 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 						os.Exit(0)
 					}
 					disturbImage := utils.ImageRGBDisturb(img)
-					//uuid,qrEnc,ObjectId
-					_, qrEnc, _, errPass := xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, disturbImage)
+					//uuid,qrEnc,ObjectId,successEnc
+					_, _, _, successEnc, errPass := xuexitong.PassFaceAction3(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
 					if errPass != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
 					} else {
@@ -328,6 +330,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					}
 
 					cid, _ := strconv.Atoi(p.CourseID)
+					time.Sleep(3 * time.Second) //不要删！！！！一定要等待一小段时间才能请求PageMobile
 					card, enc, err := xuexitong.PageMobileChapterCardAction(
 						cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
 					if err != nil {
@@ -335,9 +338,8 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					}
 					p.AttachmentsDetection(card)
 					p.Enc = enc
-					p.VideoFaceCaptureEnc = qrEnc
-					playingTime = p.PlayTime
-					time.Sleep(10 * time.Second)
+					p.VideoFaceCaptureEnc = successEnc
+					time.Sleep(3 * time.Second)
 					continue
 				}
 
@@ -419,13 +421,14 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					if err != nil {
 						fmt.Println(err)
 					}
-					_, qrEnc, _, errPass := xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, disturbImage)
+					_, _, _, successEnc, errPass := xuexitong.PassFaceAction3(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
 					if errPass != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
 					} else {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
 					cid, _ := strconv.Atoi(p.CourseID)
+					time.Sleep(3 * time.Second)
 					card, enc, err := xuexitong.PageMobileChapterCardAction(
 						cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
 					if err != nil {
@@ -433,7 +436,8 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					}
 					p.AttachmentsDetection(card)
 					p.Enc = enc
-					p.VideoFaceCaptureEnc = qrEnc
+					p.VideoFaceCaptureEnc = successEnc
+					time.Sleep(3 * time.Second)
 					continue
 				}
 
