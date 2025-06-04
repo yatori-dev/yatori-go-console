@@ -24,6 +24,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
+    - [👏] 新添学习通支持简答题AI大模型答题
     - [👏] 优化学习通学时提交接口参数,更新人脸识别逻辑
 
 jobs:

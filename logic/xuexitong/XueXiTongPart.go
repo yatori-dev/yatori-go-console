@@ -238,6 +238,16 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					aiSetting := setting.AiSetting //获取AI设置
 					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 				}
+				//简答题
+				for i := range questionAction.Short {
+					q := &questionAction.Short[i] // 获取对应选项
+					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+						XueXShortQue: *q,
+					})
+					aiSetting := setting.AiSetting //获取AI设置
+					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+				}
+
 				var resultStr string
 				if user.CoursesCustom.ExamAutoSubmit == 0 {
 					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
