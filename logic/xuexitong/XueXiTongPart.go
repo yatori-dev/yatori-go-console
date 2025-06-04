@@ -308,9 +308,9 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					}
 					p.Enc = enc
 					p.AttachmentsDetection(card)
-					//p.VideoFaceCaptureEnc = successEnc
 					time.Sleep(5 * time.Second)
-					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil)
+					//每次人脸过后都需要先进行isdrag=3的提交
+					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
 					if startErr != nil {
 						lg.Print(lg.INFO, startPlay, err.Error())
 					}
@@ -377,6 +377,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 		var playingTime = p.PlayTime
 		var overTime = 0
+		selectSec := 58
 		for {
 			var playReport string
 			var err error
@@ -412,7 +413,8 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					p.Enc = enc
 					p.VideoFaceCaptureEnc = successEnc
 					time.Sleep(5 * time.Second)
-					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-58, 0), 3, 8, nil)
+					//每次人脸过后都需要先进行isdrag=3的提交
+					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
 					if startErr != nil {
 						lg.Print(lg.INFO, startPlay, err.Error())
 					}
@@ -443,14 +445,14 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 				break
 			}
 
-			if p.Duration-playingTime < 58 && p.Duration != playingTime { //时间小于58s时
+			if p.Duration-playingTime < selectSec && p.Duration != playingTime { //时间小于58s时
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
 				overTime += 1
 				time.Sleep(1 * time.Second)
 			} else { //正常计时逻辑
-				playingTime = playingTime + 58
+				playingTime = playingTime + selectSec
 				time.Sleep(1 * time.Second)
 			}
 		}
