@@ -267,7 +267,6 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 		limitTime := 3000 //过超时间最大限制
 		//flag := 0
 		for {
-
 			var playReport string
 			var err error
 			//selectSec = secList[rand.Intn(len(secList))] //随机选择时间
@@ -312,7 +311,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					//每次人脸过后都需要先进行isdrag=3的提交
 					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
 					if startErr != nil {
-						lg.Print(lg.INFO, startPlay, err.Error())
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, err.Error())
 					}
 					continue
 				}
@@ -416,7 +415,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					//每次人脸过后都需要先进行isdrag=3的提交
 					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
 					if startErr != nil {
-						lg.Print(lg.INFO, startPlay, err.Error())
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, err.Error())
 					}
 					continue
 				}
