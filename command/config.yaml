@@ -24,8 +24,8 @@ users:
       videoModel: 1 #刷视频模式，0代表不刷，1代表普通模式，2代表暴力模式
       autoExam: 0 #是否自动考试，0代表不考试，1代表AI考试,2代表外部题库对接考试
       examAutoSubmit: 1 #是否考完试自动提交试卷，0代表不自动提交，1代表自动提交
-      includeCourses: []  #include和exclude填一个即可，include代表只有这里面的课程才刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
-      excludeCourses: []  #include和exclude填一个即可，exclude代表除了这里面的课程其他都刷，填课程名称，比如["xxxx","xxxx"]，学习公社填必修课程或者选修课程等
+      includeCourses: []  #include和exclude填一个即可，include代表只有这里面的课程才刷，填课程名称，比如["xxxx","xxxx"]
+      excludeCourses: []  #include和exclude填一个即可，exclude代表除了这里面的课程其他都刷，填课程名称，比如["xxxx","xxxx"]
 # 添加多个账号的时候像下面这样接着添加多个用户信息就行
   # - accountType: "YINGHUA"
   #   url: "url"

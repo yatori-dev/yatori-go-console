@@ -9,7 +9,6 @@ import (
 	"github.com/yatori-dev/yatori-go-core/utils"
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"log"
-	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -149,12 +148,13 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		// 视屏类型
 		if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
 			for _, videoDTO := range videoDTOs {
-				card, err := xuexitong.PageMobileChapterCardAction(
+				card, enc, err := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
 				if err != nil {
 					log.Fatal(err)
 				}
 				videoDTO.AttachmentsDetection(card)
+				videoDTO.Enc = enc             //赋值enc值
 				if videoDTO.IsPassed == true { //如果已经通过了，那么直接跳过
 					continue
 				} else if videoDTO.IsPassed == false && videoDTO.Attachment == nil && videoDTO.JobID == "" && videoDTO.Duration <= videoDTO.PlayTime { //非任务点如果完成了
@@ -162,18 +162,18 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				}
 				switch user.CoursesCustom.VideoModel {
 				case 1:
-					ExecuteVideo2(userCache, pointAction.Knowledge[index], &videoDTO) //普通模式
+					ExecuteVideo2(userCache, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
 				case 2:
-					ExecuteVideoQuickSpeed(userCache, pointAction.Knowledge[index], &videoDTO) // 暴力模式
+					ExecuteVideoQuickSpeed(userCache, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) // 暴力模式
 				}
 
-				time.Sleep(5 * time.Second)
+				time.Sleep(10 * time.Second)
 			}
 		}
 		// 文档类型
 		if documentDTOs != nil {
 			for _, documentDTO := range documentDTOs {
-				card, err := xuexitong.PageMobileChapterCardAction(
+				card, _, err := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
 				if err != nil {
 					log.Fatal(err)
@@ -197,7 +197,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			for _, workDTO := range workDTOs {
 				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+courseItem.CourseName+"】 ", lg.Yellow, "正在AI自动写章节作业...")
 				//以手机端拉取章节卡片数据
-				mobileCard, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
+				mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
 				flag, _ := workDTO.AttachmentsDetection(mobileCard)
 				if !flag {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "该作业已完成，已自动跳过")
@@ -238,6 +238,16 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					aiSetting := setting.AiSetting //获取AI设置
 					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 				}
+				//简答题
+				for i := range questionAction.Short {
+					q := &questionAction.Short[i] // 获取对应选项
+					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+						XueXShortQue: *q,
+					})
+					aiSetting := setting.AiSetting //获取AI设置
+					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+				}
+
 				var resultStr string
 				if user.CoursesCustom.ExamAutoSubmit == 0 {
 					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
@@ -255,84 +265,67 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 }
 
 // 常规刷视频逻辑
-func ExecuteVideo(cache *xuexitongApi.XueXiTUserCache, p *entity.PointVideoDto) {
-	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
-		var playingTime = p.PlayTime
-		for {
-			if p.Duration-playingTime >= 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
-				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
-					break
-				}
-				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-					break
-				}
-				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
-				playingTime = playingTime + 58
-				time.Sleep(58 * time.Second)
-			} else if p.Duration-playingTime < 58 {
-				playReport, err := cache.VideoDtoPlayReport(p, p.Duration, 2, 4, nil)
-				if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", p.Title, "】 >>> ", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
-					break
-				}
-				if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
-					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-					break
-				}
-				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
-				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
-			}
-		}
-	} else {
-		log.Fatal("视频解析失败")
-	}
-}
-
-// 常规刷视频逻辑
-func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto) {
+func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
 
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
+
 		var playingTime = p.PlayTime
 		var overTime = 0
-		secList := []int{58, 59, 60, 61} //停滞时间随机表
-		selectSec := 60                  //默认60s
-		extendSec := 1                   //过超提交停留时间
-		limitTime := 3000                //过超时间最大限制
+		//secList := []int{58} //停滞时间随机表
+		selectSec := 58   //默认60s
+		extendSec := 1    //过超提交停留时间
+		limitTime := 3000 //过超时间最大限制
+		//flag := 0
 		for {
 			var playReport string
 			var err error
-			selectSec = secList[rand.Intn(len(secList))] //随机选择时间
+			//selectSec = secList[rand.Intn(len(secList))] //随机选择时间
 			if playingTime != p.Duration {
 				if playingTime == p.PlayTime {
-					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
+					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 3, 8, nil)
 				} else {
-					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 				}
 			} else {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil)
+				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
 					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Yellow, "触发403正在尝试绕过人脸识别...")
 					//上传人脸
-					faceImg, err := utils.GetFaceBase64()
-					disturbImage := utils.ImageRGBDisturb(faceImg)
-					if err != nil {
-						fmt.Println(err)
+					pullJson, img, err2 := cache.GetHistoryFaceImg("")
+					if err2 != nil {
+						lg.Print(lg.INFO, pullJson, err2)
+						os.Exit(0)
 					}
-					err = xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, disturbImage)
-					if err != nil {
-						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
+					disturbImage := utils.ImageRGBDisturb(img)
+					//uuid,qrEnc,ObjectId,successEnc
+					_, _, _, _, errPass := xuexitong.PassFaceAction3(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
+					if errPass != nil {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", errPass.Error(), "请在学习通客户端上确保最近一次人脸识别是正确的，yatori会自动拉取最近一次识别的人脸数据进行")
 					} else {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
-					//触发人脸后需要再进行一次视屏的开始播放提交
-					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
 
+					cid, _ := strconv.Atoi(p.CourseID)
+					time.Sleep(5 * time.Second) //不要删！！！！一定要等待一小段时间才能请求PageMobile
+					card, enc, err := xuexitong.PageMobileChapterCardAction(
+						cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
+					if err != nil {
+						log.Fatal(err)
+					}
+					p.Enc = enc
+					p.AttachmentsDetection(card)
+					time.Sleep(5 * time.Second)
+					//每次人脸过后都需要先进行isdrag=3的提交
+					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					if startErr != nil {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
+						if playingTime-selectSec >= 0 {
+							playingTime = playingTime - selectSec
+						}
+					}
 					continue
 				}
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") || strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发403立即使用人脸检测
@@ -395,17 +388,18 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 }
 
 // 58倍速模式刷视频逻辑
-func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto) {
+func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 		var playingTime = p.PlayTime
 		var overTime = 0
+		selectSec := 58
 		for {
 			var playReport string
 			var err error
 			if playingTime != p.Duration {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 0, 4, nil)
+				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 			} else {
-				playReport, err = cache.VideoDtoPlayReport(p, playingTime, 4, 4, nil)
+				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
@@ -417,14 +411,31 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					if err != nil {
 						fmt.Println(err)
 					}
-					err = xuexitong.PassFaceAction(cache, p.CourseID, p.ClassID, p.Cpi, disturbImage)
-					if err != nil {
-						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", err)
+					_, _, _, successEnc, errPass := xuexitong.PassFaceAction3(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
+					if errPass != nil {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", errPass.Error(), "请在学习通客户端上确保最近一次人脸识别是正确的，yatori会自动拉取最近一次识别的人脸数据进行")
 					} else {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
-					//触发人脸后需要再进行一次视屏的开始播放提交
-					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
+					cid, _ := strconv.Atoi(p.CourseID)
+					time.Sleep(3 * time.Second)
+					card, enc, err := xuexitong.PageMobileChapterCardAction(
+						cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
+					if err != nil {
+						log.Fatal(err)
+					}
+					p.AttachmentsDetection(card)
+					p.Enc = enc
+					p.VideoFaceCaptureEnc = successEnc
+					time.Sleep(5 * time.Second)
+					//每次人脸过后都需要先进行isdrag=3的提交
+					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					if startErr != nil {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
+						if playingTime-selectSec >= 0 {
+							playingTime = playingTime - selectSec
+						}
+					}
 					continue
 				}
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") || strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发202立即使用人脸检测
@@ -455,14 +466,14 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 				break
 			}
 
-			if p.Duration-playingTime < 60 && p.Duration != playingTime { //时间小于58s时
+			if p.Duration-playingTime < selectSec && p.Duration != playingTime { //时间小于58s时
 				playingTime = p.Duration
 				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
 			} else if p.Duration == playingTime { //记录过超提交触发条件
 				overTime += 1
 				time.Sleep(1 * time.Second)
 			} else { //正常计时逻辑
-				playingTime = playingTime + 60
+				playingTime = playingTime + selectSec
 				time.Sleep(1 * time.Second)
 			}
 		}

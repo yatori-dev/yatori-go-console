@@ -11,20 +11,20 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.5-Beta.1'  # Default tag name
+        default: 'v2.5.5-Beta.5'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
 #  - [👏]
 #  - [‍🔧]
+#  - [☠️]
 env:
   PROJECT_NAME: ${{ github.event.repository.name }}
   BUILD_DATE: ${{ github.run_id }}
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 添加学习通自动过人脸(无需自己上传照片便可自动绕过)(可能存在问题)
-    - [👏] 添加支持学习通判断题答题以及填空题答题
+    - [👏] 优化英华学堂接口，更稳定占用资源更少
 
 jobs:
   # Linux build job
