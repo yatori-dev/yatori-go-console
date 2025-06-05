@@ -144,7 +144,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		videoDTOs, workDTOs, documentDTOs := entity.ParsePointDto(fetchCards)
 		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "课程数据没有需要刷的课，可能接口访问异常。若需要继续可以配置中添加排除此异常课程。")
-			log.Fatal()
+
 		}
 		// 视屏类型
 		if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
@@ -335,7 +335,10 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 
 					continue
 				}
-
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") || strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发403立即使用人脸检测
+					time.Sleep(10 * time.Second)
+					continue
+				}
 			}
 
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
@@ -424,7 +427,10 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					playReport, err = cache.VideoDtoPlayReport(p, playingTime, 3, 4, nil) //开始播放
 					continue
 				}
-
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") || strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发202立即使用人脸检测
+					time.Sleep(10 * time.Second)
+					continue
+				}
 			}
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
 				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
