@@ -164,7 +164,7 @@ func configJsonCheck(configData *config.JSONDataForConfig) {
 			os.Exit(0)
 		}
 		split := strings.Split(v.URL, "/")
-		(*configData).Users[i].URL = (split[0] + "/" + split[1] + "/" + split[2])
+		(*configData).Users[i].URL = split[0] + "/" + split[1] + "/" + split[2]
 	}
 }
 

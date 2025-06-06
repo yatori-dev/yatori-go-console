@@ -3,7 +3,7 @@ package xuexitong
 import (
 	"fmt"
 	"github.com/thedevsaddam/gojsonq"
-	xuexitong "github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/api/entity"
 	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/utils"
@@ -132,7 +132,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	}
 
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "正在学习该课程")
-	for index, _ := range nodes {
+	for index := range nodes {
 		if isFinished(index) { //如果完成了的那么直接跳过
 			continue
 		}
