@@ -52,9 +52,9 @@ func UserLoginOperation(users []config.Users) []*xuexitongApi.XueXiTUserCache {
 
 // 开始刷课模块
 func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*xuexitongApi.XueXiTUserCache) {
-	for i, user := range userCaches {
+	for i, _ := range userCaches {
 		usersLock.Add(1)
-		go userBlock(setting, &users[i], user)
+		go userBlock(setting, &users[i], userCaches[i])
 	}
 	usersLock.Wait()
 }
@@ -179,6 +179,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					log.Fatal(err)
 				}
 				documentDTO.AttachmentsDetection(card)
+
 				//point.ExecuteDocument(userCache, &documentDTO)
 				ExecuteDocument(userCache, pointAction.Knowledge[index], &documentDTO)
 				time.Sleep(5 * time.Second)
@@ -328,7 +329,12 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					}
 					continue
 				}
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") || strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发403立即使用人脸检测
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") { //触发202立即使用人脸检测
+					xuexitong.PassVerAnd202(cache) //越过202
+					time.Sleep(3 * time.Second)
+					continue
+				}
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发404
 					time.Sleep(10 * time.Second)
 					continue
 				}
@@ -438,7 +444,12 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					}
 					continue
 				}
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") || strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发202立即使用人脸检测
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") {
+					xuexitong.PassVerAnd202(cache) //越过202
+					time.Sleep(3 * time.Second)
+					continue
+				}
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发202立即使用人脸检测
 					time.Sleep(10 * time.Second)
 					continue
 				}
