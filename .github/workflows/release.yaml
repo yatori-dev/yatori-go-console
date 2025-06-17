@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.5-Beta.8'  # Default tag name
+        default: 'v2.5.5-Beta.9'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -24,9 +24,9 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 更新支持OpenAI大模型对接答题
+    - [‍🔧] 修复学习通暴力模式BUG
     - [👏] 更新支持绕过学习通章节信息验证码
-
+    - [👏] 更新支持绕过学习通绕过202学时提交频繁检测
 jobs:
   # Linux build job
   build-linux:
