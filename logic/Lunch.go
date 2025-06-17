@@ -73,7 +73,6 @@ func Lunch() {
 			URL:         url,
 			Account:     account,
 			Password:    password,
-			OverBrush:   0,
 			CoursesCustom: config.CoursesCustom{
 				VideoModel:     config.StrToInt(videoModel),
 				AutoExam:       config.StrToInt(autoExam),

@@ -128,11 +128,15 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 		//视频处理逻辑
 		switch user.CoursesCustom.VideoModel { //根据视频模式进行刷课
 		case 1:
-			videoAction(setting, user, userCache, node)
+			videoAction(setting, user, userCache, node) //普通模式
 			break
 		case 2:
-			videoVioLenceAction(setting, user, userCache, node)
+			videoVioLenceAction(setting, user, userCache, node) //暴力模式
 			break
+		case 3:
+			videoBadRedAction(setting, user, userCache, node) //曲风模式
+			break
+
 		}
 		//作业处理逻辑
 		workAction(setting, user, userCache, node)
@@ -155,18 +159,15 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
-	if user.OverBrush == 0 && int(node.Progress) == 100 { //过滤看完了的视屏
+	if int(node.Progress) == 100 { //过滤看完了的视屏
 		return
 	}
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.Name+"】 ")
-	time := 0                //设置当前观看时间为最后看视频的时间
-	if user.OverBrush == 0 { //是否为覆刷
-		time = node.ViewedDuration
-	}
-	studyId := "0" //服务器端分配的学习ID
+	time := node.ViewedDuration //设置当前观看时间为最后看视频的时间
+	studyId := "0"              //服务器端分配的学习ID
 	for {
 		time += 5
-		if user.OverBrush == 0 && node.Progress == 100 {
+		if node.Progress == 100 {
 			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", " ", lg.Blue, "学习完毕")
 			break //如果看完了，也就是进度为100那么直接跳过
 		}
@@ -272,6 +273,58 @@ func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *
 		}
 		videosLock.Done()
 	}()
+}
+
+// videoBadRedAction 去红模式
+func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, node yinghua.YingHuaNode) {
+	if !node.TabVideo { //过滤非视频节点
+		return
+	}
+	//除去不需要消红的视屏
+	if node.ErrorMessage != "检测到可能使用并行播放刷课" {
+		return
+	}
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在消红视频：", lg.Default, " 【"+node.Name+"】 ")
+	time := node.ViewedDuration //设置当前观看时间为最后看视频的时间
+
+	studyId := "0" //服务器端分配的学习ID
+	for {
+		//提交学时
+		sub, err := yinghua.SubmitStudyTimeAction(UserCache, node.Id, studyId, time)
+		if err != nil {
+			lg.Print(lg.INFO, `[`, UserCache.Account, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
+		}
+		//超时重登检测
+		yinghua.LoginTimeoutAfreshAction(UserCache, sub)
+		lg.Print(lg.DEBUG, "---", node.Id, sub)
+		//如果提交学时不成功
+		msgVal := gojsonq.New().JSONString(sub).Find("msg")
+		msg, ok := msgVal.(string)
+		if !ok || msg == "" {
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", lg.Red, "提交状态异常，msg 字段为空或格式错误", sub)
+			time2.Sleep(10 * time2.Second)
+			continue
+		}
+		if msg != "提交学时成功!" {
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
+			//{"_code":9,"status":false,"msg":"该课程解锁时间【2024-11-14 12:00:00】未到!","result":{}}，如果未到解锁时间则跳过
+			reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
+			if reg1.MatchString(msg) {
+				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
+				break
+			}
+			time2.Sleep(10 * time2.Second)
+			continue
+		}
+		//打印日志部分
+		studyIdVal := gojsonq.New().JSONString(sub).Find("result.data.studyId")
+		if idFloat, ok := studyIdVal.(float64); ok {
+			studyId = strconv.Itoa(int(idFloat))
+		}
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, " 去红模式 ", lg.Default, "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
+		time2.Sleep(8 * time2.Second) //隔8s下一个去红
+		break                         //因为是去红模式，所以直接退出
+	}
 }
 
 // workAction 作业处理逻辑
