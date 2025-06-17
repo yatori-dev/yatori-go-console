@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.5-Beta.9'  # Default tag name
+        default: 'v2.5.5-Beta.10'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -25,8 +25,10 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [‍🔧] 修复学习通暴力模式BUG
+    - [‍🔧] 移除覆刷模式
     - [👏] 更新支持绕过学习通章节信息验证码
     - [👏] 更新支持绕过学习通绕过202学时提交频繁检测
+    - [👏] 更新英华去红模式
 jobs:
   # Linux build job
   build-linux:
