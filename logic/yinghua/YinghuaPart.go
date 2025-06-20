@@ -46,16 +46,29 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 
 }
 
+// ipProxy 代理IP设定
+func ipProxy(user config.Users, cache *yinghuaApi.YingHuaUserCache) {
+	for {
+		if user.IsProxy == 1 {
+			//获取随机IP值
+			cache.IpProxySW = true
+			cache.ProxyIP = utils2.RandProxyStr()
+		}
+		time2.Sleep(10 * time2.Second)
+	}
+}
+
 // 用户登录模块
 func UserLoginOperation(users []config.Users) []*yinghuaApi.YingHuaUserCache {
 	var UserCaches []*yinghuaApi.YingHuaUserCache
 	for _, user := range users {
 		if user.AccountType == "YINGHUA" {
 			cache := &yinghuaApi.YingHuaUserCache{PreUrl: user.URL, Account: user.Account, Password: user.Password}
-			error := yinghua.YingHuaLoginAction(cache) // 登录
-			if error != nil {
-				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, error.Error())
-				log.Fatal(error) //登录失败则直接退出
+			go ipProxy(user, cache)                   // 携程定时变换代理地址
+			err1 := yinghua.YingHuaLoginAction(cache) // 登录
+			if err1 != nil {
+				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err1.Error())
+				log.Fatal(err1) //登录失败则直接退出
 			}
 			go keepAliveLogin(cache) //携程保活
 			UserCaches = append(UserCaches, cache)

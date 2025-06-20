@@ -1,20 +1,17 @@
 package logic
 
 import (
+	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"gopkg.in/yaml.v3"
-	"math/rand"
 	"os"
 	"strings"
 	"sync"
-	"time"
 	"yatori-go-console/config"
 	"yatori-go-console/logic/cqie"
 	"yatori-go-console/logic/enaea"
 	"yatori-go-console/logic/xuexitong"
 	"yatori-go-console/logic/yinghua"
-	"yatori-go-console/utils"
-
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
+	utils2 "yatori-go-console/utils"
 )
 
 func fileExists(fileName string) bool {
@@ -37,7 +34,7 @@ func Lunch() {
 		setConfig.Setting.BasicSetting.LogOutFileSw = 1
 		setConfig.Setting.BasicSetting.LogLevel = "INFO"
 		setConfig.Setting.BasicSetting.LogModel = 0
-		setConfig.Setting.BasicSetting.IpProxySw = 0
+		//setConfig.Setting.BasicSetting.IpProxySw = 0
 
 		setConfig.Setting.AiSetting.AiType = "TONGYI"
 		setConfig.Setting.ApiQueSetting.Url = "http://localhost:8083"
@@ -47,7 +44,7 @@ func Lunch() {
 		account := config.GetUserInput("请输入账号: ")
 		password := config.GetUserInput("请输入密码: ")
 
-		videoModel := config.GetUserInput("请输入刷视频模式 (0-不刷, 1-普通模式, 2-暴力模式): ")
+		videoModel := config.GetUserInput("请输入刷视频模式 (0-不刷, 1-普通模式, 2-暴力模式, 3-去红模式): ")
 		autoExam := config.GetUserInput("是否自动考试? (0-不考试, 1-AI考试, 2-外部题库对接考试): ")
 		examAutoSubmit := config.GetUserInput("考完试是否自动提交试卷? (0-否, 1-是): ")
 		includeCourses := config.GetUserInput("请输入需要包含的课程名称，多个用(英文逗号)分隔(可留空): ")
@@ -101,7 +98,9 @@ func Lunch() {
 	//配置文件检查模块
 	configJsonCheck(&configJson)
 	//是否开启IP代理池
-	isIpProxy(&configJson)
+	checkProxyIp()
+
+	//isIpProxy(&configJson)
 
 	brushBlock(&configJson)
 	lg.Print(lg.INFO, lg.Red, "Yatori --- ", "所有任务执行完毕")
@@ -156,52 +155,48 @@ func configJsonCheck(configData *config.JSONDataForConfig) {
 
 	//防止用户填完整url
 	for i, v := range configData.Users {
-		if v.AccountType == "ENAEA" || v.AccountType == "CQIE" || v.AccountType == "XUEXITONG" { //跳过学习公社和CQIE
-			continue
-		} else if v.URL == "url" {
-			lg.Print(lg.INFO, lg.BoldRed, "请先在config文件中配置好相应账号")
-			os.Exit(0)
+
+		if v.AccountType == "YINGHUA" {
+			if !strings.HasPrefix(v.URL, "http") {
+				lg.Print(lg.INFO, lg.BoldRed, "账号", v.Account, "未配置正确url，请先在config文件中配置好相应账号信息")
+				os.Exit(0)
+			}
+			split := strings.Split(v.URL, "/")
+			(*configData).Users[i].URL = split[0] + "/" + split[1] + "/" + split[2]
 		}
-		split := strings.Split(v.URL, "/")
-		(*configData).Users[i].URL = split[0] + "/" + split[1] + "/" + split[2]
+
+		//如果有账号开启代理，那么标记Flag就未true
+		if v.IsProxy == 1 {
+			utils2.IsProxyFlag = true
+		}
 	}
 }
 
-// isIpProxy 是否开启IP池代理
-func isIpProxy(configData *config.JSONDataForConfig) {
-	if configData.Setting.BasicSetting.IpProxySw == 0 {
+// 检查代理IP是否为正常
+func checkProxyIp() {
+	if !utils2.IsProxyFlag {
 		return
 	}
 	lg.Print(lg.INFO, lg.Yellow, "正在开启IP池代理...")
 	lg.Print(lg.INFO, lg.Yellow, "正在检查IP池IP可用性...")
-	reader, err := utils.IpFilesReader("./ip.txt")
+	reader, err := utils2.IpFilesReader("./ip.txt")
 	if err != nil {
 		lg.Print(lg.INFO, lg.BoldRed, "IP代理池文件ip.txt读取失败，请确认文件格式或者内容是否正确")
 		os.Exit(0)
 	}
-
 	for _, v := range reader {
-		_, state, err := utils.CheckProxyIp(v)
+		_, state, err := utils2.CheckProxyIp(v)
 		if err != nil {
 			lg.Print(lg.INFO, " ["+v+"] ", lg.BoldRed, "该IP代理不可用，错误信息：", err.Error())
 			continue
 		}
 		lg.Print(lg.INFO, " ["+v+"] ", lg.Green, "检测通过，状态：", state)
-		utils.IPProxyPool = append(utils.IPProxyPool, v) //添加到IP代理池里面
+		utils2.IPProxyPool = append(utils2.IPProxyPool, v) //添加到IP代理池里面
 	}
 	lg.Print(lg.INFO, lg.BoldGreen, "IP检查完毕")
 	//若无可用IP代理则直接退出
-	if len(utils.IPProxyPool) == 0 {
+	if len(utils2.IPProxyPool) == 0 {
 		lg.Print(lg.INFO, lg.BoldRed, "无可用IP代理池，若要继续使用请先检查IP代理池文件内的IP可用性，或者在配置文件关闭IP代理功能")
 		os.Exit(0)
 	}
-	//每隔一定时间切换IP
-	go func() {
-		for {
-			time.Sleep(10 * time.Second)
-			proxyIp := utils.IPProxyPool[rand.Intn(len(utils.IPProxyPool))]
-			os.Setenv("HTTP_PROXY", "http://"+proxyIp)
-			os.Setenv("HTTPS_PROXY", "https://"+proxyIp)
-		}
-	}()
 }

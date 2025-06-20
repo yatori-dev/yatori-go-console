@@ -31,7 +31,6 @@ type BasicSetting struct {
 	LogOutFileSw   int    `json:"logOutFileSw,omitempty" yaml:"logOutFileSw"`                 //是否输出日志文件0代表不输出，1代表输出，默认为1
 	LogLevel       string `json:"logLevel,omitempty" yaml:"logLevel"`                         //日志等级，默认INFO，DEBUG为找BUG调式用的，日志内容较详细，默认为INFO
 	LogModel       int    `json:"logModel" yaml:"logModel"`                                   //日志模式，0代表以视频提交学时基准打印日志，1代表以一个课程为基准打印信息，默认为0
-	IpProxySw      int    `json:"ipProxySw,omitempty" yaml:"ipProxySw"`                       //是否开启IP代理，0代表关，1代表开，默认为关
 }
 type AiSetting struct {
 	AiType ctype.AiType `json:"aiType" yaml:"aiType"`
@@ -68,6 +67,7 @@ type Users struct {
 	URL           string        `json:"url"`
 	Account       string        `json:"account"`
 	Password      string        `json:"password"`
+	IsProxy       int           `json:"isProxy" yaml:"isProxy"` //是否代理IP
 	CoursesCustom CoursesCustom `json:"coursesCustom" yaml:"coursesCustom"`
 }
 
