@@ -106,7 +106,7 @@ func keepAliveLogin(UserCache *yinghuaApi.YingHuaUserCache) {
 	for {
 		select {
 		case <-ticker.C:
-			api := yinghuaApi.KeepAliveApi(*UserCache)
+			api := yinghuaApi.KeepAliveApi(*UserCache, 8)
 			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.DarkGray, "登录心跳保活状态：", api)
 		}
 	}
