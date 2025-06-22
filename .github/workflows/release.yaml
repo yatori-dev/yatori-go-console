@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.6-Beta.2'  # Default tag name
+        default: 'v2.5.6-Beta.3'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -24,8 +24,10 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复英华刷完概率性报错问题
-    - [👏] 优化英华504报错问题
+    - [‍🔧] 修复英华部分平台无法正常登录BUG
+    - [‍🔧] 修复英华心跳请求报错问题
+    - [‍🔧] 修复英华考试报空指针问题
+    - [‍🔧] 修复学习通拉取课程无法过验证码问题
 jobs:
   # Linux build job
   build-linux:
