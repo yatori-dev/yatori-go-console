@@ -147,7 +147,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 			videoVioLenceAction(setting, user, userCache, node) //暴力模式
 			break
 		case 3:
-			videoBadRedAction(setting, user, userCache, node) //曲风模式
+			videoBadRedAction(setting, user, userCache, node) //去红模式
 			break
 
 		}
