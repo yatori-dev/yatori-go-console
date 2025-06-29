@@ -348,15 +348,22 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	if !node.TabWork { //过滤非作业节点
 		return
 	}
-	//检测AI可用性
 	if user.CoursesCustom.AutoExam == 1 {
+		//检测AI可用性
 		err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
 		if err != nil {
-			lg.Print(lg.INFO, lg.BoldRed, "AI不可用，错误信息："+err.Error())
+			lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
 			os.Exit(0)
 		}
 	}
 
+	if user.CoursesCustom.AutoExam == 2 {
+		err := utils.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+		if err != nil {
+			lg.Print(lg.INFO, lg.BoldRed, "外置题库不可用，错误信息："+err.Error())
+			os.Exit(0)
+		}
+	}
 	//获取作业详细信息
 	detailAction, _ := yinghua.WorkDetailAction(userCache, node.Id)
 	////{"_code":9,"status":false,"msg":"考试测试时间还未开始","result":{}}
@@ -409,6 +416,14 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 		err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
 		if err != nil {
 			lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
+			os.Exit(0)
+		}
+	}
+
+	if user.CoursesCustom.AutoExam == 2 {
+		err := utils.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+		if err != nil {
+			lg.Print(lg.INFO, lg.BoldRed, "外置题库不可用，错误信息："+err.Error())
 			os.Exit(0)
 		}
 	}
