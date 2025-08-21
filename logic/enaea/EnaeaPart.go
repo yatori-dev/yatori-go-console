@@ -132,7 +132,13 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *enaeaApi
 			break //如果看完了，也就是进度为100那么直接跳过
 		}
 		//提交学时
-		err := enaea.SubmitStudyTimeAction(UserCache, &node, time2.Now().UnixMilli())
+		var err error
+		if user.CoursesCustom.VideoModel == 0 {
+			err = enaea.SubmitStudyTimeAction(UserCache, &node, time2.Now().UnixMilli(), 0)
+		} else if user.CoursesCustom.VideoModel == 1 {
+			err = enaea.SubmitStudyTimeAction(UserCache, &node, 60, 1)
+		}
+
 		if err != nil {
 			if err.Error() != "request frequently!" {
 				lg.Print(lg.INFO, `[`, UserCache.Account, `] `, " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】 ", lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
@@ -142,7 +148,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *enaeaApi
 		enaea.LoginTimeoutAfreshAction(UserCache, err)
 
 		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】  >>> ", "提交状态：", "成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", node.StudyProgress), "%")
-		time2.Sleep(16 * time2.Second)
+		time2.Sleep(30 * time2.Second)
 		if node.StudyProgress >= 100 {
 			break //如果看完该视频则直接下一个
 		}

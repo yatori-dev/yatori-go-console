@@ -2,12 +2,6 @@ package xuexitong
 
 import (
 	"fmt"
-	"github.com/thedevsaddam/gojsonq"
-	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
-	"github.com/yatori-dev/yatori-go-core/api/entity"
-	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
-	"github.com/yatori-dev/yatori-go-core/utils"
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"log"
 	"os"
 	"strconv"
@@ -16,6 +10,14 @@ import (
 	"time"
 	"yatori-go-console/config"
 	utils2 "yatori-go-console/utils"
+
+	"github.com/thedevsaddam/gojsonq"
+	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/api/entity"
+	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/que-core/aiq"
+	"github.com/yatori-dev/yatori-go-core/utils"
+	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 )
 
 var videosLock sync.WaitGroup //视频锁
@@ -190,7 +192,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
 
 			//检测AI可用性
-			err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+			err := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
 			if err != nil {
 				lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
 				os.Exit(0)

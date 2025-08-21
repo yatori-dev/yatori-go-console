@@ -15,7 +15,8 @@ import (
 	"github.com/thedevsaddam/gojsonq"
 	"github.com/yatori-dev/yatori-go-core/aggregation/yinghua"
 	yinghuaApi "github.com/yatori-dev/yatori-go-core/api/yinghua"
-	"github.com/yatori-dev/yatori-go-core/utils"
+	"github.com/yatori-dev/yatori-go-core/que-core/aiq"
+	"github.com/yatori-dev/yatori-go-core/que-core/external"
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 )
 
@@ -350,7 +351,7 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	}
 	if user.CoursesCustom.AutoExam == 1 {
 		//检测AI可用性
-		err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+		err := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
 		if err != nil {
 			lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
 			os.Exit(0)
@@ -358,7 +359,7 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	}
 
 	if user.CoursesCustom.AutoExam == 2 {
-		err := utils.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+		err := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
 		if err != nil {
 			lg.Print(lg.INFO, lg.BoldRed, "外置题库不可用，错误信息："+err.Error())
 			os.Exit(0)
@@ -413,7 +414,7 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 
 	if user.CoursesCustom.AutoExam == 1 {
 		//检测AI可用性
-		err := utils.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+		err := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
 		if err != nil {
 			lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
 			os.Exit(0)
@@ -421,7 +422,7 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	}
 
 	if user.CoursesCustom.AutoExam == 2 {
-		err := utils.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+		err := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
 		if err != nil {
 			lg.Print(lg.INFO, lg.BoldRed, "外置题库不可用，错误信息："+err.Error())
 			os.Exit(0)
