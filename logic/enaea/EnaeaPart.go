@@ -133,10 +133,10 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *enaeaApi
 		}
 		//提交学时
 		var err error
-		if user.CoursesCustom.VideoModel == 0 {
+		if user.CoursesCustom.VideoModel == 1 {
 			err = enaea.SubmitStudyTimeAction(UserCache, &node, time2.Now().UnixMilli(), 0)
-		} else if user.CoursesCustom.VideoModel == 1 {
-			err = enaea.SubmitStudyTimeAction(UserCache, &node, 60, 1)
+		} else if user.CoursesCustom.VideoModel == 2 {
+			err = enaea.SubmitStudyTimeAction(UserCache, &node, 60, 1) //暴力模式
 		}
 
 		if err != nil {
