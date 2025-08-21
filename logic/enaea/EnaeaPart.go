@@ -148,7 +148,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *enaeaApi
 		enaea.LoginTimeoutAfreshAction(UserCache, err)
 
 		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】  >>> ", "提交状态：", "成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", node.StudyProgress), "%")
-		time2.Sleep(30 * time2.Second)
+		time2.Sleep(25 * time2.Second) //每隔25s进行一次学时提交
 		if node.StudyProgress >= 100 {
 			break //如果看完该视频则直接下一个
 		}
