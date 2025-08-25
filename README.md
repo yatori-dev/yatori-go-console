@@ -67,6 +67,10 @@
 
 > 代码食用请转至[yatori-dev/yatori-go-core](https://github.com/yatori-dev/yatori-go-core)项目
 
+## 代码运行环境（以下只提供Windows环境下载直连）
+* go: [1.23.4](https://studygolang.com/dl/golang/go1.23.4.windows-amd64.zip)
+* gcc: [11.2.0](https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev1/x86_64-11.2.0-release-posix-seh-rt_v9-rev1.7z)
+
 ### 直接食用:
 
 > 下载releases然后解压修改config配置文件之后点击start.bat启动即可。
