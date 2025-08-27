@@ -24,7 +24,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 增加ENAEA学习公社暴力模式（此暴力模式会成倍加快视屏学习速度，但并不是秒刷）
+    - [👏] 小幅度优化core代码
     
     注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
 
