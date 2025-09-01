@@ -285,12 +285,12 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 			//selectSec = secList[rand.Intn(len(secList))] //随机选择时间
 			if playingTime != p.Duration {
 				if playingTime == p.PlayTime {
-					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 3, 8, nil)
+					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 3, 8, nil)
 				} else {
-					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
 				}
 			} else {
-				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+				playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
@@ -322,7 +322,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					p.AttachmentsDetection(card)
 					time.Sleep(5 * time.Second)
 					//每次人脸过后都需要先进行isdrag=3的提交
-					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					startPlay, startErr := cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
 					if startErr != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
 						if playingTime-selectSec >= 0 {
@@ -405,9 +405,9 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 			var playReport string
 			var err error
 			if playingTime != p.Duration {
-				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+				playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
 			} else {
-				playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+				playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
@@ -437,7 +437,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					p.VideoFaceCaptureEnc = successEnc
 					time.Sleep(5 * time.Second)
 					//每次人脸过后都需要先进行isdrag=3的提交
-					startPlay, startErr := cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					startPlay, startErr := cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
 					if startErr != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
 						if playingTime-selectSec >= 0 {
