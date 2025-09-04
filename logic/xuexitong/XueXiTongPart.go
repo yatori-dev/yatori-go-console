@@ -278,6 +278,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 		selectSec := 58   //默认60s
 		extendSec := 1    //过超提交停留时间
 		limitTime := 3000 //过超时间最大限制
+		mode := 1         //0为Web模式，1为手机模式
 		//flag := 0
 		for {
 			var playReport string
@@ -285,16 +286,34 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 			//selectSec = secList[rand.Intn(len(secList))] //随机选择时间
 			if playingTime != p.Duration {
 				if playingTime == p.PlayTime {
-					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 3, 8, nil)
+					if mode == 0 {
+						playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 3, 8, nil)
+					} else if mode == 1 {
+						playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 3, 8, nil)
+					}
+
 				} else {
-					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+					if mode == 0 {
+						playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+					} else if mode == 1 {
+						playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+					}
 				}
 			} else {
-				playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+				if mode == 0 {
+					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+				} else if mode == 1 {
+					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+				}
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
+					if mode == 1 {
+						mode = 0
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Yellow, "检测到手机端触发403正在切换为Web端...")
+						continue
+					}
 					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Yellow, "触发403正在尝试绕过人脸识别...")
 					//上传人脸
 					pullJson, img, err2 := cache.GetHistoryFaceImg("")
@@ -322,7 +341,14 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					p.AttachmentsDetection(card)
 					time.Sleep(5 * time.Second)
 					//每次人脸过后都需要先进行isdrag=3的提交
-					startPlay, startErr := cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					var startPlay string
+					var startErr error
+					if mode == 0 {
+						startPlay, startErr = cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					} else if mode == 1 {
+						startPlay, startErr = cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					}
+
 					if startErr != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
 						if playingTime-selectSec >= 0 {
@@ -401,17 +427,31 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 		var playingTime = p.PlayTime
 		var overTime = 0
 		selectSec := 58
+		mode := 1 //0为web模式，1为手机模式
 		for {
 			var playReport string
 			var err error
 			if playingTime != p.Duration {
-				playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+				if mode == 0 {
+					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+				} else if mode == 1 {
+					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+				}
 			} else {
-				playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+				if mode == 0 {
+					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
+				} else if mode == 1 {
+					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
+				}
 			}
 			if err != nil {
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
+					if mode == 1 {
+						mode = 0
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Yellow, "检测到手机端触发403正在切换为Web端...")
+						continue
+					}
 					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Yellow, "触发403正在尝试绕过人脸识别...")
 					//上传人脸
 					faceImg, err := utils.GetFaceBase64()
@@ -437,7 +477,14 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 					p.VideoFaceCaptureEnc = successEnc
 					time.Sleep(5 * time.Second)
 					//每次人脸过后都需要先进行isdrag=3的提交
-					startPlay, startErr := cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+
+					var startPlay string
+					var startErr error
+					if mode == 0 {
+						startPlay, startErr = cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					} else if mode == 1 {
+						startPlay, startErr = cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
+					}
 					if startErr != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
 						if playingTime-selectSec >= 0 {
