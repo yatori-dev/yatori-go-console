@@ -69,6 +69,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 	// list, err := xuexitong.XueXiTCourseDetailForCourseIdAction(cache, "261619055656961")
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
 	if err != nil {
+		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Red, "拉取课程失败")
 		log.Fatal(err)
 	}
 	for _, course := range courseList {
@@ -138,9 +139,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		if isFinished(index) { //如果完成了的那么直接跳过
 			continue
 		}
-		_, fetchCards, err := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
-		if err != nil {
-			log.Fatal(err)
+		_, fetchCards, err1 := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
+		if err1 != nil {
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况")
+			log.Fatal(err1)
 		}
 		videoDTOs, workDTOs, documentDTOs := entity.ParsePointDto(fetchCards)
 		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil {
@@ -275,10 +277,10 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 		var playingTime = p.PlayTime
 		var overTime = 0
 		//secList := []int{58} //停滞时间随机表
-		selectSec := 58   //默认60s
-		extendSec := 1    //过超提交停留时间
-		limitTime := 3000 //过超时间最大限制
-		mode := 1         //0为Web模式，1为手机模式
+		selectSec := 58  //默认60s
+		extendSec := 5   //过超提交停留时间
+		limitTime := 100 //过超时间最大限制
+		mode := 1        //0为Web模式，1为手机模式
 		//flag := 0
 		for {
 			var playReport string
@@ -369,6 +371,11 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 			}
 
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
+				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，", "因为已经是过超提交但是视屏任务点仍然显示未完成，此情况一般是学习通那边的问题，所以程序现直接跳过该视屏执行之后的视屏学习", "，返回信息：", playReport, err.Error())
+					break
+				}
 				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				break
 			}
@@ -504,6 +511,11 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 				}
 			}
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
+				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，", "因为已经是过超提交但是视屏任务点仍然显示未完成，此情况一般是学习通那边的问题，所以程序现直接跳过该视屏执行之后的视屏学习", "，返回信息：", playReport, err.Error())
+					break
+				}
 				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				break
 			}
