@@ -275,6 +275,9 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 
 		var playingTime = p.PlayTime
+		if p.IsPassed == false && p.PlayTime == p.Duration {
+			playingTime = 0
+		}
 		var overTime = 0
 		//secList := []int{58} //停滞时间随机表
 		selectSec := 58  //默认60s
@@ -432,6 +435,9 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 		var playingTime = p.PlayTime
+		if p.IsPassed == false && p.PlayTime == p.Duration {
+			playingTime = 0
+		}
 		var overTime = 0
 		selectSec := 58
 		mode := 1 //0为web模式，1为手机模式
