@@ -131,6 +131,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			return false
 		}
 		i := pointAction.Knowledge[index]
+		if i.PointTotal == 0 && i.PointFinished == 0 {
+			//如果是0任务点，则直接浏览一遍主页面即可完成任务，不必继续下去
+			userCache.EnterChapterForwardCall(strconv.Itoa(courseId), strconv.Itoa(key), strconv.Itoa(pointAction.Knowledge[index].ID), strconv.Itoa(courseItem.Cpi))
+		}
 		return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
 	}
 
