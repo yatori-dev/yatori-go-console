@@ -572,7 +572,7 @@ func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexiton
 		log.Fatalln(err)
 	}
 	if gojsonq.New().JSONString(report).Find("status").(bool) {
-		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", " 【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "文档阅览状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
+		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "文档阅览状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
 	}
 }
 
