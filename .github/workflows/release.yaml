@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.7-Beta.4'  # Default tag name
+        default: 'v2.5.7-Beta.5'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
