@@ -58,6 +58,7 @@ jobs:
         run: |
           export GOPROXY=direct
           export GONOSUMDB=*
+          go clean -modcache
           go mod tidy
 
       - name: Prepare Release Directory #创建压缩目录
