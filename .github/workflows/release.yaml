@@ -58,6 +58,7 @@ jobs:
         run: |
           export GOPROXY=direct
           export GONOSUMDB=*
+          rm -rf go.sum
           go clean -modcache
           go env -w GOSUMDB=off
           go mod tidy
