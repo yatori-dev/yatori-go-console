@@ -75,6 +75,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 	for _, course := range courseList {
 		if !course.IsStart { //如果课程还未开课则直接退出
 			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
+			continue
 		}
 		videosLock.Add(1)
 		// fmt.Println(course)
