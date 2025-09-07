@@ -73,6 +73,9 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 		log.Fatal(err)
 	}
 	for _, course := range courseList {
+		if !course.IsStart { //如果课程还未开课则直接退出
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
+		}
 		videosLock.Add(1)
 		// fmt.Println(course)
 		nodeListStudy(setting, user, cache, &course)
@@ -212,7 +215,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "该作业已完成，已自动跳过")
 					continue
 				}
-				xuexitong.WorkPageFromAction(userCache, &workDTO)
+				//xuexitong.WorkPageFromAction(userCache, &workDTO)
 				//for _, input := range fromAction {
 				//	fmt.Printf("Name: %s, Value: %s, Type: %s, ID: %s\n", input.Name, input.Value, input.Type, input.ID)
 				//}
@@ -262,6 +265,13 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
 				} else if user.CoursesCustom.ExamAutoSubmit == 1 {
 					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true)
+				} else if user.CoursesCustom.ExamAutoSubmit == 2 {
+
+					if CheckAnswerIsAvoid(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short) {
+						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
+					} else {
+						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
+					}
 				}
 				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
 
@@ -271,6 +281,55 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	}
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
 	videosLock.Done()
+}
+
+// 检测答题是否有留空
+func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fills []entity.FillQue, shorts []entity.ShortQue) bool {
+	for _, choice := range choices {
+		resStatus := true
+		if choice.Answers != nil {
+			for _, answer := range choice.Answers {
+				for _, option := range choice.Options {
+					if answer == option { //只需检测能够映射对应选项即可
+						resStatus = false
+					}
+				}
+			}
+			if resStatus { //如果当前题目为留空态
+				return true
+			}
+		} else {
+			return true
+		}
+	}
+	for _, judge := range judges {
+		resStatus := true
+		if judge.Answers != nil {
+			for _, answer := range judge.Answers {
+				for _, option := range judge.Options {
+					if answer == option || answer == "错误" || answer == "正确" { //只需检测能够映射对应选项即可
+						resStatus = false
+					}
+				}
+			}
+			if resStatus { //如果当前题目为留空态
+				return true
+			}
+		} else {
+			return true
+		}
+	}
+	for _, fill := range fills {
+		if fill.OpFromAnswer == nil || len(fill.OpFromAnswer) <= 0 {
+			return true
+		}
+	}
+	for _, short := range shorts {
+		if short.OpFromAnswer == nil || len(short.OpFromAnswer) <= 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // 常规刷视频逻辑
