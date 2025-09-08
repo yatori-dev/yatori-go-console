@@ -348,6 +348,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 		extendSec := 5   //过超提交停留时间
 		limitTime := 100 //过超时间最大限制
 		mode := 1        //0为Web模式，1为手机模式
+		retryLogin := 0
 		//flag := 0
 		for {
 			var playReport string
@@ -376,6 +377,17 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 				}
 			}
 			if err != nil {
+				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
+					if retryLogin > 2 {
+						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
+						break
+					}
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", playReport, err.Error())
+					xuexitong.PassVerAnd202(cache) //越过验证码或者202
+					retryLogin += 1
+					continue
+				}
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
 					if mode == 1 {
@@ -438,11 +450,6 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 			}
 
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，", "因为已经是过超提交但是视屏任务点仍然显示未完成，此情况一般是学习通那边的问题，所以程序现直接跳过该视屏执行之后的视屏学习", "，返回信息：", playReport, err.Error())
-					break
-				}
 				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				break
 			}
@@ -505,6 +512,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 		var overTime = 0
 		selectSec := 58
 		mode := 1 //0为web模式，1为手机模式
+		retryLogin := 0
 		for {
 			var playReport string
 			var err error
@@ -522,6 +530,17 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 				}
 			}
 			if err != nil {
+				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
+					if retryLogin > 2 {
+						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
+						break
+					}
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", playReport, err.Error())
+					xuexitong.PassVerAnd202(cache) //越过验证码或者202
+					retryLogin += 1
+					continue
+				}
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
 					if mode == 1 {
@@ -581,11 +600,6 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 				}
 			}
 			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，", "因为已经是过超提交但是视屏任务点仍然显示未完成，此情况一般是学习通那边的问题，所以程序现直接跳过该视屏执行之后的视屏学习", "，返回信息：", playReport, err.Error())
-					break
-				}
 				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
 				break
 			}
