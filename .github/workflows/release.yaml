@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.7-Beta.6'  # Default tag name
+        default: 'v2.5.7-Beta.7'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -24,8 +24,8 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化学习通AI答题以及学习通课程相关参数
-    - [👏] 更新添加学习通自动答题智能模式
+    - [‍🔧] 修复学习通提交学时触发500状态问题
+    - [👏] 修改各请求UA标识[yatori-core#31](https://github.com/yatori-dev/yatori-go-core/pull/31#issue-3380229045)
     
     
     注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
