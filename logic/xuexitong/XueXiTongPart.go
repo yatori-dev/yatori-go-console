@@ -200,7 +200,6 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 
 		//作业刷取
 		if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
-
 			//检测AI可用性
 			err := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
 			if err != nil {
@@ -208,7 +207,6 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				os.Exit(0)
 			}
 			for _, workDTO := range workDTOs {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+courseItem.CourseName+"】 ", lg.Yellow, "正在AI自动写章节作业...")
 				//以手机端拉取章节卡片数据
 				mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
 				flag, _ := workDTO.AttachmentsDetection(mobileCard)
@@ -221,7 +219,13 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				//	fmt.Printf("Name: %s, Value: %s, Type: %s, ID: %s\n", input.Name, input.Value, input.Type, input.ID)
 				//}
 				questionAction := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
-				fmt.Println(questionAction)
+				if !strings.Contains(questionAction.Title, "2.1小节测验") {
+					continue
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+courseItem.CourseName+"】 ", "【", questionAction.Title, "】", lg.Yellow, "正在AI自动写章节作业...")
+
+				//fmt.Println(questionAction)
+
 				//选择题
 				for i := range questionAction.Choice {
 					q := &questionAction.Choice[i] // 获取对应选项
@@ -274,7 +278,9 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
 					}
 				}
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
+				//提交试卷成功的话{"msg":"success!","stuStatus":4,"backUrl":"","url":"/mooc-ans/api/work?courseid=250215285&workId=b63d4e7466624ace9c382cd112c9c95a&clazzId=125521307&knowledgeid=951783044&ut=s&type=&submit=true&jobid=work-6967802218b44f4dace8e3a8755cf3d9&enc=db5c2413ac1367c5ed28b4cfa5194318&ktoken=c0bf3b45e0b3e625e377cae3b77e1cfa&mooc2=0&skipHeader=true&originJobId=null","status":true}
+				//提交作业失败的话{"msg" : "作业提交失败！","status" : false}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
 
 			}
 		}
@@ -296,6 +302,8 @@ func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 					}
 				}
 			}
+
+			//fmt.Sprintf("D -> 以上A B C正确。")
 			if resStatus { //如果当前题目为留空态
 				return true
 			}
@@ -383,7 +391,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
 						break
 					}
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", playReport, err.Error())
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.Yellow, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", lg.BoldRed, playReport, err.Error())
 					xuexitong.PassVerAnd202(cache) //越过验证码或者202
 					retryLogin += 1
 					continue
@@ -472,7 +480,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 
 			if overTime == 0 { //正常提交
 				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
-			} else { //国超提交
+			} else { //过超提交
 				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "过超时间：", strconv.Itoa(overTime)+"/"+strconv.Itoa(limitTime), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
 			}
 			if overTime >= limitTime { //过超提交触发
@@ -536,7 +544,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
 						break
 					}
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", playReport, err.Error())
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.Yellow, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", lg.BoldRed, playReport, err.Error())
 					xuexitong.PassVerAnd202(cache) //越过验证码或者202
 					retryLogin += 1
 					continue

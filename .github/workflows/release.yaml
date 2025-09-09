@@ -24,9 +24,10 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复学习通提交学时触发500状态问题
-    - [👏] 修改各请求UA标识[yatori-core#31](https://github.com/yatori-dev/yatori-go-core/pull/31#issue-3380229045)
-    
+    - [👏] 小幅度优化学习通日志显示
+    - [👏] 支持大学生网络党校（填ENAEA）
+    - [👏] 中小学网络党校（填ENAEA）
+    - [‍🔧] 修复学习通提交学时容易触发An established connection was aborted问题
     
     注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
 
