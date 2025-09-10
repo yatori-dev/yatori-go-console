@@ -13,6 +13,7 @@ import (
 
 	"github.com/thedevsaddam/gojsonq"
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong/point"
 	"github.com/yatori-dev/yatori-go-core/api/entity"
 	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/que-core/aiq"
@@ -73,10 +74,6 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 		log.Fatal(err)
 	}
 	for _, course := range courseList {
-		if !course.IsStart { //如果课程还未开课则直接退出
-			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
-			continue
-		}
 		videosLock.Add(1)
 		// fmt.Println(course)
 		nodeListStudy(setting, user, cache, &course)
@@ -104,6 +101,19 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		videosLock.Done()
 		return
 	}
+	//如果课程还未开课则直接退出
+	if !courseItem.IsStart {
+		videosLock.Done()
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
+		return
+	}
+	//如果该课程已经结束
+	if courseItem.State == 1 {
+		videosLock.Done()
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程已经结束，已自动跳过该课程")
+		return
+	}
+
 	key, _ := strconv.Atoi(courseItem.Key)
 	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
 
@@ -137,7 +147,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		i := pointAction.Knowledge[index]
 		if i.PointTotal == 0 && i.PointFinished == 0 {
 			//如果是0任务点，则直接浏览一遍主页面即可完成任务，不必继续下去
-			userCache.EnterChapterForwardCall(strconv.Itoa(courseId), strconv.Itoa(key), strconv.Itoa(pointAction.Knowledge[index].ID), strconv.Itoa(courseItem.Cpi))
+			err2 := xuexitong.EnterChapterForwardCallAction(userCache, strconv.Itoa(courseId), strconv.Itoa(key), strconv.Itoa(pointAction.Knowledge[index].ID), strconv.Itoa(courseItem.Cpi))
+			if err2 != nil {
+				lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "零任务点遍历失败。返回信息：", err.Error())
+			}
 		}
 		return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
 	}
@@ -191,8 +204,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					log.Fatal(err)
 				}
 				documentDTO.AttachmentsDetection(card)
-
-				//point.ExecuteDocument(userCache, &documentDTO)
+				//如果不是任务或者说该任务已完成，那么直接跳过
+				if !documentDTO.IsJob {
+					continue
+				}
 				ExecuteDocument(userCache, pointAction.Knowledge[index], &documentDTO)
 				time.Sleep(5 * time.Second)
 			}
@@ -210,21 +225,15 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				//以手机端拉取章节卡片数据
 				mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
 				flag, _ := workDTO.AttachmentsDetection(mobileCard)
-				if !flag {
-					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", courseItem.CourseName, "】", lg.Green, "该作业已完成，已自动跳过")
-					continue
-				}
-				//xuexitong.WorkPageFromAction(userCache, &workDTO)
-				//for _, input := range fromAction {
-				//	fmt.Printf("Name: %s, Value: %s, Type: %s, ID: %s\n", input.Name, input.Value, input.Type, input.ID)
-				//}
 				questionAction := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
-				if !strings.Contains(questionAction.Title, "2.1小节测验") {
+				if !flag {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
 					continue
 				}
+				//if !strings.Contains(questionAction.Title, "2.1小节测验") {
+				//	continue
+				//}
 				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+courseItem.CourseName+"】 ", "【", questionAction.Title, "】", lg.Yellow, "正在AI自动写章节作业...")
-
-				//fmt.Println(questionAction)
 
 				//选择题
 				for i := range questionAction.Choice {
@@ -356,45 +365,26 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 		extendSec := 5   //过超提交停留时间
 		limitTime := 100 //过超时间最大限制
 		mode := 1        //0为Web模式，1为手机模式
-		retryLogin := 0
 		//flag := 0
 		for {
 			var playReport string
 			var err error
 			//selectSec = secList[rand.Intn(len(secList))] //随机选择时间
 			if playingTime != p.Duration {
-				if playingTime == p.PlayTime {
-					if mode == 0 {
-						playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 3, 8, nil)
-					} else if mode == 1 {
-						playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 3, 8, nil)
-					}
 
+				if playingTime == p.PlayTime {
+					playReport, err = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 3)
 				} else {
-					if mode == 0 {
-						playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
-					} else if mode == 1 {
-						playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
-					}
+					playReport, err = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
 				}
 			} else {
-				if mode == 0 {
-					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
-				} else if mode == 1 {
-					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
-				}
+				playReport, err = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
 			}
 			if err != nil {
 				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
-					if retryLogin > 2 {
-						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
-						break
-					}
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.Yellow, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", lg.BoldRed, playReport, err.Error())
-					xuexitong.PassVerAnd202(cache) //越过验证码或者202
-					retryLogin += 1
-					continue
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") {
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
+					break
 				}
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
@@ -432,11 +422,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 					//每次人脸过后都需要先进行isdrag=3的提交
 					var startPlay string
 					var startErr error
-					if mode == 0 {
-						startPlay, startErr = cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
-					} else if mode == 1 {
-						startPlay, startErr = cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
-					}
+					playReport, startErr = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
 
 					if startErr != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
@@ -444,11 +430,6 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 							playingTime = playingTime - selectSec
 						}
 					}
-					continue
-				}
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") { //触发202立即使用人脸检测
-					xuexitong.PassVerAnd202(cache) //越过202
-					time.Sleep(3 * time.Second)
 					continue
 				}
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发404
@@ -520,34 +501,20 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 		var overTime = 0
 		selectSec := 58
 		mode := 1 //0为web模式，1为手机模式
-		retryLogin := 0
 		for {
 			var playReport string
 			var err error
 			if playingTime != p.Duration {
-				if mode == 0 {
-					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
-				} else if mode == 1 {
-					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
-				}
+				playReport, err = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
 			} else {
-				if mode == 0 {
-					playReport, err = cache.VideoSubmitStudyTime(p, playingTime, 0, 8, nil)
-				} else if mode == 1 {
-					playReport, err = cache.VideoSubmitStudyTimePE(p, playingTime, 0, 8, nil)
-				}
+				playReport, err = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
 			}
 			if err != nil {
 				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
-					if retryLogin > 2 {
-						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
-						break
-					}
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.Yellow, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", lg.BoldRed, playReport, err.Error())
-					xuexitong.PassVerAnd202(cache) //越过验证码或者202
-					retryLogin += 1
-					continue
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") {
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
+					break
+
 				}
 				//当报错无权限的时候尝试人脸
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
@@ -584,22 +551,13 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 
 					var startPlay string
 					var startErr error
-					if mode == 0 {
-						startPlay, startErr = cache.VideoSubmitStudyTime(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
-					} else if mode == 1 {
-						startPlay, startErr = cache.VideoSubmitStudyTimePE(p, max(playingTime-selectSec, 0), 3, 8, nil) //注意一定要回退一次时间才行
-					}
+					playReport, startErr = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 3)
 					if startErr != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
 						if playingTime-selectSec >= 0 {
 							playingTime = playingTime - selectSec
 						}
 					}
-					continue
-				}
-				if strings.Contains(err.Error(), "failed to fetch video, status code: 202") {
-					xuexitong.PassVerAnd202(cache) //越过202
-					time.Sleep(3 * time.Second)
 					continue
 				}
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发202立即使用人脸检测
@@ -648,11 +606,17 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 
 // 常规刷文档逻辑
 func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointDocumentDto) {
-	report, err := cache.DocumentDtoReadingReport(p, 3, nil)
-	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil {
-		lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", report, err.Error())
-		log.Fatalln(err)
+	report, err := point.ExecuteDocument(cache, p)
+	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
+		if err == nil {
+			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "文档学习提交接口访问异常（可能是因为该文档不是任务点导致的），返回信息：", report)
+		} else {
+			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "文档学习提交接口访问异常（可能是因为该文档不是任务点导致的），返回信息：", report, err.Error())
+		}
+
+		//log.Fatalln(err)
 	}
+
 	if gojsonq.New().JSONString(report).Find("status").(bool) {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "文档阅览状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
 	}
