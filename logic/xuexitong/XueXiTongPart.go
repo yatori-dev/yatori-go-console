@@ -119,14 +119,14 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 
 	if err != nil {
 		if strings.Contains(err.Error(), "课程章节为空") {
-			lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
 			videosLock.Done()
 			return
 		}
-		lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
 		log.Fatal()
 	}
-	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "获取课程章节成功 (共 ", lg.Yellow, strconv.Itoa(len(action.Knowledge)), lg.Default, " 个) ")
+	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, "获取课程章节成功 (共 ", lg.Yellow, strconv.Itoa(len(action.Knowledge)), lg.Default, " 个) ")
 
 	var nodes []int
 	for _, item := range action.Knowledge {
@@ -137,7 +137,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	// 检测节点完成情况
 	pointAction, err := xuexitong.ChapterFetchPointAction(userCache, nodes, &action, key, userId, courseItem.Cpi, courseId)
 	if err != nil {
-		lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
 		log.Fatal()
 	}
 	var isFinished = func(index int) bool {
@@ -149,7 +149,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			//如果是0任务点，则直接浏览一遍主页面即可完成任务，不必继续下去
 			err2 := xuexitong.EnterChapterForwardCallAction(userCache, strconv.Itoa(courseId), strconv.Itoa(key), strconv.Itoa(pointAction.Knowledge[index].ID), strconv.Itoa(courseItem.Cpi))
 			if err2 != nil {
-				lg.Print(lg.INFO, `[`, courseItem.CourseName, `] `, lg.BoldRed, "零任务点遍历失败。返回信息：", err.Error())
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "零任务点遍历失败。返回信息：", err.Error())
 			}
 		}
 		return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
