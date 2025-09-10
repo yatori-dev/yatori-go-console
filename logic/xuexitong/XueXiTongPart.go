@@ -388,10 +388,10 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.
 				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") && p.Duration <= playingTime {
 					if retryLogin > 2 {
-						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
+						lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
 						break
 					}
-					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", " 【", p.Title, "】", lg.Yellow, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", lg.BoldRed, playReport, err.Error())
+					lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.Yellow, "提交学时接口访问异常，触发风控500，正在重试重新登录。", "，返回信息：", lg.BoldRed, playReport, err.Error())
 					xuexitong.PassVerAnd202(cache) //越过验证码或者202
 					retryLogin += 1
 					continue
@@ -648,7 +648,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, knowledgeItem x
 
 // 常规刷文档逻辑
 func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointDocumentDto) {
-	report, err := cache.DocumentDtoReadingReport(p)
+	report, err := cache.DocumentDtoReadingReport(p, 3, nil)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil {
 		lg.Print(lg.INFO, `[`, cache.Name, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", report, err.Error())
 		log.Fatalln(err)
