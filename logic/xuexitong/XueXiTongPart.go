@@ -296,14 +296,14 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
 						//如果提交失败那么直接输出AI答题的文本
 						if gojsonq.New().JSONString(resultStr).Find("status") == false {
-							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,AI答题信息：", fmt.Sprintf("%x", mobileCard), fmt.Sprintf("%x", questionAction.Choice), fmt.Sprintf("%x", questionAction.Judge), fmt.Sprintf("%x", questionAction.Fill), fmt.Sprintf("%x", questionAction.Short))
+							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,AI答题信息：", questionAction.String())
 
 						}
 					} else {
 						AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
 						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
 						if gojsonq.New().JSONString(resultStr).Find("status") == false {
-							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题提交失败,AI答题信息：", fmt.Sprintf("%x", mobileCard), fmt.Sprintf("%x", questionAction.Choice), fmt.Sprintf("%x", questionAction.Judge), fmt.Sprintf("%x", questionAction.Fill), fmt.Sprintf("%x", questionAction.Short))
+							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题提交失败,AI答题信息：", questionAction.String())
 						}
 					}
 				}
