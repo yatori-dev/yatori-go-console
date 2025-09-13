@@ -199,7 +199,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				case 2:
 					ExecuteVideoQuickSpeed(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) // 暴力模式
 				case 3:
-					ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
+					ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多课程模式
 				}
 
 				time.Sleep(10 * time.Second)
