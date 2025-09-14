@@ -173,10 +173,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
 			log.Fatal(err1)
 		}
-		videoDTOs, workDTOs, documentDTOs := entity.ParsePointDto(fetchCards)
-		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil {
-			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "课程数据没有需要刷的课，可能接口访问异常。若需要继续可以配置中添加排除此异常课程。")
-
+		videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs := entity.ParsePointDto(fetchCards)
+		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil {
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "课程对应章节无任何任务节点，已自动跳过")
+			continue
 		}
 		// 视屏类型
 		if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
@@ -296,14 +296,14 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
 						//如果提交失败那么直接输出AI答题的文本
 						if gojsonq.New().JSONString(resultStr).Find("status") == false {
-							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,AI答题信息：", questionAction.String())
+							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
 
 						}
 					} else {
 						AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
 						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
 						if gojsonq.New().JSONString(resultStr).Find("status") == false {
-							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题提交失败,AI答题信息：", questionAction.String())
+							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题提交失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
 						}
 					}
 				}
@@ -314,6 +314,21 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			}
 		}
 
+		//外联类型
+		//外链任务点刷取
+		if hyperlinkDTOs != nil && true {
+			for _, hyperlinkDTO := range hyperlinkDTOs {
+				card, _, err := xuexitong.PageMobileChapterCardAction(
+					userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
+				if err != nil {
+					log.Fatal(err)
+				}
+				hyperlinkDTO.AttachmentsDetection(card)
+
+				ExecuteHyperlink(userCache, courseItem, pointAction.Knowledge[index], &hyperlinkDTO)
+				time.Sleep(5 * time.Second)
+			}
+		}
 	}
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
 	videosLock.Done()
@@ -674,6 +689,22 @@ func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.
 
 	if gojsonq.New().JSONString(report).Find("status").(bool) {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "文档阅览状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
+	}
+}
+
+// 常规外链任务处理
+func ExecuteHyperlink(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointHyperlinkDto) {
+	report, err := point.ExecuteHyperlink(cache, p)
+	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
+		if err == nil {
+			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "外链任务点学习提交接口访问异常（可能是因为该文档不是任务点导致的），返回信息：", report)
+		} else {
+			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "外链任务点学习提交接口访问异常（可能是因为该文档不是任务点导致的），返回信息：", report, err.Error())
+		}
+	}
+
+	if gojsonq.New().JSONString(report).Find("status").(bool) {
+		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "外链任务点状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
 	}
 }
 
