@@ -173,8 +173,8 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
 			log.Fatal(err1)
 		}
-		videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs := entity.ParsePointDto(fetchCards)
-		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil {
+		videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs := entity.ParsePointDto(fetchCards)
+		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil && liveDTOs == nil {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "课程对应章节无任何任务节点，已自动跳过")
 			continue
 		}
@@ -314,9 +314,8 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			}
 		}
 
-		//外联类型
 		//外链任务点刷取
-		if hyperlinkDTOs != nil && true {
+		if hyperlinkDTOs != nil {
 			for _, hyperlinkDTO := range hyperlinkDTOs {
 				card, _, err := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
@@ -326,6 +325,22 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				hyperlinkDTO.AttachmentsDetection(card)
 
 				ExecuteHyperlink(userCache, courseItem, pointAction.Knowledge[index], &hyperlinkDTO)
+				time.Sleep(5 * time.Second)
+			}
+		}
+		// 直播任务点刷取
+		if liveDTOs != nil {
+			for _, liveDTO := range liveDTOs {
+				card, _, err2 := xuexitong.PageMobileChapterCardAction(
+					userCache, key, courseId, liveDTO.KnowledgeID, liveDTO.CardIndex, courseItem.Cpi)
+				if err2 != nil {
+					log.Fatal(err2)
+				}
+				liveDTO.AttachmentsDetection(card)
+				if !liveDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
+					continue
+				}
+				ExecuteLive(userCache, courseItem, pointAction.Knowledge[index], &liveDTO)
 				time.Sleep(5 * time.Second)
 			}
 		}
@@ -697,14 +712,56 @@ func ExecuteHyperlink(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong
 	report, err := point.ExecuteHyperlink(cache, p)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
 		if err == nil {
-			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "外链任务点学习提交接口访问异常（可能是因为该文档不是任务点导致的），返回信息：", report)
+			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "外链任务点学习提交接口访问异常，返回信息：", report)
 		} else {
-			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "外链任务点学习提交接口访问异常（可能是因为该文档不是任务点导致的），返回信息：", report, err.Error())
+			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "外链任务点学习提交接口访问异常，返回信息：", report, err.Error())
 		}
 	}
 
 	if gojsonq.New().JSONString(report).Find("status").(bool) {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "外链任务点状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("status").(bool)), lg.Default, " ")
+	}
+}
+
+// 常规外链任务处理
+func ExecuteLive(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointLiveDto) {
+	point.PullLiveInfoAction(cache, p)
+	var passValue float64 = 90
+
+	//如果该直播还未开播
+	if p.LiveStatusCode == 0 {
+		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Yellow, "该直播任务点还未开播，已自动跳过")
+		return
+	}
+	relationReport, err2 := point.LiveCreateRelationAction(cache, p)
+	if err2 != nil {
+		lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "直播任务点建立联系接口访问异常，返回信息：", relationReport, err2.Error())
+	} else {
+		lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.Green, "直播任务点建立联系成功，返回信息：", relationReport)
+	}
+
+	for {
+		report, err := point.ExecuteLive(cache, p)
+
+		point.PullLiveInfoAction(cache, p) //更新直播节点结构体进度
+		if err != nil {
+			lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "直播任务点学习提交接口访问异常，返回信息：", report, err.Error())
+		}
+
+		if strings.Contains(report, "@success") {
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "直播任务点状态：", lg.Green, report, lg.Default, "，直播观看进度：", lg.Green, fmt.Sprintf("%.2f", p.VideoCompletePercent), "%")
+		} else {
+			if err != nil {
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "直播任务点学习提交接口访问异常，返回信息：", report, err.Error())
+			} else {
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "直播任务点学习提交接口访问异常，返回信息：", report)
+			}
+		}
+		if p.VideoCompletePercent >= passValue {
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Green, "直播任务点已完成")
+			return
+		}
+		time.Sleep(30 * time.Second)
 	}
 }
 
