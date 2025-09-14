@@ -446,10 +446,10 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 		}
 		var overTime = 0
 		//secList := []int{58} //停滞时间随机表
-		selectSec := 58  //默认60s
-		extendSec := 5   //过超提交停留时间
-		limitTime := 500 //过超时间最大限制
-		mode := 1        //0为Web模式，1为手机模式
+		selectSec := 58                     //默认60s
+		extendSec := 5                      //过超提交停留时间
+		limitTime := max(500, p.Duration/2) //过超时间最大限制
+		mode := 1                           //0为Web模式，1为手机模式
 		//flag := 0
 		for {
 			var playReport string
