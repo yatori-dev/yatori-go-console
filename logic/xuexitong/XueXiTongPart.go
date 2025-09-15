@@ -77,12 +77,12 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 	for _, course := range courseList {
 		videosLock.Add(1)
 		// fmt.Println(course)
-		if user.CoursesCustom.VideoModel == 1 {
-			nodeListStudy(setting, user, cache, &course)
-		} else if user.CoursesCustom.VideoModel == 3 {
+		if user.CoursesCustom.VideoModel == 3 {
 			go func() {
 				nodeListStudy(setting, user, cache, &course)
 			}()
+		} else {
+			nodeListStudy(setting, user, cache, &course)
 		}
 
 	}
@@ -132,7 +132,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			return
 		}
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
-		log.Fatal()
+
+		videosLock.Done()
+		return
+		//log.Fatal()
 	}
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, "获取课程章节成功 (共 ", lg.Yellow, strconv.Itoa(len(action.Knowledge)), lg.Default, " 个) ")
 
@@ -146,7 +149,9 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	pointAction, err := xuexitong.ChapterFetchPointAction(userCache, nodes, &action, key, userId, courseItem.Cpi, courseId)
 	if err != nil {
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
-		log.Fatal()
+		//log.Fatal()
+		videosLock.Done()
+		return
 	}
 	var isFinished = func(index int) bool {
 		if index < 0 || index >= len(pointAction.Knowledge) {
@@ -157,7 +162,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			//如果是0任务点，则直接浏览一遍主页面即可完成任务，不必继续下去
 			err2 := xuexitong.EnterChapterForwardCallAction(userCache, strconv.Itoa(courseId), strconv.Itoa(key), strconv.Itoa(pointAction.Knowledge[index].ID), strconv.Itoa(courseItem.Cpi))
 			if err2 != nil {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "零任务点遍历失败。返回信息：", err.Error())
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "零任务点遍历失败。返回信息：", err2.Error())
 			}
 		}
 		return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
@@ -171,7 +176,9 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		_, fetchCards, err1 := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
 		if err1 != nil {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
-			log.Fatal(err1)
+			//log.Fatal(err1)
+			videosLock.Done()
+			return
 		}
 		videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs := entity.ParsePointDto(fetchCards)
 		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil && liveDTOs == nil {
@@ -181,12 +188,17 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		// 视屏类型
 		if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
 			for _, videoDTO := range videoDTOs {
-				card, enc, err := xuexitong.PageMobileChapterCardAction(
+				card, enc, err2 := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
-				if err != nil {
-					log.Fatal(err)
+				if err2 != nil {
+					log.Fatal(err2)
 				}
 				videoDTO.AttachmentsDetection(card)
+
+				if !videoDTO.IsJob {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "该视屏非任务点或已完成，已自动跳过")
+					continue
+				}
 				videoDTO.Enc = enc             //赋值enc值
 				if videoDTO.IsPassed == true { //如果已经通过了，那么直接跳过
 					continue
@@ -208,10 +220,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		// 文档类型
 		if documentDTOs != nil {
 			for _, documentDTO := range documentDTOs {
-				card, _, err := xuexitong.PageMobileChapterCardAction(
+				card, _, err2 := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
-				if err != nil {
-					log.Fatal(err)
+				if err2 != nil {
+					log.Fatal(err2)
 				}
 				documentDTO.AttachmentsDetection(card)
 				//如果不是任务或者说该任务已完成，那么直接跳过
@@ -226,9 +238,9 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		//作业刷取
 		if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
 			//检测AI可用性
-			err := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
-			if err != nil {
-				lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err.Error())
+			err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+			if err2 != nil {
+				lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
 				os.Exit(0)
 			}
 			for _, workDTO := range workDTOs {
@@ -240,87 +252,24 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
 					continue
 				}
+				if len(questionAction.Short) == 0 && len(questionAction.Choice) == 0 && len(questionAction.Judge) == 0 && len(questionAction.Fill) == 0 {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该作业任务点无题目，已自动跳过")
+					continue
+				}
 				//if !strings.Contains(questionAction.Title, "2.1小节测验") {
 				//	continue
 				//}
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, "【"+courseItem.CourseName+"】 ", "【", questionAction.Title, "】", lg.Yellow, "正在AI自动写章节作业...")
-
-				//选择题
-				for i := range questionAction.Choice {
-					q := &questionAction.Choice[i] // 获取对应选项
-					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-						XueXChoiceQue: *q,
-					})
-
-					aiSetting := setting.AiSetting //获取AI设置
-					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
-				}
-				//判断题
-				for i := range questionAction.Judge {
-					q := &questionAction.Judge[i] // 获取对应选项
-					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-						XueXJudgeQue: *q,
-					})
-
-					aiSetting := setting.AiSetting //获取AI设置
-					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
-				}
-				//填空题
-				for i := range questionAction.Fill {
-					q := &questionAction.Fill[i] // 获取对应选项
-					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-						XueXFillQue: *q,
-					})
-					aiSetting := setting.AiSetting //获取AI设置
-					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
-				}
-				//简答题
-				for i := range questionAction.Short {
-					q := &questionAction.Short[i] // 获取对应选项
-					message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-						XueXShortQue: *q,
-					})
-					aiSetting := setting.AiSetting //获取AI设置
-					q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
-				}
-
-				var resultStr string
-				if user.CoursesCustom.ExamAutoSubmit == 0 {
-					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
-				} else if user.CoursesCustom.ExamAutoSubmit == 1 {
-					resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true)
-				} else if user.CoursesCustom.ExamAutoSubmit == 2 {
-
-					if CheckAnswerIsAvoid(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short) {
-						AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
-						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
-						//如果提交失败那么直接输出AI答题的文本
-						if gojsonq.New().JSONString(resultStr).Find("status") == false {
-							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
-
-						}
-					} else {
-						AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
-						resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
-						if gojsonq.New().JSONString(resultStr).Find("status") == false {
-							lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题提交失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
-						}
-					}
-				}
-				//提交试卷成功的话{"msg":"success!","stuStatus":4,"backUrl":"","url":"/mooc-ans/api/work?courseid=250215285&workId=b63d4e7466624ace9c382cd112c9c95a&clazzId=125521307&knowledgeid=951783044&ut=s&type=&submit=true&jobid=work-6967802218b44f4dace8e3a8755cf3d9&enc=db5c2413ac1367c5ed28b4cfa5194318&ktoken=c0bf3b45e0b3e625e377cae3b77e1cfa&mooc2=0&skipHeader=true&originJobId=null","status":true}
-				//提交作业失败的话{"msg" : "作业提交失败！","status" : false}
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
-
+				WorkAction(userCache, user, setting, courseItem, questionAction)
 			}
 		}
 
 		//外链任务点刷取
 		if hyperlinkDTOs != nil {
 			for _, hyperlinkDTO := range hyperlinkDTOs {
-				card, _, err := xuexitong.PageMobileChapterCardAction(
+				card, _, err2 := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
-				if err != nil {
-					log.Fatal(err)
+				if err2 != nil {
+					log.Fatal(err2)
 				}
 				hyperlinkDTO.AttachmentsDetection(card)
 
@@ -360,7 +309,7 @@ func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 			}
 			for _, answer := range choice.Answers {
 				var sortArray []qutils.Co = qutils.SimilarityArrayAndSort(answer, candidateSelects)
-				if sortArray[0].Score > 0.9 {
+				if sortArray[0].Score >= 0.9 {
 					resStatus = false
 				}
 			}
@@ -406,7 +355,7 @@ func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 // 答案修正匹配
 func AnswerFixedPattern(choices []entity.ChoiceQue, judges []entity.JudgeQue, fills []entity.FillQue, shorts []entity.ShortQue) {
 	//选择题修正
-	for _, choice := range choices {
+	for i, choice := range choices {
 		if choice.Answers != nil {
 			candidateSelects := []string{} //待选
 			selectAnswers := []string{}
@@ -417,20 +366,17 @@ func AnswerFixedPattern(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 				selectAnswers = append(selectAnswers, qutils.SimilarityArrayAnswer(answer, candidateSelects))
 			}
 			if selectAnswers != nil {
-				choice.Answers = selectAnswers
+				choices[i].Answers = selectAnswers
 			}
 		}
 	}
-	for _, judge := range judges {
+	for i, judge := range judges {
 		if judge.Answers != nil {
-			for i, answer := range judge.Answers {
-				if answer == "对" {
-					judge.Answers[i] = "正确"
-				}
-				if answer == "错" {
-					judge.Answers[i] = "错误"
-				}
+			selectAnswer := []string{}
+			for _, answer := range judge.Answers {
+				selectAnswer = append(selectAnswer, qutils.SimilarityArrayAnswer(answer, []string{"正确", "错误"}))
 			}
+			judges[i].Answers = selectAnswer
 		}
 	}
 }
@@ -482,8 +428,9 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 					//上传人脸
 					pullJson, img, err2 := cache.GetHistoryFaceImg("")
 					if err2 != nil {
-						lg.Print(lg.INFO, pullJson, err2)
-						os.Exit(0)
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.BoldRed, "上传人脸失败，已自动跳过该视屏", pullJson, err2)
+						return
+						//os.Exit(0)
 					}
 					disturbImage := utils.ImageRGBDisturb(img)
 					//uuid,qrEnc,ObjectId,successEnc
@@ -496,10 +443,12 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 
 					cid, _ := strconv.Atoi(p.CourseID)
 					time.Sleep(5 * time.Second) //不要删！！！！一定要等待一小段时间才能请求PageMobile
-					card, enc, err := xuexitong.PageMobileChapterCardAction(
+					card, enc, err2 := xuexitong.PageMobileChapterCardAction(
 						cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
-					if err != nil {
-						log.Fatal(err)
+					if err2 != nil {
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.BoldRed, "绕过人脸后获取卡片数据失败，已自动绕过该视屏", err2)
+						//log.Fatal(err2)
+						return
 					}
 					p.Enc = enc
 					p.AttachmentsDetection(card)
@@ -510,7 +459,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 					playReport, startErr = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
 
 					if startErr != nil {
-						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Red, startPlay, startErr.Error())
+						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.BoldRed, startPlay, startErr.Error())
 						if playingTime-selectSec >= 0 {
 							playingTime = playingTime - selectSec
 						}
@@ -766,6 +715,73 @@ func ExecuteLive(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueX
 }
 
 // 作业处理逻辑
-func WorkAction() {
+func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Users, setting config.Setting, courseItem *xuexitong.XueXiTCourse, questionAction entity.Question) {
+	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, "【"+courseItem.CourseName+"】 ", "【", questionAction.Title, "】", lg.Yellow, "正在AI自动写章节作业...")
 
+	//选择题
+	for i := range questionAction.Choice {
+		q := &questionAction.Choice[i] // 获取对应选项
+		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+			XueXChoiceQue: *q,
+		})
+
+		aiSetting := setting.AiSetting //获取AI设置
+		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+	}
+	//判断题
+	for i := range questionAction.Judge {
+		q := &questionAction.Judge[i] // 获取对应选项
+		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+			XueXJudgeQue: *q,
+		})
+
+		aiSetting := setting.AiSetting //获取AI设置
+		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+	}
+	//填空题
+	for i := range questionAction.Fill {
+		q := &questionAction.Fill[i] // 获取对应选项
+		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+			XueXFillQue: *q,
+		})
+		aiSetting := setting.AiSetting //获取AI设置
+		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+	}
+	//简答题
+	for i := range questionAction.Short {
+		q := &questionAction.Short[i] // 获取对应选项
+		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+			XueXShortQue: *q,
+		})
+		aiSetting := setting.AiSetting //获取AI设置
+		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+	}
+
+	var resultStr string
+	if user.CoursesCustom.ExamAutoSubmit == 0 {
+		AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
+		resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
+	} else if user.CoursesCustom.ExamAutoSubmit == 1 {
+		AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
+		resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true)
+	} else if user.CoursesCustom.ExamAutoSubmit == 2 {
+		AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
+		if CheckAnswerIsAvoid(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short) {
+			resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
+			//如果提交失败那么直接输出AI答题的文本
+			if gojsonq.New().JSONString(resultStr).Find("status") == false {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
+
+			}
+		} else {
+			//AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
+			resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
+			if gojsonq.New().JSONString(resultStr).Find("status") == false {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题提交失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
+			}
+		}
+	}
+	//提交试卷成功的话{"msg":"success!","stuStatus":4,"backUrl":"","url":"/mooc-ans/api/work?courseid=250215285&workId=b63d4e7466624ace9c382cd112c9c95a&clazzId=125521307&knowledgeid=951783044&ut=s&type=&submit=true&jobid=work-6967802218b44f4dace8e3a8755cf3d9&enc=db5c2413ac1367c5ed28b4cfa5194318&ktoken=c0bf3b45e0b3e625e377cae3b77e1cfa&mooc2=0&skipHeader=true&originJobId=null","status":true}
+	//提交作业失败的话{"msg" : "作业提交失败！","status" : false}
+	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
 }
