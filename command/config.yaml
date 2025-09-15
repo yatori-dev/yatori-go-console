@@ -14,13 +14,13 @@ setting:
     url: "http://localhost:8083" # 外部题库对接接口，用于外部对接题库操作，用于填写对应题库服务端url链接，使用时请严格遵循请求规范，对接请求规范请转至官方文档：https://yatori-dev.github.io/yatori-docs/bank-interface-api/docs.html
 
 users:
-  - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE
+  - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE、码上研训：KETANGX
     url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
     account: "账号" #账号
     password: "密码" #密码
     isProxy: 0 # 是否开启代理，0为关闭，1为开启
     coursesCustom:
-      videoModel: 1 #刷视频模式，0代表不刷，1代表普通模式，2代表暴力模式，3（英华平台代表去红模式，学习通平台代表多课程同时进行模式）
+      videoModel: 1 #刷视频模式，0代表不刷，1代表普通模式（码上研训平台默认就是秒刷），2代表暴力模式，3（英华平台代表去红模式，学习通平台代表多课程同时进行模式）
       autoExam: 0 #是否自动考试，0代表不考试，1代表AI考试,2代表外部题库对接考试
       examAutoSubmit: 1 #是否考完试自动提交试卷，0代表不自动交卷，1代表自动交卷，2智能提交（目前只支持学习通，只要不留空那么就直接提交，如果有留空的题则只会保存答题）
       includeCourses: []  #include和exclude填一个即可，include代表只有这里面的课程才刷，填课程名称，比如["xxxx","xxxx"]

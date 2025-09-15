@@ -1,17 +1,19 @@
 package logic
 
 import (
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
-	"gopkg.in/yaml.v3"
 	"os"
 	"strings"
 	"sync"
 	"yatori-go-console/config"
 	"yatori-go-console/logic/cqie"
 	"yatori-go-console/logic/enaea"
+	"yatori-go-console/logic/ketangx"
 	"yatori-go-console/logic/xuexitong"
 	"yatori-go-console/logic/yinghua"
 	utils2 "yatori-go-console/utils"
+
+	lg "github.com/yatori-dev/yatori-go-core/utils/log"
+	"gopkg.in/yaml.v3"
 )
 
 func fileExists(fileName string) bool {
@@ -118,6 +120,8 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	cqieOpertation := cqie.UserLoginOperation(cqieAccount)
 	xueXiTongAccount := xuexitong.FilterAccount(configData)
 	xueXiTongOperation := xuexitong.UserLoginOperation(xueXiTongAccount)
+	ketangxAccount := ketangx.FilterAccount(configData)
+	ketangxOperation := ketangx.UserLoginOperation(ketangxAccount)
 
 	//统一刷课---------------------------------------------------------------------
 	//英华
@@ -141,6 +145,12 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	platformLock.Add(1)
 	go func() {
 		xuexitong.RunBrushOperation(configData.Setting, xueXiTongAccount, xueXiTongOperation) //英华统一刷课模块
+		platformLock.Done()
+	}()
+	//码上研训
+	platformLock.Add(1)
+	go func() {
+		ketangx.RunBrushOperation(configData.Setting, ketangxAccount, ketangxOperation) //码上研训统一刷课模块
 		platformLock.Done()
 	}()
 	platformLock.Wait()

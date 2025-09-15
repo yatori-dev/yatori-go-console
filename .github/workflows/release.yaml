@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.7-Beta.13'  # Default tag name
+        default: 'v2.5.8-Beta.1'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -24,9 +24,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化ENAEA学习公社
-    - [👏] 优化学习通AI答题最大匹配度算法
-    - [👏] 优化学习通部分视屏容易触发人脸问题
+    - [👏] 支持新平台码上研训平台且支持秒刷（默认普通模式就是秒刷）
     
     注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
 
