@@ -24,7 +24,7 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 支持新平台码上研训平台且支持秒刷（默认普通模式就是秒刷）
+    - [👏] 学习通支持外置题库答题（[quesbank](https://github.com/yatori-dev/yatori-go-quesbank)）
     
     注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
 

@@ -374,6 +374,7 @@ func AnswerFixedPattern(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 		if judge.Answers != nil {
 			selectAnswer := []string{}
 			for _, answer := range judge.Answers {
+				answer = strings.ReplaceAll(answer, "对", "正确")
 				selectAnswer = append(selectAnswer, qutils.SimilarityArrayAnswer(answer, []string{"正确", "错误"}))
 			}
 			judges[i].Answers = selectAnswer
@@ -721,40 +722,64 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Users, set
 	//选择题
 	for i := range questionAction.Choice {
 		q := &questionAction.Choice[i] // 获取对应选项
-		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-			XueXChoiceQue: *q,
-		})
+		switch user.CoursesCustom.AutoExam {
+		case 1:
+			message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+				XueXChoiceQue: *q,
+			})
 
-		aiSetting := setting.AiSetting //获取AI设置
-		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+			aiSetting := setting.AiSetting //获取AI设置
+			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+		case 2:
+			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		}
+
 	}
 	//判断题
 	for i := range questionAction.Judge {
 		q := &questionAction.Judge[i] // 获取对应选项
-		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-			XueXJudgeQue: *q,
-		})
+		switch user.CoursesCustom.AutoExam {
+		case 1:
+			message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+				XueXJudgeQue: *q,
+			})
 
-		aiSetting := setting.AiSetting //获取AI设置
-		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+			aiSetting := setting.AiSetting //获取AI设置
+			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+		case 2:
+			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		}
+
 	}
 	//填空题
 	for i := range questionAction.Fill {
 		q := &questionAction.Fill[i] // 获取对应选项
-		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-			XueXFillQue: *q,
-		})
-		aiSetting := setting.AiSetting //获取AI设置
-		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+		switch user.CoursesCustom.AutoExam {
+		case 1:
+			message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+				XueXFillQue: *q,
+			})
+			aiSetting := setting.AiSetting //获取AI设置
+			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+		case 2:
+			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		}
+
 	}
 	//简答题
 	for i := range questionAction.Short {
 		q := &questionAction.Short[i] // 获取对应选项
-		message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
-			XueXShortQue: *q,
-		})
-		aiSetting := setting.AiSetting //获取AI设置
-		q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+		switch user.CoursesCustom.AutoExam {
+		case 1:
+			message := xuexitong.AIProblemMessage(q.Type.String(), q.Text, entity.ExamTurn{
+				XueXShortQue: *q,
+			})
+			aiSetting := setting.AiSetting //获取AI设置
+			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+		case 2:
+			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		}
+
 	}
 
 	var resultStr string
