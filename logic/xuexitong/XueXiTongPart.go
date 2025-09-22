@@ -17,6 +17,7 @@ import (
 	"github.com/yatori-dev/yatori-go-core/api/entity"
 	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/que-core/aiq"
+	"github.com/yatori-dev/yatori-go-core/que-core/external"
 	"github.com/yatori-dev/yatori-go-core/utils"
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"github.com/yatori-dev/yatori-go-core/utils/qutils"
@@ -237,12 +238,21 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 
 		//作业刷取
 		if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
-			//检测AI可用性
-			err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
-			if err2 != nil {
-				lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
-				os.Exit(0)
+
+			if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
+				err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+				if err2 != nil {
+					lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
+					os.Exit(0)
+				}
+			} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
+				err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+				if err2 != nil {
+					lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "外挂题库不可用，错误信息："+err2.Error())
+					os.Exit(0)
+				}
 			}
+
 			for _, workDTO := range workDTOs {
 				//以手机端拉取章节卡片数据
 				mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
@@ -795,18 +805,31 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Users, set
 			resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
 			//如果提交失败那么直接输出AI答题的文本
 			if gojsonq.New().JSONString(resultStr).Find("status") == false {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
+				if user.CoursesCustom.AutoExam == 1 {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
+				} else if user.CoursesCustom.AutoExam == 2 {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "外挂题库答题保存失败,返回信息："+resultStr, " 外挂题库答题信息：", questionAction.String())
+				}
 
 			}
 		} else {
 			//AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
 			resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
 			if gojsonq.New().JSONString(resultStr).Find("status") == false {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题提交失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
+				if user.CoursesCustom.AutoExam == 1 {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
+				} else if user.CoursesCustom.AutoExam == 2 {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.BoldRed, "外挂题库答题保存失败,返回信息："+resultStr, " 外挂题库答题信息：", questionAction.String())
+				}
 			}
 		}
 	}
 	//提交试卷成功的话{"msg":"success!","stuStatus":4,"backUrl":"","url":"/mooc-ans/api/work?courseid=250215285&workId=b63d4e7466624ace9c382cd112c9c95a&clazzId=125521307&knowledgeid=951783044&ut=s&type=&submit=true&jobid=work-6967802218b44f4dace8e3a8755cf3d9&enc=db5c2413ac1367c5ed28b4cfa5194318&ktoken=c0bf3b45e0b3e625e377cae3b77e1cfa&mooc2=0&skipHeader=true&originJobId=null","status":true}
 	//提交作业失败的话{"msg" : "作业提交失败！","status" : false}
-	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
+	if user.CoursesCustom.AutoExam == 1 {
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
+	} else if user.CoursesCustom.AutoExam == 2 {
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "章节作业外挂题库答题完毕,服务器返回信息：", resultStr)
+	}
+
 }
