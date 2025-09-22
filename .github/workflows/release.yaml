@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.8-Beta.2'  # Default tag name
+        default: 'v2.5.8-Beta.3'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -24,7 +24,8 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 学习通支持外置题库答题（[quesbank](https://github.com/yatori-dev/yatori-go-quesbank)）
+    - [‍🔧] 学习通修复拉取章节信息触发人脸问题
+    - [‍🔧] 学习通修复外置题库功能部分BUG
     
     注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
 
