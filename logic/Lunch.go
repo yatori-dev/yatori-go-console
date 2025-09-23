@@ -8,6 +8,7 @@ import (
 	"yatori-go-console/logic/cqie"
 	"yatori-go-console/logic/enaea"
 	"yatori-go-console/logic/ketangx"
+	"yatori-go-console/logic/welearn"
 	"yatori-go-console/logic/xuexitong"
 	"yatori-go-console/logic/yinghua"
 	utils2 "yatori-go-console/utils"
@@ -122,6 +123,8 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	xueXiTongOperation := xuexitong.UserLoginOperation(xueXiTongAccount)
 	ketangxAccount := ketangx.FilterAccount(configData)
 	ketangxOperation := ketangx.UserLoginOperation(ketangxAccount)
+	welearnAccount := welearn.FilterAccount(configData)
+	welearnOperation := welearn.UserLoginOperation(welearnAccount)
 
 	//统一刷课---------------------------------------------------------------------
 	//英华
@@ -151,6 +154,12 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	platformLock.Add(1)
 	go func() {
 		ketangx.RunBrushOperation(configData.Setting, ketangxAccount, ketangxOperation) //码上研训统一刷课模块
+		platformLock.Done()
+	}()
+	//WeLearn
+	platformLock.Add(1)
+	go func() {
+		welearn.RunBrushOperation(configData.Setting, welearnAccount, welearnOperation) //码上研训统一刷课模块
 		platformLock.Done()
 	}()
 	platformLock.Wait()

@@ -24,6 +24,9 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
+    - [👏] 新版本支持新平台随行课堂
+    - [👏] 随行课堂支持秒刷完成度
+    - [👏] 随行课堂支持学时提交累计
     - [‍🔧] 学习通修复拉取章节信息触发人脸问题
     - [‍🔧] 学习通修复外置题库功能部分BUG
     
