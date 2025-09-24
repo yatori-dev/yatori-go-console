@@ -11,7 +11,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.8-Beta.3'  # Default tag name
+        default: 'v2.5.8-Beta.4'  # Default tag name
 
 permissions:
   contents: write  # Allow writing to GitHub releases
@@ -24,11 +24,8 @@ env:
   VERSION: ${{ github.ref_name }}  # Dynamic version based on the tag name
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 新版本支持新平台随行课堂
-    - [👏] 随行课堂支持秒刷完成度
-    - [👏] 随行课堂支持学时提交累计
-    - [‍🔧] 学习通修复拉取章节信息触发人脸问题
-    - [‍🔧] 学习通修复外置题库功能部分BUG
+    - [👏] 优化学习通日志显示
+    - [👏] 添加Linux arm64架构打包
     
     注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
 
@@ -53,8 +50,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'  # Use Go version from go.mod
-          cache: true  # Enable dependency caching
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Get dependencies
         run: |
@@ -65,33 +62,42 @@ jobs:
           go env -w GOSUMDB=off
           go mod tidy
 
-      - name: Prepare Release Directory #创建压缩目录
-        run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-amd64-release
-
       # Build Linux AMD64
       - name: Build Linux AMD64
         run: |
+          mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-amd64-release
           CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
             -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-amd64-release/${{ env.PROJECT_NAME }}
-      - name: Create release tar
-        run: | # 打包发布版本压缩包
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-amd64-release
           cd ${{ env.RELEASE_DIR }}
           tar -czvf yatori-go-console.${{env.VERSION}}-linux-amd64-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-amd64-release
           rm -rf yatori-go-console.${{env.VERSION}}-linux-amd64-release
           cd ..
+
+      # Build Linux ARM64
+      - name: Build Linux ARM64
+        run: |
+          mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-arm64-release
+          CGO_ENABLED=1 GOOS=linux GOARCH=arm64 CC=aarch64-linux-gnu-gcc go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-arm64-release/${{ env.PROJECT_NAME }}
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-arm64-release
+          cd ${{ env.RELEASE_DIR }}
+          tar -czvf yatori-go-console.${{env.VERSION}}-linux-arm64-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-arm64-release
+          rm -rf yatori-go-console.${{env.VERSION}}-linux-arm64-release
+          cd ..
+
       # Create GitHub Release
       - name: Create GitHub Release with custom notes
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ${{ env.RELEASE_DIR }}/*  # 文件发布目录
-          #          generate_release_notes: true  # 自动发行说明
-          draft: false  # 不创建草稿发布
-          prerelease: false  # 不标记为预发布
-          tag_name: ${{ env.VERSION }}  # 从标签中使用动态版本
-          body: ${{env.RELEASE_NOTICES}} # 使用读取到的发布说明内容
+          files: ${{ env.RELEASE_DIR }}/*  # 上传所有 tar.gz 包
+          draft: false
+          prerelease: false
+          tag_name: ${{ env.VERSION }}
+          body: ${{ env.RELEASE_NOTICES }}
+
 
   # Windows build job
   build-windows:
