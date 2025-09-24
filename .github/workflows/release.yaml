@@ -94,9 +94,16 @@ jobs:
 
       # Build Linux
       - name: Build Linux
-        if: runner.os=='Linux'
+        if: runner.os=='Linux' && matrix.arch=='amd64'
         run: |
           CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+
+      # Build Linux
+      - name: Build Linux
+        if: runner.os=='Linux' && matrix.arch=='arm64'
+        run: |
+          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
             -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
 
       # Build Windows
