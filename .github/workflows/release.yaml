@@ -58,7 +58,9 @@ jobs:
       - name: Install dependencies (Linux only)
         if: runner.os == 'Linux' && matrix.arch=='arm64'
         run: |
+          sudo dpkg --add-architecture arm64
           sudo apt-get update
+          sudo apt-get install -y libc6:arm64 libc6-dev:arm64
           sudo apt-get install -y libasound2-dev:arm64 pkg-config gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
       # Set up Go
