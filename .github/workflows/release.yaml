@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.8-Beta.3'
+        default: 'v2.5.8-Beta.4'
 
 permissions:
   contents: write
@@ -20,13 +20,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 新版本支持新平台随行课堂
-    - [👏] 随行课堂支持秒刷完成度
-    - [👏] 随行课堂支持学时提交累计
-    - [‍🔧] 学习通修复拉取章节信息触发人脸问题
-    - [‍🔧] 学习通修复外置题库功能部分BUG
-    
-    注：此版本答题功能正在重构中，所以可能无法正常答题，若想要正常答题请先使用老版本，以及如果有用户提供账号测试开发新版本答题将感激不尽。
+    - [👏] 优化学习通日志显示
 
 jobs:
   build:
@@ -61,14 +55,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
 
+      # Set up Go
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: 'go.mod'  # Use Go version from go.mod
+          cache: true  # Enable dependency caching
 
       - name: Get dependencies
-        if: runner.os=='Linux'
+        if: runner.os == 'Linux'
         run: |
           export GOPROXY=direct
           export GONOSUMDB=*
@@ -76,6 +71,7 @@ jobs:
           go clean -modcache
           go env -w GOSUMDB=off
           go mod tidy
+
       - name: Get dependencies
         if: runner.os=='Windows'
         run: |
@@ -86,36 +82,51 @@ jobs:
           go get -u ./...
           go mod tidy
 
-      - name: Prepare Release Directory
-        run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
+      - name: Prepare Release Directory #创建压缩目录
+        run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
 
-      - name: Build
-        run: |
-          CGO_ENABLED=1 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.arch }} go build -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}${{ matrix.goos == 'windows' && '.exe' || '' }}
 
-      - name: Package
+      # Build Linux
+      - name: Build Linux
+        if: runner.os=='Linux'
         run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            copy command\\config.yaml ${{ env.RELEASE_DIR }}\\yatori-go-console.${{ env.VERSION }}-windows-${{ matrix.arch }}-release
-            copy command\\start.bat ${{ env.RELEASE_DIR }}\\yatori-go-console.${{ env.VERSION }}-windows-${{ matrix.arch }}-release
-            cd ${{ env.RELEASE_DIR }}
-            Compress-Archive -Path "yatori-go-console.${{ env.VERSION }}-windows-${{ matrix.arch }}-release" -DestinationPath "yatori-go-console.${{ env.VERSION }}-windows-${{ matrix.arch }}-release.zip"
-            Remove-Item -Recurse -Force "yatori-go-console.${{ env.VERSION }}-windows-${{ matrix.arch }}-release"
-            cd ..
-          else
-            cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-            cd ${{ env.RELEASE_DIR }}
-            tar -czvf yatori-go-console.${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release.tar.gz yatori-go-console.${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-            rm -rf yatori-go-console.${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-            cd ..
-          fi
+          CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+
+      # Build Windows
+      - name: Build Windows
+        if: runner.os == 'Windows'
+        run: |
+          set CGO_ENABLED=1
+          set GOOS=windows 
+          set GOARCH=${{matrix.arch}} 
+          go build -o ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release\${{ env.PROJECT_NAME }}.exe
+
+      - name: Create release tar
+        if: runner.os=='Linux'
+        run: | # 打包发布版本压缩包
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
+          cd ${{ env.RELEASE_DIR }}
+          tar -czvf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
+          rm -rf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
+          cd ..
+
+      - name: Create Release zip
+        if: runner.os=='Windows'
+        run: |
+          copy command\config.yaml ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
+          copy command\start.bat ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
+          cd ${{ env.RELEASE_DIR }}
+          Compress-Archive -Path "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release" -DestinationPath "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release.zip"
+          Remove-Item -Recurse -Force "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release"
+          cd ..
 
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ${{ env.RELEASE_DIR }}/*
+          files: ${{ env.RELEASE_DIR }}/*  # 文件发布目录
           tag_name: ${{ env.VERSION }}
           body: ${{ env.RELEASE_NOTICES }}
           draft: false
