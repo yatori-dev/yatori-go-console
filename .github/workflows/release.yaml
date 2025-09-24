@@ -32,9 +32,9 @@ jobs:
           - os: ubuntu-latest
             arch: amd64
             goos: linux
-          - os: ubuntu-latest
-            arch: arm64
-            goos: linux
+#          - os: ubuntu-latest
+#            arch: arm64
+#            goos: linux
           - os: windows-latest
             arch: amd64
             goos: windows
