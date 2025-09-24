@@ -21,6 +21,8 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [👏] 优化学习通日志显示
+    - [👏] 优化学习通过人脸
+    - [👏] 更新支持秘塔AI搜题
 
 jobs:
   build:
