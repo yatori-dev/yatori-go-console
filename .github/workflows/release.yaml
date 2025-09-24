@@ -44,7 +44,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libasound2-dev pkg-config gcc-aarch64-linux-gnu
+          sudo apt-get install -y libasound2-dev pkg-config \
+            gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
 
       # Set up Go
       - name: Set up Go
@@ -84,6 +85,18 @@ jobs:
           cd ${{ env.RELEASE_DIR }}
           tar -czvf yatori-go-console.${{env.VERSION}}-linux-arm64-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-arm64-release
           rm -rf yatori-go-console.${{env.VERSION}}-linux-arm64-release
+          cd ..
+
+      # Build Linux ARMv7 (32-bit)
+      - name: Build Linux ARMv7
+        run: |
+          mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-armv7-release
+          CGO_ENABLED=1 GOOS=linux GOARCH=arm GOARM=7 CC=arm-linux-gnueabihf-gcc go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-armv7-release/${{ env.PROJECT_NAME }}
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-armv7-release
+          cd ${{ env.RELEASE_DIR }}
+          tar -czvf yatori-go-console.${{env.VERSION}}-linux-armv7-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-armv7-release
+          rm -rf yatori-go-console.${{env.VERSION}}-linux-armv7-release
           cd ..
 
       # Create GitHub Release
