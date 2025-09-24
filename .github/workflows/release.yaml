@@ -71,7 +71,7 @@ jobs:
         run: |
           go env -w GOPROXY=direct
           go env -w GOSUMDB=off
-          rm -f go.sum
+          rm -rf go.sum
           go clean -modcache
           go mod tidy
 
