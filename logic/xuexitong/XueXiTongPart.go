@@ -262,7 +262,9 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
 					continue
 				}
-				if len(questionAction.Short) == 0 && len(questionAction.Choice) == 0 && len(questionAction.Judge) == 0 && len(questionAction.Fill) == 0 {
+				if len(questionAction.Short) == 0 && len(questionAction.Choice) == 0 &&
+					len(questionAction.Judge) == 0 && len(questionAction.Fill) == 0 &&
+					len(questionAction.TermExplanation) == 0 && len(questionAction.Essay) == 0 {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该作业任务点无题目，已自动跳过")
 					continue
 				}
@@ -758,7 +760,7 @@ func ExecuteBBS(cache *xuexitongApi.XueXiTUserCache, setting config.Setting, cou
 	}
 
 	if gojsonq.New().JSONString(report).Find("status").(bool) {
-		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】 >>> ", "讨论任务点状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(report).Find("msg").(bool)), lg.Default, " ")
+		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】 >>> ", "讨论任务点状态：", lg.Green, lg.Green, gojsonq.New().JSONString(report).Find("msg").(string), lg.Default, " ")
 	}
 }
 
