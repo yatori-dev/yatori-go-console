@@ -248,7 +248,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
 				err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
 				if err2 != nil {
-					lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "外挂题库不可用，错误信息："+err2.Error())
+					lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
 					os.Exit(0)
 				}
 			}
@@ -259,13 +259,13 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				flag, _ := workDTO.AttachmentsDetection(mobileCard)
 				questionAction := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
 				if !flag {
-					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
 					continue
 				}
 				if len(questionAction.Short) == 0 && len(questionAction.Choice) == 0 &&
 					len(questionAction.Judge) == 0 && len(questionAction.Fill) == 0 &&
 					len(questionAction.TermExplanation) == 0 && len(questionAction.Essay) == 0 {
-					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该作业任务点无题目，已自动跳过")
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该作业任务点无题目，已自动跳过")
 					continue
 				}
 				//if !strings.Contains(questionAction.Title, "2.1小节测验") {
@@ -307,7 +307,20 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		}
 
 		//讨论任务点刷取
-		if bbsDTOs != nil {
+		if bbsDTOs != nil && user.CoursesCustom.AutoExam != 0 {
+			if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
+				err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+				if err2 != nil {
+					lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
+					os.Exit(0)
+				}
+			} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
+				err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+				if err2 != nil {
+					lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
+					os.Exit(0)
+				}
+			}
 			for _, bbsDTO := range bbsDTOs {
 				card, _, err2 := xuexitong.PageMobileChapterCardAction(
 					userCache, key, courseId, bbsDTO.KnowledgeID, bbsDTO.CardIndex, courseItem.Cpi)
