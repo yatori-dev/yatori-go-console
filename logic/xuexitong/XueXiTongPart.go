@@ -200,8 +200,8 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "该视屏非任务点或已完成，已自动跳过")
 					continue
 				}
-				videoDTO.Enc = enc             //赋值enc值
-				if videoDTO.IsPassed == true { //如果已经通过了，那么直接跳过
+				videoDTO.Enc = enc                                        //赋值enc值
+				if videoDTO.IsPassed == true && videoDTO.IsJob == false { //如果已经通过了，那么直接跳过
 					continue
 				} else if videoDTO.IsPassed == false && videoDTO.Attachment == nil && videoDTO.JobID == "" && videoDTO.Duration <= videoDTO.PlayTime { //非任务点如果完成了
 					continue
