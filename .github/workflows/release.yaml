@@ -13,7 +13,9 @@ on:
 
 permissions:
   contents: write
-
+#  - [👏]
+#  - [‍🔧]
+#  - [☠️]
 env:
   PROJECT_NAME: ${{ github.event.repository.name }}
   BUILD_DATE: ${{ github.run_id }}
@@ -22,6 +24,7 @@ env:
   RELEASE_NOTICES: |
     - [👏] 删除非必要日志显示
     - [👏] 优化AI答题策略
+    - [‍🔧] 修复学习通部分文档任务点可能不学习问题
 
 
 jobs:
