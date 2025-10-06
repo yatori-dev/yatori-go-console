@@ -7,6 +7,7 @@ import (
 	"yatori-go-console/config"
 	"yatori-go-console/logic/cqie"
 	"yatori-go-console/logic/enaea"
+	"yatori-go-console/logic/icve"
 	"yatori-go-console/logic/ketangx"
 	"yatori-go-console/logic/welearn"
 	"yatori-go-console/logic/xuexitong"
@@ -125,6 +126,8 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	ketangxOperation := ketangx.UserLoginOperation(ketangxAccount)
 	welearnAccount := welearn.FilterAccount(configData)
 	welearnOperation := welearn.UserLoginOperation(welearnAccount)
+	icveAccount := icve.FilterAccount(configData)
+	icveOperation := icve.UserLoginOperation(icveAccount)
 
 	//统一刷课---------------------------------------------------------------------
 	//英华
@@ -160,6 +163,12 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	platformLock.Add(1)
 	go func() {
 		welearn.RunBrushOperation(configData.Setting, welearnAccount, welearnOperation) //码上研训统一刷课模块
+		platformLock.Done()
+	}()
+	//WeLearn
+	platformLock.Add(1)
+	go func() {
+		icve.RunBrushOperation(configData.Setting, icveAccount, icveOperation) //码上研训统一刷课模块
 		platformLock.Done()
 	}()
 	platformLock.Wait()
