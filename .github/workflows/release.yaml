@@ -22,9 +22,10 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 支持新平台（智慧职教）
+    - [👏] 更新支持新平台智慧职教
+    - [👏] 更新支持智慧职教秒刷（默认秒刷模式）
 
-
+    注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
 jobs:
   build:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
