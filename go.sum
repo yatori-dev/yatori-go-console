@@ -2,6 +2,8 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Changbaiqi/ddddocr-go v0.0.3 h1:3/TDgis9LlIJ46+mCbPqCfsfI1n3E6jig73brTG9hGY=
 github.com/Changbaiqi/ddddocr-go v0.0.3/go.mod h1:J5UfCvmxK+A8emorMD/ao5Xa2qb+JnpezqweCP+Yb6w=
+github.com/Changbaiqi/ddddocr-go v0.0.4 h1:PFhh1xJtFfsDvnznsN4/JjN9V9H79rpFKjWAhAl9FLY=
+github.com/Changbaiqi/ddddocr-go v0.0.4/go.mod h1:J5UfCvmxK+A8emorMD/ao5Xa2qb+JnpezqweCP+Yb6w=
 github.com/DATA-DOG/go-sqlmock v1.3.3/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
 github.com/PuerkitoBio/goquery v1.10.2 h1:7fh2BdHcG6VFZsK7toXBT/Bh1z5Wmy8Q9MV9HqT2AM8=
 github.com/PuerkitoBio/goquery v1.10.2/go.mod h1:0guWGjcLu9AYC7C1GHnpysHy056u9aEkUHwhdnePMCU=
@@ -125,7 +127,10 @@ github.com/yatori-dev/yatori-go-core v1.9.1-0.20251007160800-8edc85956c5f h1:Yao
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251007160800-8edc85956c5f/go.mod h1:O6VM+8ttZEuI7BwrCWYDKnFlJYx2vqfY7s5ZAGpWAvo=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251008070027-11ab5700edb8 h1:ftyTMfySFGkcux0gRvsf0fOPMg6daSmyEB2l6Jwjbf4=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251008070027-11ab5700edb8/go.mod h1:O6VM+8ttZEuI7BwrCWYDKnFlJYx2vqfY7s5ZAGpWAvo=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251008132543-975c40789abd h1:/9ZSWYu3QsjQCWG8oi9HjvTd2iZKZEuRE9QEM1SiEj0=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251008132543-975c40789abd/go.mod h1:O6VM+8ttZEuI7BwrCWYDKnFlJYx2vqfY7s5ZAGpWAvo=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251008173534-1875183a5876 h1:EeAXdpSs3G6dZrZjmwHh46q42fDduS5keggq9iCTFkY=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251008173534-1875183a5876/go.mod h1:SoJZBOxnu/YazLKk/4cK7FFdqBmC8on+WH8lsYyGlzw=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
