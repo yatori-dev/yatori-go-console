@@ -41,6 +41,9 @@ jobs:
           - os: macos-latest
             arch: amd64
             goos: darwin
+          - os: macos-latest
+            arch: arm64
+            goos: darwin
           # 如果需要 armv7 (32位) 交叉编译，加下面一行
           # - os: ubuntu-latest
           #   arch: arm
@@ -147,7 +150,7 @@ jobs:
           Remove-Item -Recurse -Force "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release"
           cd ..
 
-      # 📦 打包 macOS tar.gz
+      # 📦 打包 macOS (amd64+arm64)
       - name: Create macOS Release tar
         if: matrix.goos == 'darwin'
         run: |
