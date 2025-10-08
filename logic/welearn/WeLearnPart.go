@@ -131,21 +131,21 @@ func nodeCompleteAction(setting config.Setting, user *config.Users, UserCache *w
 		return
 	}
 	if !node.IsVisible {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Name+"】", lg.Yellow, "该任务点还未解锁，已自动跳过")
+		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Yellow, "该任务点还未解锁，已自动跳过")
 		return
 	}
 	//如果完成了的直接跳过
-	if node.IsComplete == "completed" {
+	if node.IsComplete == "completed" || node.IsComplete == "已完成" {
 		return
 	}
 	//action, err := ketangx.CompleteVideoAction(UserCache, &node)
 	err := action.WeLearnCompletePointAction(UserCache, *course, node)
 	if err != nil {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Name+"】", lg.BoldRed, "学习异常：", err.Error())
+		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.BoldRed, "学习异常：", err.Error())
 		return
 	}
 
-	lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Name+"】", lg.Green, "学习完毕")
+	lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Green, "学习完毕")
 
 }
 
