@@ -76,7 +76,7 @@ jobs:
           go-version-file: 'go.mod'  # Use Go version from go.mod
           cache: true  # Enable dependency caching
 
-      - name: Get dependencies
+      - name: Get dependencies(Linux)
         if: runner.os == 'Linux'
         run: |
           export GOPROXY=direct
@@ -86,7 +86,7 @@ jobs:
           go env -w GOSUMDB=off
           go mod tidy
 
-      - name: Get dependencies
+      - name: Get dependencies(MacOS)
         if: runner.os == 'macOS'
         run: |
           export GOPROXY=direct
@@ -96,7 +96,7 @@ jobs:
           go env -w GOSUMDB=off
           go mod tidy
 
-      - name: Get dependencies
+      - name: Get dependencies(Windows)
         if: runner.os=='Windows'
         run: |
           set GOPROXY=direct
