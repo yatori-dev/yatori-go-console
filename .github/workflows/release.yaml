@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.9-Beta.4'
+        default: 'v2.5.9-Beta.5'
 
 permissions:
   contents: write
@@ -22,7 +22,8 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化ddddocr移植库onnxruntime库以及加载结构
+    - [‍🔧] 修复Welearn平台始终刷取第一章节的问题
+    - [👏] 优化Welearn平台日志显示
 
     注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
 jobs:
