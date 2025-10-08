@@ -87,6 +87,16 @@ jobs:
           go mod tidy
 
       - name: Get dependencies
+        if: runner.os == 'macOS'
+        run: |
+          export GOPROXY=direct
+          export GONOSUMDB=*
+          rm -rf go.sum
+          go clean -modcache
+          go env -w GOSUMDB=off
+          go mod tidy
+
+      - name: Get dependencies
         if: runner.os=='Windows'
         run: |
           set GOPROXY=direct
