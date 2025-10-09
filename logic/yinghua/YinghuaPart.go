@@ -390,9 +390,9 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 		}
 		if user.CoursesCustom.ExamAutoSubmit == 1 {
 			//打印最终分数
-			s, error := yinghua.WorkedFinallyScoreAction(userCache, work)
-			if error != nil {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, error)
+			s, err1 := yinghua.WorkedFinallyScoreAction(userCache, work)
+			if err1 != nil {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, err1)
 				continue
 			}
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "章节作业AI答题完毕，最高分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", work.Score))
@@ -455,9 +455,9 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 
 		if user.CoursesCustom.ExamAutoSubmit == 1 {
 			//打印最终分数
-			s, error := yinghua.ExamFinallyScoreAction(userCache, exam)
-			if error != nil {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, error.Error())
+			s, err1 := yinghua.ExamFinallyScoreAction(userCache, exam)
+			if err1 != nil {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, err1.Error())
 				continue
 			}
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】", lg.Green, "AI考试完毕,最终分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", exam.Score))
