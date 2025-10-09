@@ -22,8 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复Welearn平台始终刷取第一章节的问题
-    - [👏] 优化Welearn平台日志显示
+    - [‍🔧] 修复英华无法正常答题bug
 
     注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
 jobs:
