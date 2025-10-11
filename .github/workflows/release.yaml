@@ -22,7 +22,8 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复英华填空题和
+    - [‍🔧] 修复英华填空题和简答题报错问题
+    - [‍🔧] 优化学习通部分账号做题报错问题
 
     注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
 jobs:
