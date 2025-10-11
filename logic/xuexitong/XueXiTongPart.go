@@ -257,7 +257,11 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				//以手机端拉取章节卡片数据
 				mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
 				flag, _ := workDTO.AttachmentsDetection(mobileCard)
-				questionAction := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
+				questionAction, err2 := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
+				if err2 != nil && strings.Contains(err2.Error(), "已截止，不能作答") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该试卷已到截止时间，已自动跳过")
+					continue
+				}
 				if !flag {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
 					continue
