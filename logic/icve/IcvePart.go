@@ -42,15 +42,27 @@ func UserLoginOperation(users []config.Users) []*icve.IcveUserCache {
 	var UserCaches []*icve.IcveUserCache
 	for _, user := range users {
 		if user.AccountType == "ICVE" {
-			cache := &icve.IcveUserCache{Account: user.Account, Password: user.Password}
-			//err := action.WeLearnLoginAction(cache) // 登录
-			err := action.IcveLoginAction(cache)
-			if err != nil {
-				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Red, err.Error())
-				log.Fatal(err) //登录失败则直接退出
+			if len(user.Password) > 30 {
+				cache := &icve.IcveUserCache{Account: user.Account, Password: user.Password}
+				err := action.IcveCookieLogin(cache)
+				if err != nil {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Red, err.Error())
+					log.Fatal(err) //登录失败则直接退出
+				}
+				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
+				UserCaches = append(UserCaches, cache)
+			} else {
+				cache := &icve.IcveUserCache{Account: user.Account, Password: user.Password}
+
+				err := action.IcveLoginAction(cache)
+				if err != nil {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Red, err.Error())
+					log.Fatal(err) //登录失败则直接退出
+				}
+				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
+				UserCaches = append(UserCaches, cache)
 			}
-			lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
-			UserCaches = append(UserCaches, cache)
+
 		}
 	}
 	return UserCaches
