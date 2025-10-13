@@ -17,7 +17,7 @@ users:
   - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE、码上研训：KETANGX、Welearn（随行课堂）：WELEARN、智慧职教：ICVE
     url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
     account: "账号" #账号
-    password: "密码" #密码
+    password: "密码" #密码，智慧职教推荐使用Cookie登录方式
     isProxy: 0 # 是否开启代理，0为关闭，1为开启
     coursesCustom:
       weLearnTime: 10-30 # 这个配置是Welearn才用的，不是Welearn可以把这个删掉代表的是welearn刷学时模式下对应任务点采用xx分钟到xx分钟随机学习时间的分配，比如10-30意思就是在10分钟到30分钟随机取值进行学习
