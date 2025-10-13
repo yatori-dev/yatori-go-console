@@ -3,6 +3,9 @@ package welearn
 import (
 	"fmt"
 	"log"
+	"math/rand"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"yatori-go-console/config"
@@ -169,6 +172,21 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.Users, UserCache 
 		fmt.Println(err)
 	}
 	endTime := 1600
+	//获取配置中的学时
+	learnTime := user.CoursesCustom.WeLearnTime
+	if learnTime != "" {
+		a, err1 := strconv.Atoi(strings.Split(learnTime, "-")[0])
+		if err1 != nil {
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", "大哥，你", UserCache.Account, "账号的weLearnTime配置写错了，注意是xx-xx范围，当然xxx到xxx也都可以，但是xx必须是整数数字，并且前面部分的xx要大于后面的xx")
+			panic("")
+		}
+		b, err2 := strconv.Atoi(strings.Split(learnTime, "-")[1])
+		if err2 != nil {
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", "大哥，你", UserCache.Account, "账号的weLearnTime配置写错了，注意是xx-xx范围，当然xxx到xxx也都可以，但是xx必须是整数数字，并且前面部分的xx要大于后面的xx")
+			panic("")
+		}
+		endTime = (rand.Intn(b-a+1) + a) * 60 // 生成100到999之间的随机数
+	}
 	//比阈值大就直接返回
 	if totalTime > endTime {
 		return
