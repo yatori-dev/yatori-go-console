@@ -23,8 +23,8 @@ import (
 	"github.com/yatori-dev/yatori-go-core/utils/qutils"
 )
 
-var videosLock sync.WaitGroup //视频锁
-var usersLock sync.WaitGroup  //用户锁
+var nodesLock sync.WaitGroup //视频锁
+var usersLock sync.WaitGroup //用户锁
 
 // 用于过滤学习通账号
 func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
@@ -68,6 +68,9 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 // 以用户作为刷课单位的基本块
 var soundMut sync.Mutex
 
+// 用于模式3的
+var model3Caches []xuexitongApi.XueXiTUserCache
+
 func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.XueXiTUserCache) {
 	// list, err := xuexitong.XueXiTCourseDetailForCourseIdAction(cache, "261619055656961")
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
@@ -75,19 +78,33 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Red, "拉取课程失败")
 		log.Fatal(err)
 	}
-	for _, course := range courseList {
-		videosLock.Add(1)
-		// fmt.Println(course)
-		if user.CoursesCustom.VideoModel == 3 {
-			go func() {
-				nodeListStudy(setting, user, cache, &course)
-			}()
-		} else {
-			nodeListStudy(setting, user, cache, &course)
+	//如果是多节点模式
+	if user.CoursesCustom.VideoModel == 3 {
+
+		for i := 0; i < 3; i++ {
+			if i == 0 {
+				model3Caches = append(model3Caches, *cache)
+				continue
+			}
+			model3Caches = append(model3Caches, *cache)
+			xuexitong.ReLogin(&model3Caches[i])
+			time.Sleep(5 * time.Second) //隔一下，避免登录太快
 		}
 
 	}
-	videosLock.Wait()
+	for _, course := range courseList {
+		nodesLock.Add(1)
+		// fmt.Println(course)
+		if user.CoursesCustom.VideoModel == 1 {
+			nodeListStudy(setting, user, cache, &course)
+		} else {
+			go func() {
+				nodeListStudy(setting, user, cache, &course)
+			}()
+		}
+
+	}
+	nodesLock.Wait()
 	lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	if setting.BasicSetting.CompletionTone == 1 { //如果声音提示开启，那么播放
 		soundMut.Lock()
@@ -102,23 +119,23 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(courseItem.CourseName, user.CoursesCustom.ExcludeCourses) {
-		videosLock.Done()
+		nodesLock.Done()
 		return
 	}
 	//包含指定课程
 	if len(user.CoursesCustom.IncludeCourses) != 0 && !config.CmpCourse(courseItem.CourseName, user.CoursesCustom.IncludeCourses) {
-		videosLock.Done()
+		nodesLock.Done()
 		return
 	}
 	//如果课程还未开课则直接退出
 	if !courseItem.IsStart {
-		videosLock.Done()
+		nodesLock.Done()
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
 		return
 	}
 	//如果该课程已经结束
 	if courseItem.State == 1 {
-		videosLock.Done()
+		nodesLock.Done()
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程已经结束，已自动跳过该课程")
 		return
 	}
@@ -129,12 +146,12 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	if err != nil {
 		if strings.Contains(err.Error(), "课程章节为空") {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
-			videosLock.Done()
+			nodesLock.Done()
 			return
 		}
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
 
-		videosLock.Done()
+		nodesLock.Done()
 		return
 		//log.Fatal()
 	}
@@ -151,7 +168,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	if err != nil {
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
 		//log.Fatal()
-		videosLock.Done()
+		nodesLock.Done()
 		return
 	}
 	var isFinished = func(index int) bool {
@@ -170,178 +187,214 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	}
 
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "正在学习该课程")
+	nodeLock := sync.WaitGroup{}
+
+	//初始化模式3用的队列
+	queue := make(chan int, len(model3Caches))
+	for i := 0; i < len(model3Caches); i++ {
+		queue <- i
+	}
+	//遍历结点
 	for index := range nodes {
 		if isFinished(index) { //如果完成了的那么直接跳过
 			continue
 		}
-		_, fetchCards, err1 := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
-		if err1 != nil {
-			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
-			//log.Fatal(err1)
-			videosLock.Done()
-			return
-		}
-		videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := entity.ParsePointDto(fetchCards)
-		if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil && liveDTOs == nil && bbsDTOs == nil {
-			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "课程对应章节无任何任务节点，已自动跳过")
-			continue
-		}
-		// 视屏类型
-		if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
-			for _, videoDTO := range videoDTOs {
-				card, enc, err2 := xuexitong.PageMobileChapterCardAction(
-					userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				videoDTO.AttachmentsDetection(card)
 
-				if !videoDTO.IsJob {
-					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "该视屏非任务点或已完成，已自动跳过")
-					continue
-				}
-				videoDTO.Enc = enc                                        //赋值enc值
-				if videoDTO.IsPassed == true && videoDTO.IsJob == false { //如果已经通过了，那么直接跳过
-					continue
-				} else if videoDTO.IsPassed == false && videoDTO.Attachment == nil && videoDTO.JobID == "" && videoDTO.Duration <= videoDTO.PlayTime { //非任务点如果完成了
-					continue
-				}
-				switch user.CoursesCustom.VideoModel {
-				case 1:
-					ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
-				case 2:
-					ExecuteVideoQuickSpeed(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) // 暴力模式
-				case 3:
-					ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多课程模式
-				}
+		if user.CoursesCustom.VideoModel == 3 {
 
-				time.Sleep(10 * time.Second)
-			}
-		}
-		// 文档类型
-		if documentDTOs != nil {
-			for _, documentDTO := range documentDTOs {
-				card, _, err2 := xuexitong.PageMobileChapterCardAction(
-					userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				documentDTO.AttachmentsDetection(card)
-				//如果不是任务或者说该任务已完成，那么直接跳过
-				if !documentDTO.IsJob {
-					continue
-				}
-				ExecuteDocument(userCache, courseItem, pointAction.Knowledge[index], &documentDTO)
-				time.Sleep(5 * time.Second)
-			}
-		}
-
-		//作业刷取
-		if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
-
-			if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
-				err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
-				if err2 != nil {
-					lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
-					os.Exit(0)
-				}
-			} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
-				err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
-				if err2 != nil {
-					lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
-					os.Exit(0)
+			//如果队列为空则堵塞
+			for {
+				if len(queue) != 0 {
+					break
 				}
 			}
-
-			for _, workDTO := range workDTOs {
-				//以手机端拉取章节卡片数据
-				mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
-				flag, _ := workDTO.AttachmentsDetection(mobileCard)
-				questionAction, err2 := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
-				if err2 != nil && strings.Contains(err2.Error(), "已截止，不能作答") {
-					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该试卷已到截止时间，已自动跳过")
-					continue
-				}
-				if !flag {
-					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
-					continue
-				}
-				if len(questionAction.Short) == 0 && len(questionAction.Choice) == 0 &&
-					len(questionAction.Judge) == 0 && len(questionAction.Fill) == 0 &&
-					len(questionAction.TermExplanation) == 0 && len(questionAction.Essay) == 0 {
-					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该作业任务点无题目，已自动跳过")
-					continue
-				}
-				//if !strings.Contains(questionAction.Title, "2.1小节测验") {
-				//	continue
-				//}
-				WorkAction(userCache, user, setting, courseItem, pointAction.Knowledge[index], questionAction)
-			}
-		}
-
-		//外链任务点刷取
-		if hyperlinkDTOs != nil {
-			for _, hyperlinkDTO := range hyperlinkDTOs {
-				card, _, err2 := xuexitong.PageMobileChapterCardAction(
-					userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				hyperlinkDTO.AttachmentsDetection(card)
-
-				ExecuteHyperlink(userCache, courseItem, pointAction.Knowledge[index], &hyperlinkDTO)
-				time.Sleep(5 * time.Second)
-			}
-		}
-		// 直播任务点刷取
-		if liveDTOs != nil {
-			for _, liveDTO := range liveDTOs {
-				card, _, err2 := xuexitong.PageMobileChapterCardAction(
-					userCache, key, courseId, liveDTO.KnowledgeID, liveDTO.CardIndex, courseItem.Cpi)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				liveDTO.AttachmentsDetection(card)
-				if !liveDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
-					continue
-				}
-				ExecuteLive(userCache, courseItem, pointAction.Knowledge[index], &liveDTO)
-				time.Sleep(5 * time.Second)
-			}
-		}
-
-		//讨论任务点刷取
-		if bbsDTOs != nil && user.CoursesCustom.AutoExam != 0 {
-			if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
-				err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
-				if err2 != nil {
-					lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
-					os.Exit(0)
-				}
-			} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
-				err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
-				if err2 != nil {
-					lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
-					os.Exit(0)
-				}
-			}
-			for _, bbsDTO := range bbsDTOs {
-				card, _, err2 := xuexitong.PageMobileChapterCardAction(
-					userCache, key, courseId, bbsDTO.KnowledgeID, bbsDTO.CardIndex, courseItem.Cpi)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				bbsDTO.AttachmentsDetection(card)
-				if !bbsDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
-					continue
-				}
-				ExecuteBBS(userCache, setting, courseItem, pointAction.Knowledge[index], &bbsDTO)
-				time.Sleep(5 * time.Second)
-			}
+			// 从队列中取一个资源（如果空则会自动阻塞）
+			idx := <-queue
+			go func(idx int, index int) {
+				nodeLock.Add(1)
+				//分配Cookie
+				nodeRun(setting, user, &model3Caches[idx], courseItem, pointAction, action, nodes, index, key, courseId)
+				// 执行完毕后归还资源
+				queue <- idx
+				nodeLock.Done()
+			}(idx, index)
+		} else {
+			nodeRun(setting, user, userCache, courseItem, pointAction, action, nodes, index, key, courseId)
 		}
 	}
+	nodeLock.Wait() //等待节点刷完
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
-	videosLock.Done()
+	nodesLock.Done()
+}
+
+// 任务点分流运行
+func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse,
+	pointAction xuexitong.ChaptersList, action xuexitong.ChaptersList, nodes []int, index int, key int, courseId int) {
+	_, fetchCards, err1 := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
+	if err1 != nil {
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
+		//log.Fatal(err1)
+		nodesLock.Done()
+		return
+	}
+	videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := entity.ParsePointDto(fetchCards)
+	if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil && liveDTOs == nil && bbsDTOs == nil {
+		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "课程对应章节无任何任务节点，已自动跳过")
+		return
+	}
+	// 视屏类型
+	if videoDTOs != nil && user.CoursesCustom.VideoModel != 0 {
+		for _, videoDTO := range videoDTOs {
+			card, enc, err2 := xuexitong.PageMobileChapterCardAction(
+				userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
+			if err2 != nil {
+				log.Fatal(err2)
+			}
+			videoDTO.AttachmentsDetection(card)
+
+			if !videoDTO.IsJob {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "该视屏非任务点或已完成，已自动跳过")
+				continue
+			}
+			videoDTO.Enc = enc                                        //赋值enc值
+			if videoDTO.IsPassed == true && videoDTO.IsJob == false { //如果已经通过了，那么直接跳过
+				continue
+			} else if videoDTO.IsPassed == false && videoDTO.Attachment == nil && videoDTO.JobID == "" && videoDTO.Duration <= videoDTO.PlayTime { //非任务点如果完成了
+				continue
+			}
+			switch user.CoursesCustom.VideoModel {
+			case 1:
+				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
+			case 2:
+				ExecuteVideoQuickSpeed(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) // 暴力模式
+			case 3:
+				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多课程模式
+			}
+
+			time.Sleep(10 * time.Second)
+		}
+	}
+	// 文档类型
+	if documentDTOs != nil {
+		for _, documentDTO := range documentDTOs {
+			card, _, err2 := xuexitong.PageMobileChapterCardAction(
+				userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
+			if err2 != nil {
+				log.Fatal(err2)
+			}
+			documentDTO.AttachmentsDetection(card)
+			//如果不是任务或者说该任务已完成，那么直接跳过
+			if !documentDTO.IsJob {
+				continue
+			}
+			ExecuteDocument(userCache, courseItem, pointAction.Knowledge[index], &documentDTO)
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	//作业刷取
+	if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
+
+		if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
+			err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+			if err2 != nil {
+				lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
+				os.Exit(0)
+			}
+		} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
+			err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+			if err2 != nil {
+				lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
+				os.Exit(0)
+			}
+		}
+
+		for _, workDTO := range workDTOs {
+			//以手机端拉取章节卡片数据
+			mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
+			flag, _ := workDTO.AttachmentsDetection(mobileCard)
+			questionAction, err2 := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
+			if err2 != nil && strings.Contains(err2.Error(), "已截止，不能作答") {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该试卷已到截止时间，已自动跳过")
+				continue
+			}
+			if !flag {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Green, "该作业已完成，已自动跳过")
+				continue
+			}
+			if len(questionAction.Short) == 0 && len(questionAction.Choice) == 0 &&
+				len(questionAction.Judge) == 0 && len(questionAction.Fill) == 0 &&
+				len(questionAction.TermExplanation) == 0 && len(questionAction.Essay) == 0 {
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", questionAction.Title, "】", lg.Yellow, "该作业任务点无题目，已自动跳过")
+				continue
+			}
+			//if !strings.Contains(questionAction.Title, "2.1小节测验") {
+			//	continue
+			//}
+			WorkAction(userCache, user, setting, courseItem, pointAction.Knowledge[index], questionAction)
+		}
+	}
+
+	//外链任务点刷取
+	if hyperlinkDTOs != nil {
+		for _, hyperlinkDTO := range hyperlinkDTOs {
+			card, _, err2 := xuexitong.PageMobileChapterCardAction(
+				userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
+			if err2 != nil {
+				log.Fatal(err2)
+			}
+			hyperlinkDTO.AttachmentsDetection(card)
+
+			ExecuteHyperlink(userCache, courseItem, pointAction.Knowledge[index], &hyperlinkDTO)
+			time.Sleep(5 * time.Second)
+		}
+	}
+	// 直播任务点刷取
+	if liveDTOs != nil {
+		for _, liveDTO := range liveDTOs {
+			card, _, err2 := xuexitong.PageMobileChapterCardAction(
+				userCache, key, courseId, liveDTO.KnowledgeID, liveDTO.CardIndex, courseItem.Cpi)
+			if err2 != nil {
+				log.Fatal(err2)
+			}
+			liveDTO.AttachmentsDetection(card)
+			if !liveDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
+				continue
+			}
+			ExecuteLive(userCache, courseItem, pointAction.Knowledge[index], &liveDTO)
+			time.Sleep(5 * time.Second)
+		}
+	}
+
+	//讨论任务点刷取
+	if bbsDTOs != nil && user.CoursesCustom.AutoExam != 0 {
+		if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
+			err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+			if err2 != nil {
+				lg.Print(lg.INFO, lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
+				os.Exit(0)
+			}
+		} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
+			err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+			if err2 != nil {
+				lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
+				os.Exit(0)
+			}
+		}
+		for _, bbsDTO := range bbsDTOs {
+			card, _, err2 := xuexitong.PageMobileChapterCardAction(
+				userCache, key, courseId, bbsDTO.KnowledgeID, bbsDTO.CardIndex, courseItem.Cpi)
+			if err2 != nil {
+				log.Fatal(err2)
+			}
+			bbsDTO.AttachmentsDetection(card)
+			if !bbsDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
+				continue
+			}
+			ExecuteBBS(userCache, setting, courseItem, pointAction.Knowledge[index], &bbsDTO)
+			time.Sleep(5 * time.Second)
+		}
+	}
 }
 
 // 检测答题是否有留空
@@ -518,9 +571,12 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 					continue
 				}
 			}
-
-			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil || err != nil {
-				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport, err.Error())
+			if err != nil {
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
+				break
+			}
+			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil {
+				lg.Print(lg.INFO, `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
 				break
 			}
 			//阈值超限提交
