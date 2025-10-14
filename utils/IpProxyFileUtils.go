@@ -37,9 +37,9 @@ func IpFilesReader(path string) ([]string, error) {
 }
 
 // CheckProxyIp 代理IP检测
-func CheckProxyIp(proxyUrl string) (bool /*是否通过测试*/, string /*响应状态State*/, error) {
+func CheckProxyIp(proxyIP string) (bool /*是否通过测试*/, string /*响应状态State*/, error) {
 	// 代理服务器地址
-	url, err := url.Parse(proxyUrl)
+	proxyUrl, err := url.Parse("http://" + proxyIP)
 	if err != nil {
 		return false, "", err
 	}
@@ -47,13 +47,16 @@ func CheckProxyIp(proxyUrl string) (bool /*是否通过测试*/, string /*响应
 	// 创建带有代理设置的 HTTP 客户端
 	client := &http.Client{
 		Transport: &http.Transport{
-			Proxy: http.ProxyURL(url),
+			//TLSClientConfig: &tls.Config{
+			//	InsecureSkipVerify: true, // 跳过证书验证，仅用于开发环境
+			//},
+			Proxy: http.ProxyURL(proxyUrl),
 		},
 		Timeout: 10 * time2.Second, // 设置超时时间
 	}
 
 	// 发起 HTTP 请求
-	reqURL := "https://www.baidu.com" // 测试访问，返回请求者 IP
+	reqURL := "https://httpbin.org/ip" // 测试访问，返回请求者 IP
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
 		return false, "", err

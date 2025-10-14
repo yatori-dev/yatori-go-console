@@ -43,6 +43,11 @@ func UserLoginOperation(users []config.Users) []*xuexitongApi.XueXiTUserCache {
 	for _, user := range users {
 		if user.AccountType == "XUEXITONG" {
 			cache := &xuexitongApi.XueXiTUserCache{Name: user.Account, Password: user.Password}
+			//设置代理IP
+			if user.IsProxy == 1 {
+				cache.IpProxySW = true
+				cache.ProxyIP = "http://" + utils2.RandProxyStr()
+			}
 			loginError := xuexitong.XueXiTLoginAction(cache) // 登录
 			if loginError != nil {
 				lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.White, "] ", lg.Red, loginError.Error())
@@ -266,9 +271,9 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			case 1:
 				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
 			case 2:
-				ExecuteVideoQuickSpeed(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) // 暴力模式
-			case 3:
 				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多课程模式
+			case 3:
+				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多任务点模式
 			}
 
 			time.Sleep(10 * time.Second)
