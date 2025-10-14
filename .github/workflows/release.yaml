@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.9-Beta.8'
+        default: 'v2.5.9-Beta.9'
 
 permissions:
   contents: write
@@ -22,13 +22,12 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 因智慧职教验证码变动，现添加Cookie登录（请使用智慧职教时自行先在网页端登录并复制登录后的Cookie填入password字段，程序会自动识别）
-    - [👏] WeLearn添加刷取学时可自定义调节
-    - [👏] 首创学习通多任务点模式学习（学习速度翻3倍！！不过建议一般情况下少用或许有小概率封号风险，一般封禁十几分钟左右）
-    - [👏] 使用学习通的同学注意！！！！！该版本将会有模式视屏模式选择上的改动（videModel为0为关闭，1为普通模式，2为多课程模式，3多任务点模式(3倍效率完成任务点)）
-    - [👏] 智慧职教支持Cookie登录使用（将web页面登录好的Cookie复制好后在config内password字段将原本的密码替换为复制的cookie就好，软件会自动识别）
+    - [👏] 支持学习通IP代理功能（在exe同级目录下创建ip.txt文件并将ip:port写入文件即可，每行一条，并且要求代理必须支持https代理）
+    - [‍🔧] 修复学习通视屏模式错误问题
+    - [‍🔧] 修复英华学堂AI自动答题BUG
+
     
-    注意！！！！！学习通多任务点模式一般情况下不要使用！！！！！！！有小概率封号风险（一般封禁十几分钟），这个是给那些时间快到的课程刷的紧急需求。
+    注意！！！！！学习通多任务点模式下不要同时有超过2个学习通账号，容易触发学习通风控导致封IP（一般封十几分钟），怕出问题的就不要用多任务点模式（videoModel 3）
     注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
 jobs:
   build:
