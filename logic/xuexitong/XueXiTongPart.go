@@ -554,30 +554,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 					} else {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
 					}
-
-					//cid, _ := strconv.Atoi(p.CourseID)
 					time.Sleep(5 * time.Second) //不要删！！！！一定要等待一小段时间才能请求PageMobile
-					//card, enc, err2 := xuexitong.PageMobileChapterCardAction(
-					//	cache, key, cid, p.KnowledgeID, p.CardIndex, courseCpi)
-					//if err2 != nil {
-					//	lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.BoldRed, "绕过人脸后获取卡片数据失败，已自动绕过该视屏", err2)
-					//	//log.Fatal(err2)
-					//	return
-					//}
-					//p.Enc = enc
-					//p.AttachmentsDetection(card)
-					//time.Sleep(5 * time.Second)
-					//每次人脸过后都需要先进行isdrag=3的提交
-					var startPlay string
-					var startErr error
-					playReport, startErr = xuexitong.VideoSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
-
-					if startErr != nil {
-						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.BoldRed, startPlay, startErr.Error())
-						if playingTime-selectSec >= 0 {
-							playingTime = playingTime - selectSec
-						}
-					}
 					continue
 				}
 				if strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发404
