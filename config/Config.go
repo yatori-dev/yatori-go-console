@@ -55,7 +55,8 @@ type CoursesSettings struct {
 	ExcludeExams []string `json:"excludeExams" yaml:"excludeExams"`
 }
 type CoursesCustom struct {
-	WeLearnTime     string            `json:"weLearnTime" yaml:"weLearnTime"`
+	WeLearnTime     string            `json:"weLearnTime" yaml:"weLearnTime"`       //WeLearn设置刷学时的时候范围
+	CxNode          int               `json:"cxNode" yaml:"cxNode"`                 //学习通多任务点模式下设置同时任务点数量
 	VideoModel      int               `json:"videoModel" yaml:"videoModel"`         //观看视频模式
 	AutoExam        int               `json:"autoExam" yaml:"autoExam"`             //是否自动考试
 	ExamAutoSubmit  int               `json:"examAutoSubmit" yaml:"examAutoSubmit"` //是否自动提交试卷

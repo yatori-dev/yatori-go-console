@@ -74,7 +74,7 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 var soundMut sync.Mutex
 
 // 用于模式3的
-var model3Caches []xuexitongApi.XueXiTUserCache
+var model3Caches = map[string][]xuexitongApi.XueXiTUserCache{}
 
 func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.XueXiTUserCache) {
 	// list, err := xuexitong.XueXiTCourseDetailForCourseIdAction(cache, "261619055656961")
@@ -85,15 +85,24 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 	}
 	//如果是多节点模式
 	if user.CoursesCustom.VideoModel == 3 {
-
-		for i := 0; i < 3; i++ {
+		num := 3
+		if user.CoursesCustom.CxNode != 0 { //根据设置自由定义同时任务点数量
+			num = user.CoursesCustom.CxNode
+		}
+		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Yellow, "警告，当前账号使用的是多任务点模式，该账号将会同时登录", fmt.Sprintf("%d", num), "次，这将会小概率性封号(一般封十几分钟)或封IP，单个账号使用基本没有事，多个账号请酌情使用")
+		//如果没有则初始化
+		if model3Caches[cache.Name] == nil {
+			model3Caches[cache.Name] = []xuexitongApi.XueXiTUserCache{}
+		}
+		for i := 0; i < num; i++ {
 			if i == 0 {
-				model3Caches = append(model3Caches, *cache)
+				model3Caches[cache.Name] = append(model3Caches[cache.Name], *cache)
 				continue
 			}
-			model3Caches = append(model3Caches, *cache)
-			xuexitong.ReLogin(&model3Caches[i])
-			time.Sleep(5 * time.Second) //隔一下，避免登录太快
+			model3Caches[cache.Name] = append(model3Caches[cache.Name], *cache)
+			xuexitong.ReLogin(&model3Caches[cache.Name][i])
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "当前多任务点账户队列累计", lg.Yellow, fmt.Sprintf("%d/%d", i+1, num))
+			time.Sleep(3 * time.Second) //隔一下，避免登录太快
 		}
 
 	}
@@ -195,7 +204,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	nodeLock := sync.WaitGroup{}
 
 	//初始化模式3用的队列
-	queue := make(chan int, len(model3Caches))
+	queue := make(chan int, len(model3Caches[userCache.Name]))
 	for i := 0; i < len(model3Caches); i++ {
 		queue <- i
 	}
@@ -218,7 +227,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 			go func(idx int, index int) {
 				nodeLock.Add(1)
 				//分配Cookie
-				nodeRun(setting, user, &model3Caches[idx], courseItem, pointAction, action, nodes, index, key, courseId)
+				nodeRun(setting, user, &model3Caches[userCache.Name][idx], courseItem, pointAction, action, nodes, index, key, courseId)
 				// 执行完毕后归还资源
 				queue <- idx
 				nodeLock.Done()
