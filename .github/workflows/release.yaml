@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.9-Beta.11'
+        default: 'v2.5.9-Beta.12'
 
 permissions:
   contents: write
@@ -23,7 +23,8 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [👏] 添加学习通多任务模式可自由调节同时任务点数量
-    - [‍🔧] 修复学习通有概率报错登录失败问题
+    - [‍🔧] 修复学习通多任务模式下突然程序停止问题
+    - [‍🔧] 修复学习通部分过人脸问题
 
     注意如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！（多任务点模式会失效）
     注意！！！！！学习通多任务点模式下不要同时有超过2个学习通账号，容易触发学习通风控导致封IP（一般封十几分钟），怕出问题的就不要用多任务点模式（videoModel 3）

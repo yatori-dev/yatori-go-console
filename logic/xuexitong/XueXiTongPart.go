@@ -89,7 +89,12 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 		if user.CoursesCustom.CxNode != 0 { //根据设置自由定义同时任务点数量
 			num = user.CoursesCustom.CxNode
 		}
-		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Yellow, "警告，当前账号使用的是多任务点模式，该账号将会同时登录", fmt.Sprintf("%d", num), "次，这将会小概率性封号(一般封十几分钟)或封IP，单个账号使用基本没有事，多个账号请酌情使用")
+		if user.CoursesCustom.CxNode == -1 {
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Yellow, "警告，当前账号使用的是多任务点无限制模式，该账号将会同时登录非常多的次数，这将会小概率性封号(一般封十几分钟)或封IP，单个账号使用基本没有事，多个账号请酌情使用")
+		} else {
+			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Yellow, "警告，当前账号使用的是多任务点模式，该账号将会同时登录", fmt.Sprintf("%d", num), "次，这将会小概率性封号(一般封十几分钟)或封IP，单个账号使用基本没有事，多个账号请酌情使用")
+		}
+
 		//如果没有则初始化
 		if model3Caches[cache.Name] == nil {
 			model3Caches[cache.Name] = []xuexitongApi.XueXiTUserCache{}
@@ -102,7 +107,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 			model3Caches[cache.Name] = append(model3Caches[cache.Name], *cache)
 			xuexitong.ReLogin(&model3Caches[cache.Name][i])
 			lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "当前多任务点账户队列累计", lg.Yellow, fmt.Sprintf("%d/%d", i+1, num))
-			time.Sleep(3 * time.Second) //隔一下，避免登录太快
+			time.Sleep(1 * time.Second) //隔一下，避免登录太快
 		}
 
 	}
@@ -128,7 +133,6 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 	usersLock.Done()
 }
 
-// 课程节点执行
 func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse) {
 	//过滤课程---------------------------------
 	//排除指定课程
@@ -201,42 +205,43 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	}
 
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "正在学习该课程")
-	nodeLock := sync.WaitGroup{}
-
 	//初始化模式3用的队列
 	queue := make(chan int, len(model3Caches[userCache.Name]))
-	for i := 0; i < len(model3Caches); i++ {
+	for i := 0; i < len(model3Caches[userCache.Name]); i++ {
 		queue <- i
 	}
+	var nodeLock sync.WaitGroup
 	//遍历结点
 	for index := range nodes {
 		if isFinished(index) { //如果完成了的那么直接跳过
 			continue
 		}
-
+		//如果无限制模式
 		if user.CoursesCustom.VideoModel == 3 {
-
-			//如果队列为空则堵塞
-			for {
-				if len(queue) != 0 {
-					break
-				}
-			}
-			// 从队列中取一个资源（如果空则会自动阻塞）
-			idx := <-queue
-			go func(idx int, index int) {
+			//如果是-1模式
+			if user.CoursesCustom.CxNode == -1 {
 				nodeLock.Add(1)
-				//分配Cookie
-				nodeRun(setting, user, &model3Caches[userCache.Name][idx], courseItem, pointAction, action, nodes, index, key, courseId)
-				// 执行完毕后归还资源
-				queue <- idx
-				nodeLock.Done()
-			}(idx, index)
+				go func(index int) {
+					defer nodeLock.Done()
+					resUser := *userCache
+					xuexitong.ReLogin(&resUser)
+					nodeRun(setting, user, &resUser, courseItem, pointAction, action, nodes, index, key, courseId)
+				}(index)
+				time.Sleep(1 * time.Second) //防止请求过快
+			} else {
+				// 从队列中取一个资源（如果空则会自动阻塞）
+				idx := <-queue
+				go func(idx int, index int) {
+					defer func() { queue <- idx }()
+					nodeRun(setting, user, &model3Caches[userCache.Name][idx], courseItem, pointAction, action, nodes, index, key, courseId)
+				}(idx, index)
+			}
+
 		} else {
 			nodeRun(setting, user, userCache, courseItem, pointAction, action, nodes, index, key, courseId)
 		}
 	}
-	nodeLock.Wait() //等待节点刷完
+	nodeLock.Wait()
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
 	nodesLock.Done()
 }
@@ -247,8 +252,6 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 	_, fetchCards, err1 := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
 	if err1 != nil {
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
-		//log.Fatal(err1)
-		nodesLock.Done()
 		return
 	}
 	videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := entity.ParsePointDto(fetchCards)
@@ -262,7 +265,12 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			card, enc, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
 			if err2 != nil {
-				log.Fatal(err2)
+				if strings.Contains(err2.Error(), "没有历史人脸") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
+					os.Exit(0)
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
+				os.Exit(0)
 			}
 			videoDTO.AttachmentsDetection(card)
 
@@ -294,7 +302,12 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
 			if err2 != nil {
-				log.Fatal(err2)
+				if strings.Contains(err2.Error(), "没有历史人脸") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
+					os.Exit(0)
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
+				os.Exit(0)
 			}
 			documentDTO.AttachmentsDetection(card)
 			//如果不是任务或者说该任务已完成，那么直接跳过
@@ -325,7 +338,15 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 
 		for _, workDTO := range workDTOs {
 			//以手机端拉取章节卡片数据
-			mobileCard, _, _ := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
+			mobileCard, _, err2 := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
+			if err2 != nil {
+				if strings.Contains(err2.Error(), "没有历史人脸") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
+					os.Exit(0)
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
+				os.Exit(0)
+			}
 			flag, _ := workDTO.AttachmentsDetection(mobileCard)
 			questionAction, err2 := xuexitong.ParseWorkQuestionAction(userCache, &workDTO)
 			if err2 != nil && strings.Contains(err2.Error(), "已截止，不能作答") {
@@ -355,7 +376,12 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
 			if err2 != nil {
-				log.Fatal(err2)
+				if strings.Contains(err2.Error(), "没有历史人脸") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
+					os.Exit(0)
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
+				os.Exit(0)
 			}
 			hyperlinkDTO.AttachmentsDetection(card)
 
@@ -369,7 +395,12 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, liveDTO.KnowledgeID, liveDTO.CardIndex, courseItem.Cpi)
 			if err2 != nil {
-				log.Fatal(err2)
+				if strings.Contains(err2.Error(), "没有历史人脸") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
+					os.Exit(0)
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
+				os.Exit(0)
 			}
 			liveDTO.AttachmentsDetection(card)
 			if !liveDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
@@ -399,8 +430,14 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, bbsDTO.KnowledgeID, bbsDTO.CardIndex, courseItem.Cpi)
 			if err2 != nil {
-				log.Fatal(err2)
+				if strings.Contains(err2.Error(), "没有历史人脸") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
+					os.Exit(0)
+				}
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
+				os.Exit(0)
 			}
+
 			bbsDTO.AttachmentsDetection(card)
 			if !bbsDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
 				continue
