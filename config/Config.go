@@ -57,6 +57,7 @@ type CoursesSettings struct {
 type CoursesCustom struct {
 	WeLearnTime     string            `json:"weLearnTime" yaml:"weLearnTime"`       //WeLearn设置刷学时的时候范围
 	CxNode          int               `json:"cxNode" yaml:"cxNode"`                 //学习通多任务点模式下设置同时任务点数量
+	ShuffleSw       int               `json:"shuffleSw" yaml:"shuffleSw"`           //是否打乱顺序学习，1为打乱顺序，0为不打乱
 	VideoModel      int               `json:"videoModel" yaml:"videoModel"`         //观看视频模式
 	AutoExam        int               `json:"autoExam" yaml:"autoExam"`             //是否自动考试
 	ExamAutoSubmit  int               `json:"examAutoSubmit" yaml:"examAutoSubmit"` //是否自动提交试卷

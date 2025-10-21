@@ -3,6 +3,7 @@ package xuexitong
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
@@ -161,6 +162,14 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	key, _ := strconv.Atoi(courseItem.Key)
 	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
 
+	//如果选择了顺序打乱，则直接不按顺序学习
+	if user.CoursesCustom.ShuffleSw == 1 {
+		rand.Seed(time.Now().UnixNano())
+		rand.Shuffle(len(action.Knowledge), func(i, j int) {
+			action.Knowledge[i], action.Knowledge[j] = action.Knowledge[j], action.Knowledge[i]
+		})
+	}
+
 	if err != nil {
 		if strings.Contains(err.Error(), "课程章节为空") {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
@@ -179,6 +188,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	for _, item := range action.Knowledge {
 		nodes = append(nodes, item.ID)
 	}
+
 	courseId, _ := strconv.Atoi(courseItem.CourseID)
 	userId, _ := strconv.Atoi(userCache.UserID)
 	// 检测节点完成情况
@@ -292,8 +302,8 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			case 3:
 				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多任务点模式
 			}
-
-			time.Sleep(10 * time.Second)
+			randSleepTime := rand.Intn(51) + 10
+			time.Sleep(time.Duration(randSleepTime) * time.Second)
 		}
 	}
 	// 文档类型
