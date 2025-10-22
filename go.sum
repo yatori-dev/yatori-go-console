@@ -2,6 +2,7 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Changbaiqi/ddddocr-go v0.0.4 h1:PFhh1xJtFfsDvnznsN4/JjN9V9H79rpFKjWAhAl9FLY=
 github.com/Changbaiqi/ddddocr-go v0.0.4/go.mod h1:J5UfCvmxK+A8emorMD/ao5Xa2qb+JnpezqweCP+Yb6w=
+github.com/Changbaiqi/ddddocr-go v0.0.5 h1:fGc0P9uVSEHBVySx91zyRm60tWDPuedB7l/7vAzcVCk=
 github.com/Changbaiqi/ddddocr-go v0.0.5/go.mod h1:J5UfCvmxK+A8emorMD/ao5Xa2qb+JnpezqweCP+Yb6w=
 github.com/PuerkitoBio/goquery v1.10.2 h1:7fh2BdHcG6VFZsK7toXBT/Bh1z5Wmy8Q9MV9HqT2AM8=
 github.com/PuerkitoBio/goquery v1.10.2/go.mod h1:0guWGjcLu9AYC7C1GHnpysHy056u9aEkUHwhdnePMCU=
@@ -92,6 +93,7 @@ github.com/yatori-dev/yatori-go-core v1.9.1-0.20251021070311-92948fbdfd62 h1:Yid
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251021070311-92948fbdfd62/go.mod h1:SoJZBOxnu/YazLKk/4cK7FFdqBmC8on+WH8lsYyGlzw=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251022135457-18007c6a8f82 h1:PxgmT/nN+RmmEgjcpySZYqorqil6I2wchvOzPUNoM1w=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251022135457-18007c6a8f82/go.mod h1:SoJZBOxnu/YazLKk/4cK7FFdqBmC8on+WH8lsYyGlzw=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251022150552-630da2b7f6a6 h1:HdnwVX9Z4edBcn2D2dh+YSzdGRl422xwtLdTnAmqjYE=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251022150552-630da2b7f6a6/go.mod h1:SBKAVIoICrC4JIoDIXvYX58FhfNC4itIhbGeCZf8Yp8=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
