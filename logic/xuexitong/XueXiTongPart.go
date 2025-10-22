@@ -138,23 +138,19 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(courseItem.CourseName, user.CoursesCustom.ExcludeCourses) {
-		nodesLock.Done()
 		return
 	}
 	//包含指定课程
 	if len(user.CoursesCustom.IncludeCourses) != 0 && !config.CmpCourse(courseItem.CourseName, user.CoursesCustom.IncludeCourses) {
-		nodesLock.Done()
 		return
 	}
 	//如果课程还未开课则直接退出
 	if !courseItem.IsStart {
-		nodesLock.Done()
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
 		return
 	}
 	//如果该课程已经结束
 	if courseItem.State == 1 {
-		nodesLock.Done()
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程已经结束，已自动跳过该课程")
 		return
 	}
@@ -173,12 +169,9 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	if err != nil {
 		if strings.Contains(err.Error(), "课程章节为空") {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
-			nodesLock.Done()
 			return
 		}
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
-
-		nodesLock.Done()
 		return
 		//log.Fatal()
 	}
@@ -196,7 +189,6 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	if err != nil {
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
 		//log.Fatal()
-		nodesLock.Done()
 		return
 	}
 	var isFinished = func(index int) bool {
@@ -277,6 +269,10 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			if err2 != nil {
 				if strings.Contains(err2.Error(), "没有历史人脸") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
+					os.Exit(0)
+				}
+				if strings.Contains(err2.Error(), "活体检测失败") {
+					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号所录入的人脸可能并不规范，请自行拍摄人脸放到assets/face/账号名称.jpg路径下再重试")
 					os.Exit(0)
 				}
 				lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
@@ -377,6 +373,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			//	continue
 			//}
 			WorkAction(userCache, user, setting, courseItem, pointAction.Knowledge[index], questionAction)
+			time.Sleep(3 * time.Second) //暂停3s，避免太快
 		}
 	}
 
