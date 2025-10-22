@@ -1,9 +1,8 @@
-name: Build and Push Docker Image
+name: Build Docker Image
 
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
   workflow_dispatch:
 
 jobs:
@@ -17,20 +16,17 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build Docker image
+        run: |
+          docker build -t xvexitong:latest .
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/xvexitong:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/xvexitong:${{ github.sha }}
+      - name: Save Docker image to tar
+        run: |
+          docker save xvexitong:latest -o xvexitong.tar
 
-      - name: Show image digest
-        run: echo "Image built and pushed successfully!"
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: xvexitong-image
+          path: xvexitong.tar
+          retention-days: 7
