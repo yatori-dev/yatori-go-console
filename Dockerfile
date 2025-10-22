@@ -10,7 +10,7 @@ RUN go mod download
 COPY . .
 
 # 如果需要静态编译可加 -ldflags, 并指定输出文件
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+RUN GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -o /xvexitong ./main.go
     go build -ldflags="-s -w" -o /xvexitong ./main.go
 
 # ===== Final stage =====
