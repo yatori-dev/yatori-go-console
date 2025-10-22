@@ -976,14 +976,14 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Users, set
 	var resultStr string
 	if user.CoursesCustom.ExamAutoSubmit == 0 {
 		AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
-		resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
+		resultStr, _ = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false)
 	} else if user.CoursesCustom.ExamAutoSubmit == 1 {
 		AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
-		resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true)
+		resultStr, _ = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true)
 	} else if user.CoursesCustom.ExamAutoSubmit == 2 {
 		AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
 		if CheckAnswerIsAvoid(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short) {
-			resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
+			resultStr, _ = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, false) //留空了，只保存
 			//如果提交失败那么直接输出AI答题的文本
 			if gojsonq.New().JSONString(resultStr).Find("status") == false {
 				if user.CoursesCustom.AutoExam == 1 {
@@ -995,7 +995,7 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Users, set
 			}
 		} else {
 			//AnswerFixedPattern(questionAction.Choice, questionAction.Judge, questionAction.Fill, questionAction.Short)
-			resultStr = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
+			resultStr, _ = xuexitong.WorkNewSubmitAnswerAction(userCache, questionAction, true) //没有留空则提交
 			if gojsonq.New().JSONString(resultStr).Find("status") == false {
 				if user.CoursesCustom.AutoExam == 1 {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())

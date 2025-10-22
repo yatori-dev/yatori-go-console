@@ -15,13 +15,13 @@ require (
 )
 
 require (
-	github.com/yatori-dev/yatori-go-core v1.9.1-0.20251022135457-18007c6a8f82
+	github.com/yatori-dev/yatori-go-core v1.9.1-0.20251022150552-630da2b7f6a6 //1.9.5.4
 	golang.org/x/sys v0.31.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
-	github.com/Changbaiqi/ddddocr-go v0.0.4 // indirect
+	github.com/Changbaiqi/ddddocr-go v0.0.5 // indirect
 	github.com/PuerkitoBio/goquery v1.10.2 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
