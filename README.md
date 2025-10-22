@@ -20,8 +20,8 @@
 
 > QQ交流群：
 >
-> * [932447008](https://qm.qq.com/q/KREkme4rYc)（一群，未满）（推荐）
-> * [1044155704](https://qm.qq.com/q/ZmBAjtFJi6)（二群，未满）
+> * [932447008](https://qm.qq.com/q/KREkme4rYc)（一群，已满）
+> * [1044155704](https://qm.qq.com/q/ZmBAjtFJi6)（二群，未满）（推荐）
 >
 > B站：[BiliBili for 长白崎](https://space.bilibili.com/36987520)（不定时更新计算机相关技术教程）
 >
