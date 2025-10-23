@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.9-Beta.14'
+        default: 'v2.5.9-Beta.15'
 
 permissions:
   contents: write
@@ -22,10 +22,9 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍👏] 添加支持学习通自定义本地人脸（将人脸图片放在assets/faces/目录下，图片必须jpg后缀格式，并且图片名称以手机号命名）
-    - [‍👏] 添加支持linux arm64打包（相当于你手机上安装termux linux就可以在手机里用了）
-    - [🔧] 修复学习通多任务点模式无法正常进行的BUG 
-    - [🔧] 修复部分用户报错onnx库加载失败问题
+    - [‍🔧] 修复学习通人脸问题
+    - [‍🔧] 修复学习通答题BUG
+    - [🔧] 修复部分课程限制每天学时问题 
     
     
     学习通用户注意：
