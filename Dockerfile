@@ -20,10 +20,14 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-# 安装运行依赖
+# 安装运行依赖与时区支持 ✅
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libasound2 \
+    libasound2 tzdata \
     && rm -rf /var/lib/apt/lists/*
+
+# 设置时区为北京时间（Asia/Shanghai） ✅
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # 拷贝二进制到不被挂载覆盖的位置
 COPY --from=builder /xvexitong /usr/local/bin/xvexitong
