@@ -345,6 +345,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 		for _, workDTO := range workDTOs {
 			//以手机端拉取章节卡片数据
 			mobileCard, _, err2 := xuexitong.PageMobileChapterCardAction(userCache, key, courseId, workDTO.KnowledgeID, workDTO.CardIndex, courseItem.Cpi)
+
 			if err2 != nil {
 				if strings.Contains(err2.Error(), "没有历史人脸") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
@@ -382,6 +383,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 		for _, hyperlinkDTO := range hyperlinkDTOs {
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
+
 			if err2 != nil {
 				if strings.Contains(err2.Error(), "没有历史人脸") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
@@ -401,6 +403,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 		for _, liveDTO := range liveDTOs {
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, liveDTO.KnowledgeID, liveDTO.CardIndex, courseItem.Cpi)
+
 			if err2 != nil {
 				if strings.Contains(err2.Error(), "没有历史人脸") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
@@ -436,6 +439,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 		for _, bbsDTO := range bbsDTOs {
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, bbsDTO.KnowledgeID, bbsDTO.CardIndex, courseItem.Cpi)
+
 			if err2 != nil {
 				if strings.Contains(err2.Error(), "没有历史人脸") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
@@ -592,7 +596,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 					}
 					disturbImage := utils.ImageRGBDisturb(img)
 					//uuid,qrEnc,ObjectId,successEnc
-					_, _, _, _, errPass := xuexitong.PassFaceAction3(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
+					_, _, _, _, errPass := xuexitong.PassFacePCAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
 					if errPass != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", errPass.Error(), "请在学习通客户端上确保最近一次人脸识别是正确的，yatori会自动拉取最近一次识别的人脸数据进行")
 					} else {
@@ -702,7 +706,7 @@ func ExecuteVideoQuickSpeed(cache *xuexitongApi.XueXiTUserCache, courseItem *xue
 					if err != nil {
 						fmt.Println(err)
 					}
-					_, _, _, successEnc, errPass := xuexitong.PassFaceAction3(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
+					_, _, _, successEnc, errPass := xuexitong.PassFacePCAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
 					if errPass != nil {
 						lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", errPass.Error(), "请在学习通客户端上确保最近一次人脸识别是正确的，yatori会自动拉取最近一次识别的人脸数据进行")
 					} else {
