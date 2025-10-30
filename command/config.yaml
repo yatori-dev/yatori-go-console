@@ -6,13 +6,14 @@ setting:
     logLevel: "INFO" #日志类型，一般INFO即可
     logModel: 0 #日志输出模式，0为以视频提交学时为单位进行日志输出，1为以课程信息为单位进行输出
   aiSetting:
-    aiType: "TONGYI" #智普：CHATGLM、星火：XINGHUO、通义千问：TONGYI、豆包：DOUBAO、ChatGPT：OPENAI、秘塔AI：METAAI、其他模型：OTHER
-    aiUrl: "" #默认不填，除非你用的不是上面所指明的AI模型，比如ChatGPT
-    model: "" #AI模型，不填则使用yatori默认选择的模型，如果你用的豆包则必填并且填的是接入点ID非模型名称，比如ep-2024xxxxx
+    aiType: "TONGYI" #智普：CHATGLM、星火：XINGHUO、通义千问：TONGYI、豆包：DOUBAO、ChatGPT：OPENAI、深度求索(DeepSeek)：DEEPSEEK、秘塔AI：METAAI、其他模型：OTHER
+    aiUrl: "" #默认不填，除非你用的不是上面所指明的AI模型，即OTHER
+    model: "" #AI模型，不填则使用yatori默认选择的模型，如果你用的豆包则必填并且填的是接入点ID非模型名称，比如doubao-seed-1-6-lite-251015
     API_KEY: "" #AI平台对应的apikey
   apiQueSetting:
     url: "http://localhost:8083" # 外部题库对接接口，用于外部对接题库操作，用于填写对应题库服务端url链接，使用时请严格遵循请求规范，对接请求规范请转至官方文档：https://yatori-dev.github.io/yatori-docs/bank-interface-api/docs.html
-
+# 更多详细配置文件说明请参考官方文档：https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html
+# 如果害怕配置文件写错也可以使用配置文件生成器：https://yatori-dev.github.io/yatori-config-generate
 users:
   - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE、码上研训：KETANGX、Welearn（随行课堂）：WELEARN、智慧职教：ICVE
     url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
@@ -47,5 +48,4 @@ users:
   #     autoExam: 0 
   #     examAutoSubmit: 1 
   #     includeCourses: []  
-  #     excludeCourses: []  
-# 更多详细配置文件说明请参考官方文档：https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html
+  #     excludeCourses: []

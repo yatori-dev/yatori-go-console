@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.9-Beta.16'
+        default: 'v2.5.9-Beta.17'
 
 permissions:
   contents: write
@@ -22,7 +22,8 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复学习通BUG
+    - [👏] 优化AI答题
+    - [👏] 单独适配DeepSeek（即可以直接填写DeepSeek的API_KEY即可直接使用）
     
     
     学习通用户注意：
