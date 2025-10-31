@@ -523,8 +523,10 @@ func AnswerFixedPattern(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 			for _, option := range choice.Options {
 				candidateSelects = append(candidateSelects, option)
 			}
-			for _, answer := range choice.Answers {
-				selectAnswers = append(selectAnswers, qutils.SimilarityArrayAnswer(answer, candidateSelects))
+			if len(candidateSelects) > 0 {
+				for _, answer := range choice.Answers {
+					selectAnswers = append(selectAnswers, qutils.SimilarityArrayAnswer(answer, candidateSelects))
+				}
 			}
 			if selectAnswers != nil {
 				choices[i].Answers = selectAnswers
