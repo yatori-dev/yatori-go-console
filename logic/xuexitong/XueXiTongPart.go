@@ -834,6 +834,22 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Users, set
 
 	}
 
+	//连线题
+	for i := range questionAction.Matching {
+		q := &questionAction.Matching[i] // 获取对应选项
+		switch user.CoursesCustom.AutoExam {
+		case 1:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+				XueXMatchingQue: *q,
+			})
+			aiSetting := setting.AiSetting //获取AI设置
+			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
+		case 2:
+			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		}
+
+	}
+
 	var resultStr string
 	if user.CoursesCustom.ExamAutoSubmit == 0 {
 		xuexitong.AnswerFixedPattern(questionAction.Choice, questionAction.Judge)
