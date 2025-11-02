@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.5.9-Beta.18'
+        default: 'v2.6.0-Beta.1'
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化AI答题并适配学习通连线题
+    - [👏] 优化适配题库答题
     
     
     学习通用户注意：

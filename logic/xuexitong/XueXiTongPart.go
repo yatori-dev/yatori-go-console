@@ -335,7 +335,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 				os.Exit(0)
 			}
 		} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
-			err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+			err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 5, nil)
 			if err2 != nil {
 				lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
 				os.Exit(0)
@@ -430,7 +430,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 				os.Exit(0)
 			}
 		} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
-			err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 3, nil)
+			err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 5, nil)
 			if err2 != nil {
 				lg.Print(lg.INFO, lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
 				os.Exit(0)
