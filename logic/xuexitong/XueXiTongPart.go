@@ -117,9 +117,11 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 		// fmt.Println(course)
 		if user.CoursesCustom.VideoModel == 1 {
 			nodeListStudy(setting, user, cache, &course)
+			nodesLock.Done()
 		} else {
 			go func() {
 				nodeListStudy(setting, user, cache, &course)
+				nodesLock.Done()
 			}()
 		}
 
@@ -245,7 +247,6 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 	}
 	nodeLock.Wait()
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
-	nodesLock.Done()
 }
 
 // 任务点分流运行
