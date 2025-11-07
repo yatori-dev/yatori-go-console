@@ -1,0 +1,47 @@
+name: Build & Push Docker Image (GHCR)
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write   # ✅ 允许推送到 GHCR
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image (multi-arch)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ghcr.io/yatori-dev/yatori-go-console:latest
+            ghcr.io/yatori-dev/yatori-go-console:${{ github.ref_name }}
+
+      - name: Show pushed images
+        run: |
+          echo "✅ 镜像已推送到以下地址："
+          echo "ghcr.io/yatori-dev/yatori-go-console:latest"
+          echo "ghcr.io/yatori-dev/yatori-go-console:${{ github.ref_name }}"
