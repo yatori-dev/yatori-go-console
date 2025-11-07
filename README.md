@@ -2,7 +2,7 @@
 
 
 
-![yatori-go-console](https://socialify.git.ci/yatori-dev/yatori-go-console/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Fyatori-dev.github.io%2Fyatori-docs%2Fimg%2Flogo.png&name=1&owner=1&pattern=Charlie%20Brown&pulls=1&stargazers=1&theme=Dark)
+![yatori-go-console](https://socialify.git.ci/yatori-dev/yatori-go-console/image?font=Raleway&forks=1&issues=1&logo=https%3A%2F%2Favatars.githubusercontent.com%2Fu%2F185567923%3Fs%3D1000%26v%3D4&name=1&owner=1&pattern=Charlie%20Brown&pulls=1&stargazers=1&theme=Dark)
 
 <div align="center"><h1>Yatori-core系列</h1></div>
 
