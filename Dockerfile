@@ -5,7 +5,7 @@ WORKDIR /app
 
 # 安装编译依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libc6-dev libasound2-dev \
+    gcc libc6-dev libasound2-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制 go.mod 和 go.sum，并下载依赖
@@ -18,8 +18,12 @@ COPY . .
 # ✅ 同步和清理依赖，避免 go.mod 不一致问题
 RUN go mod tidy
 
-# ✅ 启用 CGO 编译，并生成 Linux 可执行文件
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+# ✅ 声明目标平台参数（由 buildx 自动注入）
+ARG TARGETOS
+ARG TARGETARCH
+
+# ✅ 启用 CGO 编译，根据平台自动匹配架构
+RUN CGO_ENABLED=1 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -ldflags="-s -w" -o /xvexitong ./main.go
 
 
