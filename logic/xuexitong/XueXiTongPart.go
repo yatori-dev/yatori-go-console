@@ -270,7 +270,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			if err2 != nil {
 				if strings.Contains(err2.Error(), "章节未开放") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该章节未开放，可能是因为前面章节有任务点未学完导致后续任务点未开放，已自动跳过该任务点")
-					return
+					break
 				}
 				if strings.Contains(err2.Error(), "没有历史人脸") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
@@ -315,7 +315,7 @@ func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi
 			if err2 != nil {
 				if strings.Contains(err2.Error(), "章节未开放") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该章节未开放，可能是因为前面章节有任务点未学完导致后续任务点未开放，已自动跳过该任务点")
-					return
+					break
 				}
 				if strings.Contains(err2.Error(), "没有历史人脸") {
 					lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "过人脸失败，该账号可能从未进行过人脸识别，请先进行一次人脸识别后再试")
