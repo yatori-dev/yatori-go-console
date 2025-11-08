@@ -22,7 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [🔧] 修复防止服务器使用AI的时候出现证书校验错误问题
+    - [🔧] 修复防止Linux使用AI时出现证书校验错误问题
     
     
     学习通用户注意：
