@@ -222,9 +222,9 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		}
 		//如果无限制模式
 		if user.CoursesCustom.VideoModel == 3 {
+			nodeLock.Add(1)
 			//如果是-1模式
 			if user.CoursesCustom.CxNode == -1 {
-				nodeLock.Add(1)
 				go func(index int) {
 					defer nodeLock.Done()
 					resUser := *userCache
@@ -236,6 +236,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 				// 从队列中取一个资源（如果空则会自动阻塞）
 				idx := <-queue
 				go func(idx int, index int) {
+					defer nodeLock.Done()
 					defer func() { queue <- idx }()
 					nodeRun(setting, user, &model3Caches[userCache.Name][idx], courseItem, pointAction, action, nodes, index, key, courseId)
 				}(idx, index)
@@ -620,7 +621,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 					break
 				}
 			}
-			if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true { //看完了，则直接退出
+			if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true && playingTime >= p.Duration { //看完了，则直接退出
 				if overTime == 0 {
 					lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
 				} else {
