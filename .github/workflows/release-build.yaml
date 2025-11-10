@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.0-Beta.8'
+        default: 'v2.6.0-Beta.9'
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [🔧] 修复学习通部分课程视屏任务点无法正常完成问题
+    - [👏] 优化添加AI无法正常答题则使用随机答案策略
     
     
     学习通用户注意：
