@@ -22,7 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化添加AI无法正常答题则使用随机答案策略
+    - [👏] 恢复并优化邮箱通知功能
     
     
     学习通用户注意：
