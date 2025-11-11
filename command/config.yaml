@@ -7,10 +7,10 @@ setting:
     logModel: 0 #日志输出模式，0为以视频提交学时为单位进行日志输出，1为以课程信息为单位进行输出
   emailInform:
     sw: 0 # 是否开启邮箱通知，0为关闭，1为开启
-    SMTPHost: ''
-    SMTPPort: ''
+    SMTPHost: ""
+    SMTPPort: ""
     userName: ""
-    password: ''
+    password: ""
   aiSetting:
     aiType: "TONGYI" #智普：CHATGLM、星火：XINGHUO、通义千问：TONGYI、豆包：DOUBAO、ChatGPT：OPENAI、深度求索(DeepSeek)：DEEPSEEK、秘塔AI：METAAI、其他模型：OTHER
     aiUrl: "" #默认不填，除非你用的不是上面所指明的AI模型，即OTHER
@@ -63,4 +63,4 @@ users:
   #     autoExam: 0
   #     examAutoSubmit: 1
   #     includeCourses: []
-  #     excludeCourses: []  
+  #     excludeCourses: []
