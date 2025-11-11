@@ -21,8 +21,8 @@ type JSONDataForConfig struct {
 type EmailInform struct {
 	Sw       int    `json:"sw"`
 	SMTPHost string `json:"smtpHost" yaml:"SMTPHost"`
-	SMTPPort string `json:"smtpPort" yaml:"SMTPPort"`
-	Email    string `json:"email"`
+	SMTPPort int    `json:"smtpPort" yaml:"SMTPPort"`
+	UserName string `json:"userName" yaml:"userName"`
 	Password string `json:"password"`
 }
 type BasicSetting struct {
@@ -71,6 +71,7 @@ type Users struct {
 	Account       string        `json:"account"`
 	Password      string        `json:"password"`
 	IsProxy       int           `json:"isProxy" yaml:"isProxy"` //是否代理IP
+	InformEmails  []string      `json:"informEmails" yaml:"informEmails"`
 	CoursesCustom CoursesCustom `json:"coursesCustom" yaml:"coursesCustom"`
 }
 

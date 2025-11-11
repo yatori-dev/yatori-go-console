@@ -8,3 +8,5 @@ config.yaml
 .idea
 face/*
 ip.txt
+/*.h
+/*.so
