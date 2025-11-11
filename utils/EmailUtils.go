@@ -13,7 +13,7 @@ import (
 func SendMail(host string, port int, userName, password string, toMail []string, content string) {
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", userName) // 发件人
+	m.SetHeader("From", m.FormatAddress(userName, "Yatori课程助手")) // 发件人
 
 	m.SetHeader("To", toMail...) // 收件人，可以多个收件人，但必须使用相同的 SMTP 连接
 
