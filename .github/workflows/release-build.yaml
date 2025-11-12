@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.0-Beta.9'
+        default: 'v2.6.0-Beta.10'
 
 permissions:
   contents: write
@@ -23,6 +23,8 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [👏] 恢复并优化邮箱通知功能
+    - [👏] 优化AI报错机制处理
+    - [👏] 优化英华学堂报错机制处理
     
     
     学习通用户注意：
