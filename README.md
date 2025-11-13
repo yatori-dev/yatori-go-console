@@ -88,7 +88,7 @@
 >
 > 注意：填url的时候是填写学校英华的链接，要用自己学校的链接，每个学校的链接都不同，这个可以自己去找去问。
 >
-> 配置文件说明：[点击此处查看](https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html)
+> 使用文档：[点击此处查看](https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html)
 > 
 > 如果害怕配置文件写错可以使用配置文件生成器：[点击此处查看](https://yatori-dev.github.io/yatori-config-generate/)
 
