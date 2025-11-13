@@ -12,7 +12,7 @@ setting:
     userName: ""
     password: ""
   aiSetting:
-    aiType: "TONGYI" #智普：CHATGLM、星火：XINGHUO、通义千问：TONGYI、豆包：DOUBAO、ChatGPT：OPENAI、深度求索(DeepSeek)：DEEPSEEK、秘塔AI：METAAI、其他模型：OTHER
+    aiType: "TONGYI" #硅基流动：SILICON、通义千问：TONGYI、豆包：DOUBAO、智普：CHATGLM、星火：XINGHUO、ChatGPT：OPENAI、深度求索(DeepSeek)：DEEPSEEK、秘塔AI：METAAI、其他模型：OTHER
     aiUrl: "" #默认不填，除非你用的不是上面所指明的AI模型，即OTHER
     model: "" #AI模型，不填则使用yatori默认选择的模型，如果你用的豆包则必填并且填的是接入点ID非模型名称，比如doubao-seed-1-6-lite-251015
     API_KEY: "" #AI平台对应的apikey
