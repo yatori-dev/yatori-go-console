@@ -22,6 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
+    - [👏] 优化支持硅基流动
     - [👏] 优化AI主观题答题
     
     
