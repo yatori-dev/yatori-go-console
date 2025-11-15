@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.0-Beta.12'
+        default: 'v2.6.0-Beta.13'
 
 permissions:
   contents: write
@@ -22,8 +22,8 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 调整AI请求数据，修复部分模型无法使用问题
-    
+    - [‍👏] 优化日志输出显示
+    - [‍🔧] 修复DeepSeek中response_format参数引起的问题
     
     学习通用户注意：
         如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！（多任务点模式会失效）
