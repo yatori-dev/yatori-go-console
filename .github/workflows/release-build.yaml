@@ -23,7 +23,9 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [‍👏] 优化日志输出显示
+    - [‍👏] 优化AI的prompt提示词
     - [‍🔧] 修复DeepSeek中response_format参数引起的问题
+    
     
     学习通用户注意：
         如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！（多任务点模式会失效）
