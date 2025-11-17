@@ -124,6 +124,10 @@ github.com/yatori-dev/yatori-go-core v1.9.1-0.20251115050749-e71a0b5170eb/go.mod
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251115161538-8b9c3e5a1de3/go.mod h1:SBKAVIoICrC4JIoDIXvYX58FhfNC4itIhbGeCZf8Yp8=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251116083933-583177cc79a1 h1:XsQQ6rV3wuBLmtRhRa27s0Q+N+LOnKmnm56aHyggqxU=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251116083933-583177cc79a1/go.mod h1:SBKAVIoICrC4JIoDIXvYX58FhfNC4itIhbGeCZf8Yp8=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251117082032-2f4d355a3535 h1:MIZUIruIGlbC8XPq/XsoazrOW9eZBoheQCPdU9n1bgw=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251117082032-2f4d355a3535/go.mod h1:SBKAVIoICrC4JIoDIXvYX58FhfNC4itIhbGeCZf8Yp8=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251117084929-0c8c7536b2d3 h1:SypdjeND00rrYbKGUuASthV3dRqJEbY26EKDtH1tr3Q=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251117084929-0c8c7536b2d3/go.mod h1:SBKAVIoICrC4JIoDIXvYX58FhfNC4itIhbGeCZf8Yp8=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
