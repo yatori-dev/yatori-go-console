@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.0-Beta.14'
+        default: 'v2.6.0-Beta.15'
 
 permissions:
   contents: write
@@ -22,8 +22,8 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍👏] 优化日志输出显示
-    - [‍👏] 优化学习通部分题型的适配
+    - [‍👏] 优化英华请求重试机制（垃圾英华）
+    - [‍👏] 优化学习通视屏任务点信息拉取逻辑并修复因学习通本身任务点问题导致程序错误（垃圾学习通）
     
     
     学习通用户注意：

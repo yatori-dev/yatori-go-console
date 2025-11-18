@@ -140,7 +140,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 		return
 	}
 	//执行刷课---------------------------------
-	nodeList, _ := yinghua.VideosListAction(userCache, *course) //拉取对应课程的视频列表
+	nodeList, err := yinghua.VideosListAction(userCache, *course) //拉取对应课程的视频列表
+	if err != nil {
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", " 【", course.Name, "】 >>> ", lg.Red, "拉取视屏列表失败", err.Error())
+	}
 	// 提交学时
 	for _, node := range nodeList {
 		//视频处理逻辑
