@@ -24,7 +24,6 @@ import (
 	"github.com/yatori-dev/yatori-go-core/utils/qutils"
 )
 
-var nodesLock sync.WaitGroup //视频锁
 var usersLock sync.WaitGroup //用户锁
 
 // 用于过滤学习通账号
@@ -112,9 +111,10 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 		}
 
 	}
+	var nodesLock sync.WaitGroup //视频锁
 	for _, course := range courseList {
 		nodesLock.Add(1)
-		// fmt.Println(course)
+		// fmt.Println(course) //创建当前循环变量的独立副本
 		if user.CoursesCustom.VideoModel == 1 {
 			nodeListStudy(setting, user, cache, &course)
 			nodesLock.Done()
