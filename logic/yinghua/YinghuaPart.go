@@ -95,8 +95,9 @@ func userBlock(setting config.Setting, user *config.Users, cache *yinghuaApi.Yin
 
 	//如果是暴力模式，等结束后再进行一次去红模式
 	if user.CoursesCustom.VideoModel == 2 {
+		lg.Print(lg.INFO, "[", lg.Green, user.Account, lg.Default, "] ", lg.Yellow, "暴力模式执行完毕，正在自动执行去红模式...")
 		user.CoursesCustom.VideoModel = 3 //标记为去红模式并启动
-		userBlock(setting, user, cache)
+		userBlock(setting, user, cache)   //递归执行去红模式
 		return
 	}
 	//如果开启了邮箱通知
