@@ -92,6 +92,13 @@ func userBlock(setting config.Setting, user *config.Users, cache *yinghuaApi.Yin
 	nodesLock.Wait()  //等待所有节点结束
 	videosLock.Wait() //等待所有视频刷完
 	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+
+	//如果是暴力模式，等结束后再进行一次去红模式
+	if user.CoursesCustom.VideoModel == 2 {
+		user.CoursesCustom.VideoModel = 3 //标记为去红模式并启动
+		userBlock(setting, user, cache)
+		return
+	}
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, user.AccountType))
@@ -149,20 +156,20 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 		//视频处理逻辑
 		switch user.CoursesCustom.VideoModel { //根据视频模式进行刷课
 		case 1:
-			videoAction(setting, user, userCache, node) //普通模式
+			videoAction(setting, user, userCache, course, node) //普通模式
 			break
 		case 2:
-			videoVioLenceAction(setting, user, userCache, node) //暴力模式
+			videoVioLenceAction(setting, user, userCache, course, node) //暴力模式
 			break
 		case 3:
-			videoBadRedAction(setting, user, userCache, node) //去红模式
+			videoBadRedAction(setting, user, userCache, course, node) //去红模式
 			break
 
 		}
 		//作业处理逻辑
-		workAction(setting, user, userCache, node)
+		workAction(setting, user, userCache, course, node)
 		//考试处理逻辑
-		examAction(setting, user, userCache, node)
+		examAction(setting, user, userCache, course, node)
 
 		action, err := yinghua.CourseDetailAction(userCache, course.Id)
 		if err != nil {
@@ -176,20 +183,20 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 }
 
 // videoAction 刷视频逻辑抽离
-func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, node yinghua.YingHuaNode) {
+func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
 	if int(node.Progress) == 100 { //过滤看完了的视屏
 		return
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.Name+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, fmt.Sprintf("【%s】", course.Name), "【"+node.Name+"】")
 	time := node.ViewedDuration //设置当前观看时间为最后看视频的时间
 	studyId := "0"              //服务器端分配的学习ID
 	for {
 		time += 5
 		if node.Progress == 100 {
-			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", " ", lg.Blue, "学习完毕")
+			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", " ", lg.Blue, "学习完毕")
 			break //如果看完了，也就是进度为100那么直接跳过
 		}
 		//提交学时
@@ -204,16 +211,16 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 		msgVal := gojsonq.New().JSONString(sub).Find("msg")
 		msg, ok := msgVal.(string)
 		if !ok || msg == "" {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", lg.Red, "提交状态异常，msg 字段为空或格式错误", sub)
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Red, "提交状态异常，msg 字段为空或格式错误", sub)
 			time2.Sleep(10 * time2.Second)
 			continue
 		}
 		if msg != "提交学时成功!" {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
 			//{"_code":9,"status":false,"msg":"该课程解锁时间【2024-11-14 12:00:00】未到!","result":{}}，如果未到解锁时间则跳过
 			reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
 			if reg1.MatchString(msg) {
-				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
+				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
 				break
 			}
 			time2.Sleep(10 * time2.Second)
@@ -224,7 +231,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 		if idFloat, ok := studyIdVal.(float64); ok {
 			studyId = strconv.Itoa(int(idFloat))
 		}
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
 		time2.Sleep(5 * time2.Second)
 		if time >= node.VideoDuration {
 			break //如果看完该视频则直接下一个
@@ -233,7 +240,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 }
 
 // videoAction 刷视频逻辑抽离(暴力模式)
-func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, node yinghua.YingHuaNode) {
+func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
@@ -246,13 +253,13 @@ func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *
 			videosLock.Done()
 			return
 		}
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.Name+"】 ")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, fmt.Sprintf("【%s】", course.Name), "【"+node.Name+"】 ")
 		time := node.ViewedDuration //设置当前观看时间为最后看视频的时间
 		studyId := "0"              //服务器端分配的学习ID
 		for {
 			time += 5
 			if node.Progress == 100 {
-				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", " ", lg.Blue, "学习完毕")
+				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 ", " ", lg.Blue, "学习完毕")
 				break //如果看完了，也就是进度为100那么直接跳过
 			}
 			//提交学时
@@ -273,11 +280,11 @@ func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *
 			}
 
 			if msg != "提交学时成功!" {
-				lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
+				lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
 
 				reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
 				if reg1.MatchString(msg) {
-					modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
+					modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
 					break
 				}
 				time2.Sleep(10 * time2.Second)
@@ -285,7 +292,7 @@ func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *
 			}
 			//打印日志部分
 			studyId = strconv.Itoa(int(gojsonq.New().JSONString(sub).Find("result.data.studyId").(float64)))
-			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
+			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
 
 			time2.Sleep(5 * time2.Second)
 			if time >= node.VideoDuration {
@@ -297,7 +304,7 @@ func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *
 }
 
 // videoBadRedAction 去红模式
-func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, node yinghua.YingHuaNode) {
+func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
@@ -305,7 +312,7 @@ func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yi
 	if node.ErrorMessage != "检测到可能使用并行播放刷课" {
 		return
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在消红视频：", lg.Default, " 【"+node.Name+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在消红视频：", lg.Default, fmt.Sprintf("【%s】", course.Name), "【"+node.Name+"】 ")
 	time := node.ViewedDuration //设置当前观看时间为最后看视频的时间
 
 	studyId := "0" //服务器端分配的学习ID
@@ -322,16 +329,16 @@ func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yi
 		msgVal := gojsonq.New().JSONString(sub).Find("msg")
 		msg, ok := msgVal.(string)
 		if !ok || msg == "" {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 ", lg.Red, "提交状态异常，msg 字段为空或格式错误", sub)
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 ", lg.Red, "提交状态异常，msg 字段为空或格式错误", sub)
 			time2.Sleep(10 * time2.Second)
 			continue
 		}
 		if msg != "提交学时成功!" {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
+			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", "提交状态：", lg.Red, sub)
 			//{"_code":9,"status":false,"msg":"该课程解锁时间【2024-11-14 12:00:00】未到!","result":{}}，如果未到解锁时间则跳过
 			reg1 := regexp.MustCompile(`该课程解锁时间【[^【]*】未到!`)
 			if reg1.MatchString(msg) {
-				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
+				modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", lg.Red, "该课程未到解锁时间已自动跳过")
 				break
 			}
 			time2.Sleep(10 * time2.Second)
@@ -342,14 +349,14 @@ func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yi
 		if idFloat, ok := studyIdVal.(float64); ok {
 			studyId = strconv.Itoa(int(idFloat))
 		}
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【", node.Name, "】 >>> ", lg.Red, " 去红模式 ", lg.Default, "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 >>> ", lg.Red, " 去红模式 ", lg.Default, "提交状态：", lg.Green, msg, lg.Default, " ", "观看时间：", strconv.Itoa(time)+"/"+strconv.Itoa(node.VideoDuration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(time)/float32(node.VideoDuration)*100), "%")
 		time2.Sleep(8 * time2.Second) //隔8s下一个去红
 		break                         //因为是去红模式，所以直接退出
 	}
 }
 
 // workAction 作业处理逻辑
-func workAction(setting config.Setting, user *config.Users, userCache *yinghuaApi.YingHuaUserCache, node yinghua.YingHuaNode) {
+func workAction(setting config.Setting, user *config.Users, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if user.CoursesCustom.AutoExam == 0 { //是否打开了自动考试开关
 		return
 	}
@@ -379,9 +386,9 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 		return
 	}
 	if user.CoursesCustom.AutoExam == 1 {
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在AI自动写章节作业...")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, fmt.Sprintf("【%s】", course.Name), "【"+node.Name+"】 ", lg.Yellow, "正在AI自动写章节作业...")
 	} else if user.CoursesCustom.AutoExam == 2 {
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在外置题库自动写章节作业...")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Default, fmt.Sprintf("【%s】", course.Name), "【"+node.Name+"】 ", lg.Yellow, "正在外置题库自动写章节作业...")
 	}
 
 	//开始写作业
@@ -397,27 +404,27 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 		}
 
 		if err != nil {
-			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), " 【", node.Name, "】 ", lg.BoldRed, "该章节作业无法正常执行，服务器返回信息：", err.Error())
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 ", lg.BoldRed, "该章节作业无法正常执行，服务器返回信息：", err.Error())
 			continue
 		}
 		if user.CoursesCustom.ExamAutoSubmit == 1 {
 			//打印最终分数
 			s, err1 := yinghua.WorkedFinallyScoreAction(userCache, work)
 			if err1 != nil {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), " 【", node.Name, "】 ", lg.BoldRed, err1)
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 ", lg.BoldRed, err1)
 				continue
 			}
 			if user.CoursesCustom.AutoExam == 1 {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), " 【", node.Name, "】", lg.Green, "章节作业AI答题完毕，最高分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", work.Score))
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Green, "章节作业AI答题完毕，最高分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", work.Score))
 			} else if user.CoursesCustom.AutoExam == 2 {
 				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", " 【", node.Name, "】", lg.Green, "章节作业外置题库答题完毕，最高分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", work.Score))
 			}
 
 		} else {
 			if user.CoursesCustom.AutoExam == 1 {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), " 【", node.Name, "】", lg.Green, "AI考试完毕,请自行前往主页提交试卷")
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Green, "AI考试完毕,请自行前往主页提交试卷")
 			} else if user.CoursesCustom.AutoExam == 2 {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", " 【", node.Name, "】", lg.Green, "外置题库考试完毕,请自行前往主页提交试卷")
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Green, "外置题库考试完毕,请自行前往主页提交试卷")
 			}
 		}
 	}
@@ -425,7 +432,7 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 }
 
 // examAction 考试处理逻辑
-func examAction(setting config.Setting, user *config.Users, userCache *yinghuaApi.YingHuaUserCache, node yinghua.YingHuaNode) {
+func examAction(setting config.Setting, user *config.Users, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if user.CoursesCustom.AutoExam == 0 { //是否打开了自动考试开关
 		return
 	}
@@ -458,9 +465,9 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 	}
 	//开始考试
 	if user.CoursesCustom.AutoExam == 1 {
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在AI自动考试...")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, fmt.Sprintf("【%s】", course.Name), "【"+node.Name+"】 ", lg.Yellow, "正在AI自动考试...")
 	} else if user.CoursesCustom.AutoExam == 2 {
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, " 【"+node.Name+"】 ", lg.Yellow, "正在外置题库自动考试...")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", lg.Default, fmt.Sprintf("【%s】", course.Name), "【"+node.Name+"】 ", lg.Yellow, "正在外置题库自动考试...")
 	}
 
 	for _, exam := range detailAction {
@@ -475,7 +482,7 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 			break
 		}
 		if err != nil {
-			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), " 【", node.Name, "】 ", lg.BoldRed, "该考试无法正常执行，服务器返回信息：", err.Error())
+			lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 ", lg.BoldRed, "该考试无法正常执行，服务器返回信息：", err.Error())
 			continue
 		}
 
@@ -483,19 +490,19 @@ func examAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 			//打印最终分数
 			s, err1 := yinghua.ExamFinallyScoreAction(userCache, exam)
 			if err1 != nil {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", " 【", node.Name, "】 ", lg.BoldRed, err1.Error())
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "<"+setting.AiSetting.AiType+">", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】 ", lg.BoldRed, err1.Error())
 				continue
 			}
 			if user.CoursesCustom.AutoExam == 1 {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), " 【", node.Name, "】", lg.Green, "AI考试完毕,最终分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", exam.Score))
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Green, "AI考试完毕,最终分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", exam.Score))
 			} else if user.CoursesCustom.AutoExam == 2 {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", " 【", node.Name, "】", lg.Green, "外置题库考试完毕,最终分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", exam.Score))
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Green, "外置题库考试完毕,最终分：", s, "分", " 试卷总分：", fmt.Sprintf("%.2f分", exam.Score))
 			}
 		} else {
 			if user.CoursesCustom.AutoExam == 1 {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), " 【", node.Name, "】", lg.Green, "AI考试完毕,请自行前往主页提交试卷")
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Green, "AI考试完毕,请自行前往主页提交试卷")
 			} else if user.CoursesCustom.AutoExam == 2 {
-				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", " 【", node.Name, "】", lg.Green, "外置题库考试完毕,请自行前往主页提交试卷")
+				lg.Print(lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", fmt.Sprintf("【%s】", course.Name), "【", node.Name, "】", lg.Green, "外置题库考试完毕,请自行前往主页提交试卷")
 			}
 
 		}
