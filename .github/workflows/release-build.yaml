@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.0-Beta.18'
+        default: 'v2.6.0-Beta.19'
 
 permissions:
   contents: write
