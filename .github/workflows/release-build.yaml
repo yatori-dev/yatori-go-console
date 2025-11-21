@@ -23,6 +23,7 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [👏] 优化英华课程定位速度
+    - [👏] 优化学习通课程定位速度
     
     
     学习通用户注意：

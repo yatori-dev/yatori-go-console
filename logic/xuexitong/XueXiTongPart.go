@@ -160,6 +160,10 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程已经结束，已自动跳过该课程")
 		return
 	}
+	//如果该课程已刷完了则直接return
+	if courseItem.JobRate >= 100 {
+		return
+	}
 
 	key, _ := strconv.Atoi(courseItem.Key)
 	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
