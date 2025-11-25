@@ -8,6 +8,7 @@ go 1.23.4
 //然后自行设置代理，set http_proxy=http:localhost:xxxx 你的VPN本地代理
 //然后自行设置代理，set https_proxy=http:localhost:xxxx 你的VPN本地代理
 require (
+	github.com/gin-gonic/gin v1.10.0
 	//github.com/faiface/beep v1.1.0
 	github.com/spf13/viper v1.19.0
 	github.com/thedevsaddam/gojsonq v1.9.1
