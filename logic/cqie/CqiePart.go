@@ -18,8 +18,8 @@ var videosLock sync.WaitGroup //视频锁
 var usersLock sync.WaitGroup  //用户锁
 
 // 用于过滤Cqie账号
-func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
-	var users []config.Users //用于收集英华账号
+func FilterAccount(configData *config.JSONDataForConfig) []config.User {
+	var users []config.User //用于收集英华账号
 	for _, user := range configData.Users {
 		if user.AccountType == "CQIE" {
 			users = append(users, user)
@@ -29,7 +29,7 @@ func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
 }
 
 // 开始刷课模块
-func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*cqieApi.CqieUserCache) {
+func RunBrushOperation(setting config.Setting, users []config.User, userCaches []*cqieApi.CqieUserCache) {
 	//开始刷课
 	for i, user := range userCaches {
 		usersLock.Add(1)
@@ -40,7 +40,7 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 }
 
 // 用户登录模块
-func UserLoginOperation(users []config.Users) []*cqieApi.CqieUserCache {
+func UserLoginOperation(users []config.User) []*cqieApi.CqieUserCache {
 	var UserCaches []*cqieApi.CqieUserCache
 	for _, user := range users {
 		if user.AccountType == "CQIE" {
@@ -60,7 +60,7 @@ func UserLoginOperation(users []config.Users) []*cqieApi.CqieUserCache {
 // 以用户作为刷课单位的基本块
 var soundMut sync.Mutex
 
-func userBlock(setting config.Setting, user *config.Users, cache *cqieApi.CqieUserCache) {
+func userBlock(setting config.Setting, user *config.User, cache *cqieApi.CqieUserCache) {
 	// projectList, _ := enaea.ProjectListAction(cache) //拉取项目列表
 	courseList, _ := cqie.CqiePullCourseListAction(cache)
 	for _, course := range courseList {
@@ -86,7 +86,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *cqieApi.CqieUs
 }
 
 // 章节节点的抽离函数
-func nodeListStudy(setting config.Setting, user *config.Users, userCache *cqieApi.CqieUserCache, course *cqie.CqieCourse) {
+func nodeListStudy(setting config.Setting, user *config.User, userCache *cqieApi.CqieUserCache, course *cqie.CqieCourse) {
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(course.CourseName, user.CoursesCustom.ExcludeCourses) {
@@ -117,7 +117,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *cqieAp
 }
 
 // videoAction 刷视频逻辑抽离
-func videoAction(setting config.Setting, user *config.Users, UserCache *cqieApi.CqieUserCache, node cqie.CqieVideo) {
+func videoAction(setting config.Setting, user *config.User, UserCache *cqieApi.CqieUserCache, node cqie.CqieVideo) {
 	if user.CoursesCustom.VideoModel == 0 { //是否打开了自动刷视频开关
 		return
 	}
@@ -158,7 +158,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *cqieApi.
 }
 
 // videoAction 刷视频逻辑抽离(秒刷版本)
-func videoActionSecondBrush(setting config.Setting, user *config.Users, UserCache *cqieApi.CqieUserCache, node cqie.CqieVideo) {
+func videoActionSecondBrush(setting config.Setting, user *config.User, UserCache *cqieApi.CqieUserCache, node cqie.CqieVideo) {
 	if user.CoursesCustom.VideoModel == 0 { //是否打开了自动刷视频开关
 		return
 	}

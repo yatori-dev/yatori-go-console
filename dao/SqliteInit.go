@@ -2,7 +2,7 @@ package dao
 
 import (
 	"time"
-	"yatori-go-server/entity/pojo"
+	"yatori-go-console/entity/pojo"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

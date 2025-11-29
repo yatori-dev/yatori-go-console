@@ -21,8 +21,8 @@ var videosLock sync.WaitGroup //视频锁
 var usersLock sync.WaitGroup  //用户锁
 
 // 用于过滤Cqie账号
-func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
-	var users []config.Users //用于收集英华账号
+func FilterAccount(configData *config.JSONDataForConfig) []config.User {
+	var users []config.User //用于收集英华账号
 	for _, user := range configData.Users {
 		if user.AccountType == "WELEARN" {
 			users = append(users, user)
@@ -32,7 +32,7 @@ func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
 }
 
 // 开始刷课模块
-func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*welearn.WeLearnUserCache) {
+func RunBrushOperation(setting config.Setting, users []config.User, userCaches []*welearn.WeLearnUserCache) {
 	//开始刷课
 	for i, user := range userCaches {
 		usersLock.Add(1)
@@ -43,7 +43,7 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 }
 
 // 用户登录模块
-func UserLoginOperation(users []config.Users) []*welearn.WeLearnUserCache {
+func UserLoginOperation(users []config.User) []*welearn.WeLearnUserCache {
 	var UserCaches []*welearn.WeLearnUserCache
 	for _, user := range users {
 		if user.AccountType == "WELEARN" {
@@ -64,7 +64,7 @@ func UserLoginOperation(users []config.Users) []*welearn.WeLearnUserCache {
 // 以用户作为刷课单位的基本块
 var soundMut sync.Mutex
 
-func userBlock(setting config.Setting, user *config.Users, cache *welearn.WeLearnUserCache) {
+func userBlock(setting config.Setting, user *config.User, cache *welearn.WeLearnUserCache) {
 	// projectList, _ := enaea.ProjectListAction(cache) //拉取项目列表
 	courseList, err := action.WeLearnPullCourseListAction(cache)
 	if err != nil {
@@ -93,7 +93,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *welearn.WeLear
 }
 
 // 章节节点的抽离函数
-func nodeListStudy(setting config.Setting, user *config.Users, userCache *welearn.WeLearnUserCache, course *action.WeLearnCourse) {
+func nodeListStudy(setting config.Setting, user *config.User, userCache *welearn.WeLearnUserCache, course *action.WeLearnCourse) {
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(course.Name, user.CoursesCustom.ExcludeCourses) {
@@ -134,7 +134,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *welear
 }
 
 // videoAction 刷视频逻辑抽离，普通模式就是秒刷
-func nodeCompleteAction(setting config.Setting, user *config.Users, UserCache *welearn.WeLearnUserCache, course *action.WeLearnCourse, node action.WeLearnPoint) {
+func nodeCompleteAction(setting config.Setting, user *config.User, UserCache *welearn.WeLearnUserCache, course *action.WeLearnCourse, node action.WeLearnPoint) {
 	if user.CoursesCustom.VideoModel == 0 { //是否打开了自动刷视频开关
 		return
 	}
@@ -158,7 +158,7 @@ func nodeCompleteAction(setting config.Setting, user *config.Users, UserCache *w
 }
 
 // 累计学时
-func nodeSubmitTimeAction(setting config.Setting, user *config.Users, UserCache *welearn.WeLearnUserCache, course *action.WeLearnCourse, node action.WeLearnPoint) {
+func nodeSubmitTimeAction(setting config.Setting, user *config.User, UserCache *welearn.WeLearnUserCache, course *action.WeLearnCourse, node action.WeLearnPoint) {
 	if user.CoursesCustom.VideoModel == 0 { //是否打开了自动刷视频开关
 		return
 	}
@@ -177,7 +177,7 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.Users, UserCache 
 	}
 	endTime := 1600
 	//获取配置中的学时
-	learnTime := user.CoursesCustom.WeLearnTime
+	learnTime := user.CoursesCustom.StudyTime
 	if learnTime != "" {
 		a, err1 := strconv.Atoi(strings.Split(learnTime, "-")[0])
 		if err1 != nil {

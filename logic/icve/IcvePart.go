@@ -17,8 +17,8 @@ var videosLock sync.WaitGroup //视频锁
 var usersLock sync.WaitGroup  //用户锁
 
 // 用于过滤ICVE账号
-func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
-	var users []config.Users //用于收集英华账号
+func FilterAccount(configData *config.JSONDataForConfig) []config.User {
+	var users []config.User //用于收集英华账号
 	for _, user := range configData.Users {
 		if user.AccountType == "ICVE" {
 			users = append(users, user)
@@ -28,7 +28,7 @@ func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
 }
 
 // 开始刷课模块
-func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*icve.IcveUserCache) {
+func RunBrushOperation(setting config.Setting, users []config.User, userCaches []*icve.IcveUserCache) {
 	//开始刷课
 	for i, user := range userCaches {
 		usersLock.Add(1)
@@ -39,7 +39,7 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 }
 
 // 用户登录模块
-func UserLoginOperation(users []config.Users) []*icve.IcveUserCache {
+func UserLoginOperation(users []config.User) []*icve.IcveUserCache {
 	var UserCaches []*icve.IcveUserCache
 	for _, user := range users {
 		if user.AccountType == "ICVE" {
@@ -73,7 +73,7 @@ func UserLoginOperation(users []config.Users) []*icve.IcveUserCache {
 // 以用户作为刷课单位的基本块
 var soundMut sync.Mutex
 
-func userBlock(setting config.Setting, user *config.Users, cache *icve.IcveUserCache) {
+func userBlock(setting config.Setting, user *config.User, cache *icve.IcveUserCache) {
 	courseList, err := action.PullZYKCourseAction(cache)
 	if err != nil {
 		panic(err)
@@ -101,7 +101,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *icve.IcveUserC
 }
 
 // 章节节点的抽离函数
-func nodeListStudy(setting config.Setting, user *config.Users, userCache *icve.IcveUserCache, course *action.IcveCourse) {
+func nodeListStudy(setting config.Setting, user *config.User, userCache *icve.IcveUserCache, course *action.IcveCourse) {
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(course.CourseName, user.CoursesCustom.ExcludeCourses) {
@@ -138,7 +138,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *icve.I
 }
 
 // videoAction 刷视频逻辑抽离，普通模式就是秒刷
-func nodeCompleteAction(setting config.Setting, user *config.Users, UserCache *icve.IcveUserCache, course *action.IcveCourse, node action.IcveCourseNode) {
+func nodeCompleteAction(setting config.Setting, user *config.User, UserCache *icve.IcveUserCache, course *action.IcveCourse, node action.IcveCourseNode) {
 	if user.CoursesCustom.VideoModel == 0 { //是否打开了自动刷视频开关
 		return
 	}

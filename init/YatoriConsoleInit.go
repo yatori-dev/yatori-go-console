@@ -1,24 +1,22 @@
-package utils
+package init
 
 import (
 	_ "embed"
-	"github.com/yatori-dev/yatori-go-core/utils"
 	"log"
 	"os"
 	"runtime"
+	utils2 "yatori-go-console/utils"
+	//"yatori-go-console/web"
+
+	"github.com/yatori-dev/yatori-go-core/utils"
 )
 
-//go:embed finishNotice.mp3
+//go:embed assets/finishNotice.mp3
 var noticeSound []byte
 
 // 初始化YatoriConsole
 func YatoriConsoleInit() {
 	utils.YatoriCoreInit() //初始化Core核心
-
-	f1, _ := utils.PathExists("./assets/sound/finishNotice.mp3")
-	if !f1 {
-		writeDLLToDisk() //确保文件都加载了
-	}
 	initConsole()
 }
 
@@ -36,6 +34,6 @@ func writeDLLToDisk() {
 func initConsole() {
 	sysType := runtime.GOOS
 	if sysType == "windows" {
-		SetVirtualTerminalLevel()
+		utils2.SetVirtualTerminalLevel()
 	}
 }

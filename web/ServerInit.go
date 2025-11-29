@@ -1,18 +1,18 @@
-package bootstrap
+package web
 
 import (
 	"bytes"
 	"io"
 	"log"
 	"net/http"
-	"yatori-go-server/dao"
-	"yatori-go-server/global"
+	"yatori-go-console/dao"
+	"yatori-go-console/global"
 
 	"github.com/gin-gonic/gin"
 )
 
 // 统一初始化
-func Init() {
+func ServiceInit() {
 	//初始化数据库
 	dbInit, err := dao.SqliteInit()
 	if err != nil {
@@ -32,12 +32,25 @@ type Group struct {
 // 初始化gin
 func serverInit() *gin.Engine {
 	router := gin.Default()
-	router.Static("/assets", "./assets/web/assets") //静态资源
-	router.Use(Cors())                              //设置跨域
-	router.Use(LoggerMiddleware())
+
+	// 静态资源（Vue 构建产物）
+	router.Static("/assets", "./assets/web/assets")             // JS/CSS 静态资源
+	router.StaticFile("/", "./assets/web/index.html")           // 首页
+	router.StaticFile("/index.html", "./assets/web/index.html") // 兼容
+
+	router.Use(Cors())             // CORS
+	router.Use(LoggerMiddleware()) // 日志中间件
+
+	// API 路由
 	apiGroup := router.Group("/")
 	routerGroup := Group{apiGroup}
 	routerGroup.Router()
+
+	// ⭐ 关键：Vue Router history fallback（解决直接打开 /account 报 404）
+	router.NoRoute(func(c *gin.Context) {
+		c.File("./assets/web/index.html")
+	})
+
 	return router
 }
 

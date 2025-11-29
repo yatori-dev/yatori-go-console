@@ -16,7 +16,7 @@ import (
 
 type JSONDataForConfig struct {
 	Setting Setting `json:"setting"`
-	Users   []Users `json:"users"`
+	Users   []User  `json:"users"`
 }
 type EmailInform struct {
 	Sw       int    `json:"sw"`
@@ -31,6 +31,7 @@ type BasicSetting struct {
 	LogOutFileSw   int    `json:"logOutFileSw,omitempty" yaml:"logOutFileSw"`                 //是否输出日志文件0代表不输出，1代表输出，默认为1
 	LogLevel       string `json:"logLevel,omitempty" yaml:"logLevel"`                         //日志等级，默认INFO，DEBUG为找BUG调式用的，日志内容较详细，默认为INFO
 	LogModel       int    `json:"logModel" yaml:"logModel"`                                   //日志模式，0代表以视频提交学时基准打印日志，1代表以一个课程为基准打印信息，默认为0
+	WebModel       int    `json:"webModel" yaml:"webModel"`
 }
 type AiSetting struct {
 	AiType ctype.AiType `json:"aiType" yaml:"aiType"`
@@ -55,7 +56,7 @@ type CoursesSettings struct {
 	ExcludeExams []string `json:"excludeExams" yaml:"excludeExams"`
 }
 type CoursesCustom struct {
-	WeLearnTime     string            `json:"weLearnTime" yaml:"weLearnTime"`       //WeLearn设置刷学时的时候范围
+	StudyTime       string            `json:"studyTime" yaml:"studyTime"`           //WeLearn设置刷学时的时候范围
 	CxNode          int               `json:"cxNode" yaml:"cxNode"`                 //学习通多任务点模式下设置同时任务点数量
 	ShuffleSw       int               `json:"shuffleSw" yaml:"shuffleSw"`           //是否打乱顺序学习，1为打乱顺序，0为不打乱
 	VideoModel      int               `json:"videoModel" yaml:"videoModel"`         //观看视频模式
@@ -65,7 +66,7 @@ type CoursesCustom struct {
 	IncludeCourses  []string          `json:"includeCourses" yaml:"includeCourses"`
 	CoursesSettings []CoursesSettings `json:"coursesSettings" yaml:"coursesSettings"`
 }
-type Users struct {
+type User struct {
 	AccountType   string        `json:"accountType" yaml:"accountType"`
 	URL           string        `json:"url"`
 	Account       string        `json:"account"`

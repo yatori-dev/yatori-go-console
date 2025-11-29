@@ -21,8 +21,8 @@ import (
 )
 
 // 用于过滤英华账号
-func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
-	var users []config.Users //用于收集英华账号
+func FilterAccount(configData *config.JSONDataForConfig) []config.User {
+	var users []config.User //用于收集英华账号
 	for _, user := range configData.Users {
 		if user.AccountType == "YINGHUA" {
 			users = append(users, user)
@@ -32,7 +32,7 @@ func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
 }
 
 // 开始刷课模块
-func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*yinghuaApi.YingHuaUserCache) {
+func RunBrushOperation(setting config.Setting, users []config.User, userCaches []*yinghuaApi.YingHuaUserCache) {
 	var usersLock sync.WaitGroup //用户锁
 	//开始刷课
 	for i, user := range userCaches {
@@ -48,7 +48,7 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 }
 
 // ipProxy 代理IP设定
-func ipProxy(user config.Users, cache *yinghuaApi.YingHuaUserCache) {
+func ipProxy(user config.User, cache *yinghuaApi.YingHuaUserCache) {
 	for {
 		if user.IsProxy == 1 {
 			//获取随机IP值
@@ -60,7 +60,7 @@ func ipProxy(user config.Users, cache *yinghuaApi.YingHuaUserCache) {
 }
 
 // 用户登录模块
-func UserLoginOperation(users []config.Users) []*yinghuaApi.YingHuaUserCache {
+func UserLoginOperation(users []config.User) []*yinghuaApi.YingHuaUserCache {
 	var UserCaches []*yinghuaApi.YingHuaUserCache
 	for _, user := range users {
 		if user.AccountType == "YINGHUA" {
@@ -82,7 +82,7 @@ func UserLoginOperation(users []config.Users) []*yinghuaApi.YingHuaUserCache {
 // 以用户作为刷课单位的基本块
 var soundMut sync.Mutex
 
-func userBlock(setting config.Setting, user *config.Users, cache *yinghuaApi.YingHuaUserCache) {
+func userBlock(setting config.Setting, user *config.User, cache *yinghuaApi.YingHuaUserCache) {
 	list, _ := yinghua.CourseListAction(cache) //拉取课程列表
 	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "正在定位上次学习位置...")
 	var nodesLock sync.WaitGroup //节点锁
@@ -96,13 +96,13 @@ func userBlock(setting config.Setting, user *config.Users, cache *yinghuaApi.Yin
 
 				lg.Print(lg.INFO, "[", lg.Green, user.Account, lg.Default, "] ", lg.Yellow, "暴力模式执行完毕，正在自动执行去红模式(需延迟一分钟执行)...")
 				time2.Sleep(time2.Minute)
-				resUser := *user                     //改为去红模式
-				resUser.CoursesCustom.VideoModel = 3 //标记为去红模式并启动
-				//err1 := yinghua.YingHuaLoginAction(cache) // 登录
-				//if err1 != nil {
-				//	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err1.Error())
-				//	log.Fatal(err1) //登录失败则直接退出
-				//}
+				resUser := *user                          //改为去红模式
+				resUser.CoursesCustom.VideoModel = 3      //标记为去红模式并启动
+				err1 := yinghua.YingHuaLoginAction(cache) // 登录
+				if err1 != nil {
+					lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err1.Error())
+					log.Fatal(err1) //登录失败则直接退出
+				}
 				//nodesLock.Add(1)
 				nodeListStudy(setting, &resUser, cache, &item) //递归执行去红模式
 
@@ -138,7 +138,7 @@ func keepAliveLogin(UserCache *yinghuaApi.YingHuaUserCache) {
 }
 
 // 章节节点的抽离函数
-func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse) {
+func nodeListStudy(setting config.Setting, user *config.User, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse) {
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(course.Name, user.CoursesCustom.ExcludeCourses) {
@@ -199,7 +199,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *yinghu
 }
 
 // videoAction 刷视频逻辑抽离
-func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
+func videoAction(setting config.Setting, user *config.User, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
@@ -256,7 +256,7 @@ func videoAction(setting config.Setting, user *config.Users, UserCache *yinghuaA
 }
 
 // videoAction 刷视频逻辑抽离(暴力模式)
-func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
+func videoVioLenceAction(setting config.Setting, user *config.User, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
@@ -316,7 +316,7 @@ func videoVioLenceAction(setting config.Setting, user *config.Users, UserCache *
 }
 
 // videoBadRedAction 去红模式
-func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
+func videoBadRedAction(setting config.Setting, user *config.User, UserCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if !node.TabVideo { //过滤非视频节点
 		return
 	}
@@ -368,7 +368,7 @@ func videoBadRedAction(setting config.Setting, user *config.Users, UserCache *yi
 }
 
 // workAction 作业处理逻辑
-func workAction(setting config.Setting, user *config.Users, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
+func workAction(setting config.Setting, user *config.User, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if user.CoursesCustom.AutoExam == 0 { //是否打开了自动考试开关
 		return
 	}
@@ -444,7 +444,7 @@ func workAction(setting config.Setting, user *config.Users, userCache *yinghuaAp
 }
 
 // examAction 考试处理逻辑
-func examAction(setting config.Setting, user *config.Users, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
+func examAction(setting config.Setting, user *config.User, userCache *yinghuaApi.YingHuaUserCache, course *yinghua.YingHuaCourse, node yinghua.YingHuaNode) {
 	if user.CoursesCustom.AutoExam == 0 { //是否打开了自动考试开关
 		return
 	}

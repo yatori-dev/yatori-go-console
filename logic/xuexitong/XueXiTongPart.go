@@ -27,8 +27,8 @@ import (
 var usersLock sync.WaitGroup //用户锁
 
 // 用于过滤学习通账号
-func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
-	var users []config.Users //用于收集英华账号
+func FilterAccount(configData *config.JSONDataForConfig) []config.User {
+	var users []config.User //用于收集英华账号
 	for _, user := range configData.Users {
 		if user.AccountType == "XUEXITONG" {
 			users = append(users, user)
@@ -38,7 +38,7 @@ func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
 }
 
 // 用户登录模块
-func UserLoginOperation(users []config.Users) []*xuexitongApi.XueXiTUserCache {
+func UserLoginOperation(users []config.User) []*xuexitongApi.XueXiTUserCache {
 	var UserCaches []*xuexitongApi.XueXiTUserCache
 	for _, user := range users {
 		if user.AccountType == "XUEXITONG" {
@@ -61,10 +61,10 @@ func UserLoginOperation(users []config.Users) []*xuexitongApi.XueXiTUserCache {
 }
 
 // 开始刷课模块
-func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*xuexitongApi.XueXiTUserCache) {
+func RunBrushOperation(setting config.Setting, users []config.User, userCaches []*xuexitongApi.XueXiTUserCache) {
 	for i, _ := range userCaches {
 		usersLock.Add(1)
-		go userBlock(setting, &users[i], userCaches[i])
+		go UserBlock(setting, &users[i], userCaches[i])
 	}
 	usersLock.Wait()
 }
@@ -76,7 +76,7 @@ var soundMut sync.Mutex
 // 用于模式3的
 var model3Caches = map[string][]xuexitongApi.XueXiTUserCache{}
 
-func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.XueXiTUserCache) {
+func UserBlock(setting config.Setting, user *config.User, cache *xuexitongApi.XueXiTUserCache) {
 	// list, err := xuexitong.XueXiTCourseDetailForCourseIdAction(cache, "261619055656961")
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
 	if err != nil {
@@ -140,7 +140,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *xuexitongApi.X
 	usersLock.Done()
 }
 
-func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse) {
+func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse) {
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(courseItem.CourseName, user.CoursesCustom.ExcludeCourses) {
@@ -259,7 +259,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *xuexit
 }
 
 // 任务点分流运行
-func nodeRun(setting config.Setting, user *config.Users, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse,
+func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse,
 	pointAction xuexitong.ChaptersList, action xuexitong.ChaptersList, nodes []int, index int, key int, courseId int) {
 	_, fetchCards, err1 := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
 	if err1 != nil {
@@ -769,7 +769,7 @@ func ExecuteBBS(cache *xuexitongApi.XueXiTUserCache, setting config.Setting, cou
 }
 
 // 作业处理逻辑
-func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Users, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction entity.Question) {
+func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction entity.Question) {
 	if user.CoursesCustom.AutoExam == 1 {
 
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), lg.Default, "【"+courseItem.CourseName+"】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Yellow, "正在AI自动写章节作业...")

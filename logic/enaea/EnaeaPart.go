@@ -19,8 +19,8 @@ var videosLock sync.WaitGroup //视频锁
 var usersLock sync.WaitGroup  //用户锁
 
 // 用于过滤学习公社账号
-func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
-	var users []config.Users //用于收集英华账号
+func FilterAccount(configData *config.JSONDataForConfig) []config.User {
+	var users []config.User //用于收集英华账号
 	for _, user := range configData.Users {
 		if user.AccountType == "ENAEA" {
 			users = append(users, user)
@@ -30,7 +30,7 @@ func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
 }
 
 // 开始刷课模块
-func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*enaeaApi.EnaeaUserCache) {
+func RunBrushOperation(setting config.Setting, users []config.User, userCaches []*enaeaApi.EnaeaUserCache) {
 	//开始刷课
 	for i, user := range userCaches {
 		usersLock.Add(1)
@@ -41,7 +41,7 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 }
 
 // 用户登录模块
-func UserLoginOperation(users []config.Users) []*enaeaApi.EnaeaUserCache {
+func UserLoginOperation(users []config.User) []*enaeaApi.EnaeaUserCache {
 	var UserCaches []*enaeaApi.EnaeaUserCache
 	for _, user := range users {
 		if user.AccountType == "ENAEA" {
@@ -61,7 +61,7 @@ func UserLoginOperation(users []config.Users) []*enaeaApi.EnaeaUserCache {
 // 以用户作为刷课单位的基本块
 var soundMut sync.Mutex
 
-func userBlock(setting config.Setting, user *config.Users, cache *enaeaApi.EnaeaUserCache) {
+func userBlock(setting config.Setting, user *config.User, cache *enaeaApi.EnaeaUserCache) {
 
 	projectList, _ := enaea.ProjectListAction(cache) //拉取项目列表
 	for _, course := range projectList {
@@ -99,7 +99,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *enaeaApi.Enaea
 }
 
 // 章节节点的抽离函数
-func nodeListStudy(setting config.Setting, user *config.Users, userCache *enaeaApi.EnaeaUserCache, course *enaea.EnaeaCourse) {
+func nodeListStudy(setting config.Setting, user *config.User, userCache *enaeaApi.EnaeaUserCache, course *enaea.EnaeaCourse) {
 	//执行刷课---------------------------------
 	nodeList, err := enaea.VideoListAction(userCache, course) //拉取对应课程的视频列表
 	//失效重登检测
@@ -120,7 +120,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *enaeaA
 }
 
 // videoAction 刷视频逻辑抽离
-func videoAction(setting config.Setting, user *config.Users, UserCache *enaeaApi.EnaeaUserCache, node enaea.EnaeaVideo) {
+func videoAction(setting config.Setting, user *config.User, UserCache *enaeaApi.EnaeaUserCache, node enaea.EnaeaVideo) {
 	if user.CoursesCustom.VideoModel == 0 { //是否打开了自动刷视频开关
 		return
 	}

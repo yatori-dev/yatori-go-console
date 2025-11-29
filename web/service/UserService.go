@@ -2,13 +2,13 @@ package service
 
 import (
 	"fmt"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"net/http"
 	"yatori-go-console/dao"
 	"yatori-go-console/entity/pojo"
 	"yatori-go-console/global"
-	"yatori-go-console/logic"
+
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 func UserListService(c *gin.Context) {
@@ -173,46 +173,46 @@ func AccountCourseListService(c *gin.Context) {
 		return
 	}
 
-	activity := global.GetUserActivity(*user)
+	userActivity := global.GetUserActivity(*user)
 	//如果没有活动中的账号则添加活动账号
-	if activity == nil {
+	if userActivity == nil {
 		//构建用户活动
-		createActivity := logic.UserActivity{
-			UserPO: *user,
-		}
-		global.PutUserActivity(*user, &createActivity)
-		activity = global.GetUserActivity(*user)
+		//createActivity := activity.UserActivity{
+		//	UserPO: *user,
+		//}
+		//global.PutUserActivity(*user, &createActivity)
+		userActivity = global.GetUserActivity(*user)
 	}
-	if !activity.IsLogin {
-		//登录
-		err := activity.UserLoginOperation()
-		activity.IsLogin = true
-		//如果登录失败
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"code": 400,
-				"msg":  err.Error(),
-			})
-			return
-		}
-	}
+	//if !userActivity.IsLogin {
+	//	//登录
+	//	err := userActivity.UserLoginOperation()
+	//	userActivity.IsLogin = true
+	//	//如果登录失败
+	//	if err != nil {
+	//		c.JSON(http.StatusOK, gin.H{
+	//			"code": 400,
+	//			"msg":  err.Error(),
+	//		})
+	//		return
+	//	}
+	//}
 
 	//拉取课程列表
-	list, err := activity.PullCourseList()
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  err.Error(),
-		})
-	}
+	//list, err := userActivity.PullCourseList()
+	//if err != nil {
+	//	c.JSON(http.StatusOK, gin.H{
+	//		"code": 400,
+	//		"msg":  err.Error(),
+	//	})
+	//}
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
 		"msg":  "拉取信息成功",
 		"data": gin.H{
-			"isLogin":    activity.IsLogin,
-			"isRunning":  activity.IsRunning,
-			"courseList": list,
+			//"isLogin":    userActivity.IsLogin,
+			"isRunning": userActivity.IsRunning,
+			//"courseList": list,
 		},
 	})
 
@@ -246,35 +246,35 @@ func AddUserService(c *gin.Context) {
 	uuidV7, _ := uuid.NewV7()
 	req.Uid = uuidV7.String() //设置uuid值
 	//构建用户活动
-	activity := logic.UserActivity{
-		UserPO: pojo.UserPO{
-			Uid:         req.Uid,
-			AccountType: req.AccountType,
-			Account:     req.Account,
-			Password:    req.Password},
-	}
+	//activity := activity.UserActivityBase{
+	//	: pojo.UserPO{
+	//		Uid:         req.Uid,
+	//		AccountType: req.AccountType,
+	//		Account:     req.Account,
+	//		Password:    req.Password},
+	//}
 
 	//登录
-	err := activity.UserLoginOperation()
+	//err := activity.UserLoginOperation()
 
 	//如果登录失败
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  err.Error(),
-		})
-		return
-	}
-	activity.IsLogin = true //
-	global.UserActivityMap[fmt.Sprintf("%s-%s-%s", req.AccountType, req.Url, req.Account)] = &activity
-	err = dao.InsertUser(global.GlobalDB, &req)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  err.Error(),
-		})
-		return
-	}
+	//if err != nil {
+	//	c.JSON(http.StatusOK, gin.H{
+	//		"code": 400,
+	//		"msg":  err.Error(),
+	//	})
+	//	return
+	//}
+	//activity.IsLogin = true //
+	//global.UserActivityMap[fmt.Sprintf("%s-%s-%s", req.AccountType, req.Url, req.Account)] = &activity
+	//err = dao.InsertUser(global.GlobalDB, &req)
+	//if err != nil {
+	//	c.JSON(http.StatusOK, gin.H{
+	//		"code": 400,
+	//		"msg":  err.Error(),
+	//	})
+	//	return
+	//}
 	//登录成功
 	c.JSON(200, gin.H{
 		"code": 200,
@@ -322,23 +322,46 @@ func StartBrushService(c *gin.Context) {
 		return
 	}
 	userActivity := global.GetUserActivity(*user)
-	if userActivity == nil {
-		activity := logic.UserActivity{UserPO: *user}
-		global.PutUserActivity(*user, &activity)
-		userActivity = global.GetUserActivity(*user)
-		err1 := activity.UserLoginOperation()
-		if err1 != nil {
-			c.JSON(400, gin.H{
-				"code": 400,
-				"msg":  err1.Error(),
-			})
-		}
+	if userActivity != nil {
+		userActivity.IsRunning = false
 	}
-
-	go userActivity.UserBlock()
+	//activity := activity.UserActivity{UserPO: *user}
+	//global.PutUserActivity(*user, &activity)
+	//userActivity = global.GetUserActivity(*user)
+	//err1 := activity.UserLoginOperation()
+	//if err1 != nil {
+	//	c.JSON(400, gin.H{
+	//		"code": 400,
+	//		"msg":  err1.Error(),
+	//	})
+	//}
+	//
+	//userActivity.Start()
+	//userActivity.UserPO = *user
+	//go userActivity.UserBlock()
 	c.JSON(200, gin.H{
 		"code": 200,
 		"msg":  "启动成功",
+	})
+}
+
+// 停止任务
+func StopBrushService(c *gin.Context) {
+	uid := c.Param("uid")
+	user, err := dao.QueryUser(global.GlobalDB, pojo.UserPO{
+		Uid: uid,
+	})
+	if err != nil {
+		c.JSON(400, gin.H{})
+	}
+	userActivity := global.GetUserActivity(*user)
+	if userActivity == nil {
+		c.JSON(400, gin.H{})
+	}
+	//userActivity.Kill()
+	c.JSON(200, gin.H{
+		"code": 200,
+		"msg":  "停止成功",
 	})
 }
 

@@ -1,4 +1,4 @@
-package logic
+package activity
 
 import (
 	"fmt"
@@ -9,9 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"yatori-go-console/config"
 	utils2 "yatori-go-console/utils"
-
-	sentity "yatori-go-console/entity/pojo"
 
 	"github.com/thedevsaddam/gojsonq"
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
@@ -21,14 +20,23 @@ import (
 
 	"github.com/yatori-dev/yatori-go-core/utils"
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
-	"github.com/yatori-dev/yatori-go-core/utils/qutils"
 )
 
+type XXTActivity struct {
+	UserActivityBase
+}
+
+// 学习通扩展能力
+type XXTAbility interface {
+	PullCourseList() ([]xuexitong.XueXiTCourse, error) //拉取课程
+}
+
 // 用户登录模块
-func (user *UserActivity) UserLoginOperation() error {
-	cache := &xuexitongApi.XueXiTUserCache{Name: user.Account, Password: user.Password}
+func (activity *XXTActivity) Login() error {
+	//TODO implement me
+	cache := &xuexitongApi.XueXiTUserCache{Name: activity.User.Account, Password: activity.User.Password}
 	//设置代理IP
-	if user.IsProxy == 1 {
+	if activity.User.IsProxy == 1 {
 		cache.IpProxySW = true
 		cache.ProxyIP = "http://" + utils2.RandProxyStr()
 	}
@@ -38,13 +46,28 @@ func (user *UserActivity) UserLoginOperation() error {
 		//os.Exit(0) //登录失败直接退出
 		return loginError
 	}
-	user.Cache = cache //赋值寄存
+	activity.UserCache = cache //赋值寄存
+	return nil
+}
+
+// 启动
+func (activity *XXTActivity) Start() error {
+	//TODO implement me
+	activity.IsRunning = true
+	activity.userBlock()
+	return nil
+}
+
+// 暂停
+func (activity *XXTActivity) Stop() error {
+	//TODO implement me
+	activity.IsRunning = false
 	return nil
 }
 
 // 拉取课程列表
-func (user *UserActivity) PullCourseList() ([]xuexitong.XueXiTCourse, error) {
-	cache := user.Cache.(*xuexitongApi.XueXiTUserCache)
+func (user *XXTActivity) PullCourseList() ([]xuexitong.XueXiTCourse, error) {
+	cache := user.UserCache.(*xuexitongApi.XueXiTUserCache)
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
 	if err != nil {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Red, "拉取课程失败")
@@ -54,9 +77,12 @@ func (user *UserActivity) PullCourseList() ([]xuexitong.XueXiTCourse, error) {
 }
 
 // 直接刷课
-func (user *UserActivity) UserBlock() {
-	cache := user.Cache.(*xuexitongApi.XueXiTUserCache)
+func (activity *XXTActivity) userBlock() {
+	cache := activity.UserCache.(*xuexitongApi.XueXiTUserCache)
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
+	if !activity.IsRunning { //打断
+		return
+	}
 	if err != nil {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Red, "拉取课程失败")
 		log.Fatal(err)
@@ -67,9 +93,14 @@ func (user *UserActivity) UserBlock() {
 		nodesLock.Add(1)
 		// fmt.Println(course) //创建当前循环变量的独立副本
 
-		nodeListStudy(&user.UserPO, cache, &course)
+		activity.nodeListStudy(&activity.User, cache, &course)
 		nodesLock.Done()
-
+		if !activity.IsRunning { //打断
+			return
+		}
+	}
+	if !activity.IsRunning { //打断
+		return
 	}
 	nodesLock.Wait()
 	lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
@@ -77,22 +108,20 @@ func (user *UserActivity) UserBlock() {
 
 }
 
-func (user *UserActivity) PullCourseInform() {
-
-}
-
-func nodeListStudy(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse) {
+func (activity *XXTActivity) nodeListStudy(user *config.User, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse) {
 	//过滤课程---------------------------------
-	for i, uid := range user.IncludeCourses {
+	for i, uid := range user.CoursesCustom.IncludeCourses {
 		if uid == courseItem.Key {
 			break
 		}
-		if i+1 == len(user.IncludeCourses) {
+		if i+1 == len(user.CoursesCustom.IncludeCourses) {
 			return
 		}
 	}
-	//排除指定课程
 
+	if !activity.IsRunning { //打断
+		return
+	}
 	//如果课程还未开课则直接退出
 	if !courseItem.IsStart {
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
@@ -106,7 +135,9 @@ func nodeListStudy(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache
 
 	key, _ := strconv.Atoi(courseItem.Key)
 	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
-
+	if !activity.IsRunning {                                                            //打断
+		return
+	}
 	if err != nil {
 		if strings.Contains(err.Error(), "课程章节为空") {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
@@ -155,14 +186,14 @@ func nodeListStudy(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache
 		if isFinished(index) { //如果完成了的那么直接跳过
 			continue
 		}
-		nodeRun(user, userCache, courseItem, pointAction, action, nodes, index, key, courseId)
+		activity.nodeRun(userCache, courseItem, pointAction, action, nodes, index, key, courseId)
 	}
 	nodeLock.Wait()
 	lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
 }
 
 // 任务点分流运行
-func nodeRun(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse,
+func (activity *XXTActivity) nodeRun(userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse,
 	pointAction xuexitong.ChaptersList, action xuexitong.ChaptersList, nodes []int, index int, key int, courseId int) {
 	_, fetchCards, err1 := xuexitong.ChapterFetchCardsAction(userCache, &action, nodes, index, courseId, key, courseItem.Cpi)
 	if err1 != nil {
@@ -170,6 +201,9 @@ func nodeRun(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache, cour
 		return
 	}
 	videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := entity.ParsePointDto(fetchCards)
+	if !activity.IsRunning { //打断
+		return
+	}
 	if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil && liveDTOs == nil && bbsDTOs == nil {
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "课程对应章节无任何任务节点，已自动跳过")
 		return
@@ -177,6 +211,9 @@ func nodeRun(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache, cour
 	// 视屏类型
 
 	for _, videoDTO := range videoDTOs {
+		if !activity.IsRunning { //打断
+			return
+		}
 		card, enc, err2 := xuexitong.PageMobileChapterCardAction(
 			userCache, key, courseId, videoDTO.KnowledgeID, videoDTO.CardIndex, courseItem.Cpi)
 		if err2 != nil {
@@ -195,7 +232,9 @@ func nodeRun(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache, cour
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.Red, err2.Error())
 			os.Exit(0)
 		}
-		videoDTO.AttachmentsDetection(card)
+		_, err := videoDTO.AttachmentsDetection(card)
+		if err != nil {
+		}
 
 		if !videoDTO.IsJob {
 			lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "该视屏非任务点或已完成，已自动跳过")
@@ -208,7 +247,7 @@ func nodeRun(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache, cour
 			continue
 		}
 
-		ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
+		activity.ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
 		randSleepTime := rand.Intn(51) + 10
 		time.Sleep(time.Duration(randSleepTime) * time.Second)
 	}
@@ -292,62 +331,8 @@ func nodeRun(user *sentity.UserPO, userCache *xuexitongApi.XueXiTUserCache, cour
 
 }
 
-// 检测答题是否有留空
-func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fills []entity.FillQue, shorts []entity.ShortQue) bool {
-	for _, choice := range choices {
-		resStatus := true
-		if choice.Answers != nil {
-			candidateSelects := []string{} //待选
-			for _, option := range choice.Options {
-				candidateSelects = append(candidateSelects, option)
-			}
-			for _, answer := range choice.Answers {
-				var sortArray []qutils.Co = qutils.SimilarityArrayAndSort(answer, candidateSelects)
-				if sortArray[0].Score >= 0.9 {
-					resStatus = false
-				}
-			}
-
-			//fmt.Sprintf("D -> 以上A B C正确。")
-			if resStatus { //如果当前题目为留空态
-				return true
-			}
-		} else {
-			return true
-		}
-	}
-	for _, judge := range judges {
-		resStatus := true
-		if judge.Answers != nil {
-			for _, answer := range judge.Answers {
-				for _, option := range judge.Options {
-					if answer == option || answer == "错误" || answer == "正确" { //只需检测能够映射对应选项即可
-						resStatus = false
-					}
-				}
-			}
-			if resStatus { //如果当前题目为留空态
-				return true
-			}
-		} else {
-			return true
-		}
-	}
-	for _, fill := range fills {
-		if fill.OpFromAnswer == nil || len(fill.OpFromAnswer) <= 0 {
-			return true
-		}
-	}
-	for _, short := range shorts {
-		if short.OpFromAnswer == nil || len(short.OpFromAnswer) <= 0 {
-			return true
-		}
-	}
-	return false
-}
-
 // 常规刷视频逻辑
-func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
+func (activity *XXTActivity) ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
 
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 
@@ -363,6 +348,9 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 		mode := 1                           //0为Web模式，1为手机模式
 		//flag := 0
 		for {
+			if !activity.IsRunning { //打断
+				return
+			}
 			var playReport string
 			var err error
 			//selectSec = secList[rand.Intn(len(secList))] //随机选择时间

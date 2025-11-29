@@ -9,10 +9,12 @@ import (
 	"yatori-go-console/logic/enaea"
 	"yatori-go-console/logic/icve"
 	"yatori-go-console/logic/ketangx"
+	qsxt "yatori-go-console/logic/qingshuxuetang"
 	"yatori-go-console/logic/welearn"
 	"yatori-go-console/logic/xuexitong"
 	"yatori-go-console/logic/yinghua"
 	utils2 "yatori-go-console/utils"
+	"yatori-go-console/web"
 
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
 	"gopkg.in/yaml.v3"
@@ -69,7 +71,7 @@ func Lunch() {
 			return result
 		}
 
-		user := config.Users{
+		user := config.User{
 			AccountType: accountType,
 			URL:         url,
 			Account:     account,
@@ -94,7 +96,6 @@ func Lunch() {
 			panic(err)
 		}
 	}
-
 	//读取配置文件
 	configJson := config.ReadConfig("./config.yaml")
 	//初始化日志配置
@@ -105,7 +106,10 @@ func Lunch() {
 	checkProxyIp()
 
 	//isIpProxy(&configJson)
-
+	//如果开启了Web模式，则直接切换Web模式
+	if configJson.Setting.BasicSetting.WebModel == 1 {
+		web.ServiceInit()
+	}
 	brushBlock(&configJson)
 	lg.Print(lg.INFO, lg.Red, "Yatori --- ", "所有任务执行完毕")
 }
@@ -128,6 +132,8 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	welearnOperation := welearn.UserLoginOperation(welearnAccount)
 	icveAccount := icve.FilterAccount(configData)
 	icveOperation := icve.UserLoginOperation(icveAccount)
+	qsxtAccount := qsxt.FilterAccount(configData)
+	qsxtOperation := qsxt.UserLoginOperation(qsxtAccount)
 
 	//统一刷课---------------------------------------------------------------------
 	//英华
@@ -165,10 +171,16 @@ func brushBlock(configData *config.JSONDataForConfig) {
 		welearn.RunBrushOperation(configData.Setting, welearnAccount, welearnOperation) //码上研训统一刷课模块
 		platformLock.Done()
 	}()
-	//WeLearn
+	//icve
 	platformLock.Add(1)
 	go func() {
 		icve.RunBrushOperation(configData.Setting, icveAccount, icveOperation) //码上研训统一刷课模块
+		platformLock.Done()
+	}()
+	//青书学堂
+	platformLock.Add(1)
+	go func() {
+		qsxt.RunBrushOperation(configData.Setting, qsxtAccount, qsxtOperation) //码上研训统一刷课模块
 		platformLock.Done()
 	}()
 	platformLock.Wait()

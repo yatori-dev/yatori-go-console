@@ -19,8 +19,8 @@ var videosLock sync.WaitGroup //视频锁
 var usersLock sync.WaitGroup  //用户锁
 
 // 用于过滤Cqie账号
-func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
-	var users []config.Users //用于收集英华账号
+func FilterAccount(configData *config.JSONDataForConfig) []config.User {
+	var users []config.User //用于收集英华账号
 	for _, user := range configData.Users {
 		if user.AccountType == "KETANGX" {
 			users = append(users, user)
@@ -30,7 +30,7 @@ func FilterAccount(configData *config.JSONDataForConfig) []config.Users {
 }
 
 // 开始刷课模块
-func RunBrushOperation(setting config.Setting, users []config.Users, userCaches []*ketangxApi.KetangxUserCache) {
+func RunBrushOperation(setting config.Setting, users []config.User, userCaches []*ketangxApi.KetangxUserCache) {
 	//开始刷课
 	for i, user := range userCaches {
 		usersLock.Add(1)
@@ -41,7 +41,7 @@ func RunBrushOperation(setting config.Setting, users []config.Users, userCaches 
 }
 
 // 用户登录模块
-func UserLoginOperation(users []config.Users) []*ketangxApi.KetangxUserCache {
+func UserLoginOperation(users []config.User) []*ketangxApi.KetangxUserCache {
 	var UserCaches []*ketangxApi.KetangxUserCache
 	for _, user := range users {
 		if user.AccountType == "KETANGX" {
@@ -61,7 +61,7 @@ func UserLoginOperation(users []config.Users) []*ketangxApi.KetangxUserCache {
 // 以用户作为刷课单位的基本块
 var soundMut sync.Mutex
 
-func userBlock(setting config.Setting, user *config.Users, cache *ketangxApi.KetangxUserCache) {
+func userBlock(setting config.Setting, user *config.User, cache *ketangxApi.KetangxUserCache) {
 	// projectList, _ := enaea.ProjectListAction(cache) //拉取项目列表
 	courseList := ketangx.PullCourseListAction(cache)
 	for _, course := range courseList {
@@ -87,7 +87,7 @@ func userBlock(setting config.Setting, user *config.Users, cache *ketangxApi.Ket
 }
 
 // 章节节点的抽离函数
-func nodeListStudy(setting config.Setting, user *config.Users, userCache *ketangxApi.KetangxUserCache, course *ketangx.KetangxCourse) {
+func nodeListStudy(setting config.Setting, user *config.User, userCache *ketangxApi.KetangxUserCache, course *ketangx.KetangxCourse) {
 	//过滤课程---------------------------------
 	//排除指定课程
 	if len(user.CoursesCustom.ExcludeCourses) != 0 && config.CmpCourse(course.Title, user.CoursesCustom.ExcludeCourses) {
@@ -115,7 +115,7 @@ func nodeListStudy(setting config.Setting, user *config.Users, userCache *ketang
 }
 
 // videoAction 刷视频逻辑抽离，普通模式就是秒刷
-func videoAction(setting config.Setting, user *config.Users, UserCache *ketangxApi.KetangxUserCache, course *ketangx.KetangxCourse, node ketangx.KetangxNode) {
+func videoAction(setting config.Setting, user *config.User, UserCache *ketangxApi.KetangxUserCache, course *ketangx.KetangxCourse, node ketangx.KetangxNode) {
 	if user.CoursesCustom.VideoModel == 0 { //是否打开了自动刷视频开关
 		return
 	}

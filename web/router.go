@@ -1,11 +1,11 @@
-package bootstrap
+package web
 
 import "yatori-go-console/web/controller"
 
 // 路由
 func (router Group) Router() {
 	var userApi controller.UserApi
-	router.GET("/", userApi.IndexHtml)                                                //主页
+	//router.GET("/", userApi.IndexHtml)                                                //主页
 	router.GET("/api/accountList", userApi.AccountListController)                     //拉取账号列表
 	router.POST("/api/loginAccount", userApi.LoginAccountController)                  //用户登录
 	router.POST("/api/addAccount", userApi.AddAccountController)                      //添加账号
@@ -15,7 +15,7 @@ func (router Group) Router() {
 	router.GET("/api/getAccountCourseList/:uid", userApi.AccountCourseListController) //获取课程列表
 	//router.GET("/api/courseList", userApi.CourseListController)
 	router.GET("/api/startBrush/:uid", userApi.StartBrushController)
-	router.GET("/api/stopBrush/:uid")
+	router.GET("/api/stopBrush/:uid", userApi.StopBrushController)
 	router.GET("/api/setVideoModel")
 	router.GET("/api/setExamModel")
 	router.GET("/api/streamLog/:id", userApi.StreamLog) //推送日志

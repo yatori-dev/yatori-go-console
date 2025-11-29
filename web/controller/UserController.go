@@ -64,7 +64,7 @@ func (UserApi) StartBrushController(c *gin.Context) {
 
 // 暂停刷课接口
 func (UserApi) StopBrushController(c *gin.Context) {
-
+	service.StopBrushService(c)
 }
 
 // 日志同步接口
