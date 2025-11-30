@@ -136,7 +136,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *qsxt.Qs
 			nodeWorkAction(setting, user, userCache, course, &work)
 		}
 	}
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "【"+course.CourseName+"】", lg.Green, "课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "]", "【"+course.CourseName+"】", lg.Green, "课程学习完毕")
 
 }
 
