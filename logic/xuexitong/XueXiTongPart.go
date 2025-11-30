@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 	"yatori-go-console/config"
+	"yatori-go-console/global"
 	utils2 "yatori-go-console/utils"
 
 	"github.com/thedevsaddam/gojsonq"
@@ -306,11 +307,11 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			}
 			switch user.CoursesCustom.VideoModel {
 			case 1:
-				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
+				ExecuteVideo2(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
 			case 2:
-				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多课程模式
+				ExecuteVideo2(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多课程模式
 			case 3:
-				ExecuteVideo2(userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多任务点模式
+				ExecuteVideo2(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多任务点模式
 			}
 			randSleepTime := rand.Intn(51) + 10
 			time.Sleep(time.Duration(randSleepTime) * time.Second)
@@ -338,7 +339,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			if !documentDTO.IsJob {
 				continue
 			}
-			ExecuteDocument(userCache, courseItem, pointAction.Knowledge[index], &documentDTO)
+			ExecuteDocument(user, userCache, courseItem, pointAction.Knowledge[index], &documentDTO)
 			time.Sleep(5 * time.Second)
 		}
 	}
@@ -420,7 +421,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			}
 			hyperlinkDTO.AttachmentsDetection(card)
 
-			ExecuteHyperlink(userCache, courseItem, pointAction.Knowledge[index], &hyperlinkDTO)
+			ExecuteHyperlink(user, userCache, courseItem, pointAction.Knowledge[index], &hyperlinkDTO)
 			time.Sleep(5 * time.Second)
 		}
 	}
@@ -446,7 +447,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			if !liveDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
 				continue
 			}
-			ExecuteLive(userCache, courseItem, pointAction.Knowledge[index], &liveDTO)
+			ExecuteLive(user, userCache, courseItem, pointAction.Knowledge[index], &liveDTO)
 			time.Sleep(5 * time.Second)
 		}
 	}
@@ -486,7 +487,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			if !bbsDTO.IsJob { //不是任务点或者已经是完成的任务点直接退出
 				continue
 			}
-			ExecuteBBS(userCache, setting, courseItem, pointAction.Knowledge[index], &bbsDTO)
+			ExecuteBBS(user, userCache, setting, courseItem, pointAction.Knowledge[index], &bbsDTO)
 			time.Sleep(5 * time.Second)
 		}
 	}
@@ -547,7 +548,7 @@ func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 }
 
 // 常规刷视频逻辑
-func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
+func ExecuteVideo2(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
 
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 
@@ -672,7 +673,7 @@ func ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.Xu
 }
 
 // 常规刷文档逻辑
-func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointDocumentDto) {
+func ExecuteDocument(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointDocumentDto) {
 	report, err := point.ExecuteDocument(cache, p)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
 		if err == nil {
@@ -690,7 +691,7 @@ func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.
 }
 
 // 常规外链任务处理
-func ExecuteHyperlink(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointHyperlinkDto) {
+func ExecuteHyperlink(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointHyperlinkDto) {
 	report, err := point.ExecuteHyperlink(cache, p)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
 		if err == nil {
@@ -706,7 +707,7 @@ func ExecuteHyperlink(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong
 }
 
 // 常规直播任务处理
-func ExecuteLive(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointLiveDto) {
+func ExecuteLive(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointLiveDto) {
 	point.PullLiveInfoAction(cache, p)
 	var passValue float64 = 90
 
@@ -748,7 +749,7 @@ func ExecuteLive(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueX
 }
 
 // 常规讨论任务处理
-func ExecuteBBS(cache *xuexitongApi.XueXiTUserCache, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, bbsDto *entity.PointBBsDto) {
+func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, bbsDto *entity.PointBBsDto) {
 	bbsTopic, err := point.PullBbsInfoAction(cache, bbsDto) //拉取相关数据
 	if err != nil {
 		fmt.Println(err)
