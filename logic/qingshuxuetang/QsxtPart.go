@@ -108,7 +108,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *qsxt.Qs
 	//失效重登检测
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.CourseName+"】 ")
 	//分数不够且视频模式是开启的情况下才进行学习
-	if user.CoursesCustom.VideoModel != 0 {
+	if user.CoursesCustom.VideoModel != 0 && course.CoursewareLearnGainScore < course.CoursewareLearnTotalScore {
 		// 拉取视屏结点
 		videoList, err := action.PullCourseNodeListAction(userCache, *course) //拉取对应课程的章节
 		if err != nil {
@@ -116,7 +116,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *qsxt.Qs
 		}
 		for _, video := range videoList {
 			//如果超过了则直接跳过
-			if course.CoursewareLearnGainScore < course.CoursewareLearnTotalScore {
+			if course.CoursewareLearnGainScore >= course.CoursewareLearnTotalScore {
 				break
 			}
 			//视频处理逻辑

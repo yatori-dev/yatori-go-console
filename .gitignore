@@ -10,3 +10,4 @@ face/*
 ip.txt
 /*.h
 /*.so
+/yatori.db
