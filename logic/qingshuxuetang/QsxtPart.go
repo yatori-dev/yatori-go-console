@@ -107,23 +107,29 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *qsxt.Qs
 	//nodeList := ketangx.PullNodeListAction(userCache, course) //拉取对应课程的视频列表
 	//失效重登检测
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.CourseName+"】 ")
-	// 拉取视屏结点
-	videoList, err := action.PullCourseNodeListAction(userCache, *course) //拉取对应课程的章节
-	if err != nil {
-		panic(err)
-	}
-	for _, video := range videoList {
-
-		//视频处理逻辑
-		switch user.CoursesCustom.VideoModel {
-		case 1:
-			nodeSubmitTimeAction(setting, user, userCache, course, video) //刷学时
-			break
+	//分数不够且视频模式是开启的情况下才进行学习
+	if user.CoursesCustom.VideoModel != 0 {
+		// 拉取视屏结点
+		videoList, err := action.PullCourseNodeListAction(userCache, *course) //拉取对应课程的章节
+		if err != nil {
+			panic(err)
 		}
-
+		for _, video := range videoList {
+			//如果超过了则直接跳过
+			if course.CoursewareLearnGainScore < course.CoursewareLearnTotalScore {
+				break
+			}
+			//视频处理逻辑
+			switch user.CoursesCustom.VideoModel {
+			case 1:
+				nodeSubmitTimeAction(setting, user, userCache, course, video) //刷学时
+				break
+			}
+		}
 	}
-	//考试
-	if user.CoursesCustom.AutoExam == 1 {
+
+	//考试开启切分数不够的情况下才进行学习
+	if user.CoursesCustom.AutoExam == 1 && course.CourseWorkGainScore < course.CourseWorkTotalScore {
 		workList, err := action.PullWorkListAction(userCache, *course)
 		if err != nil {
 			panic(err)
@@ -157,8 +163,10 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.User, cache *qsxt
 	if err2 != nil {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.NodeName+"】", lg.BoldRed, "开始学习接口异常：", err2.Error())
 	}
+
 	studyTime := 0                 //当前累计学习了多久
 	maxTime := endTime - totalTime //最大学习多长时间
+	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.NodeName+"】", lg.Green, "正在开始学习，进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), "服务器返回信息: ", startId)
 	for {
 		time.Sleep(60 * time.Second)
 		submitResult, err3 := action.SubmitStudyTimeAction(cache, node, startId, false)
@@ -175,11 +183,15 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.User, cache *qsxt
 	if err3 != nil {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.NodeName+"】", lg.BoldRed, "结束学习接口异常：", err3.Error())
 	}
-	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.NodeName+"】", lg.Green, "学时提交成功，进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), "服务器返回信息: ", submitResult)
+	action.UpdateCourseScore(cache, course) //看完一个视频就更新一次分数
+	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.NodeName+"】", lg.Green, "学习完毕，进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), "服务器返回信息: ", submitResult)
 }
 
 // 作业
 func nodeWorkAction(setting config.Setting, user *config.User, cache *qsxt.QsxtUserCache, course *action.QsxtCourse, work *action.QsxtWork) {
+	if work.AnswerStatus != 2 { //如果答过了则直接退出
+		return
+	}
 	submitStatus := false
 	if user.CoursesCustom.ExamAutoSubmit == 0 {
 		submitStatus = false
@@ -190,5 +202,6 @@ func nodeWorkAction(setting config.Setting, user *config.User, cache *qsxt.QsxtU
 	if err3 != nil {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+work.Title+"】", lg.BoldRed, "作业提交异常：", err3.Error())
 	}
+	action.UpdateCourseScore(cache, course) //答完一个作业就更新一次分数
 	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+work.Title+"】", lg.Green, "作业已自动完成,服务器返回信息: ", submitResult)
 }
