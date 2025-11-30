@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync"
 	"yatori-go-console/config"
+	"yatori-go-console/global"
 	utils2 "yatori-go-console/utils"
 	modelLog "yatori-go-console/utils/log"
 
@@ -48,7 +49,7 @@ func UserLoginOperation(users []config.User) []*ketangxApi.KetangxUserCache {
 			cache := &ketangxApi.KetangxUserCache{Account: user.Account, Password: user.Password}
 			err := ketangx.LoginAction(cache) // 登录
 			if err != nil {
-				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
 				log.Fatal(err) //登录失败则直接退出
 			}
 			UserCaches = append(UserCaches, cache)
@@ -73,7 +74,7 @@ func userBlock(setting config.Setting, user *config.User, cache *ketangxApi.Keta
 	}
 	videosLock.Wait() //等待课程刷完
 
-	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, user.AccountType))
@@ -100,7 +101,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *ketangx
 	//执行刷课---------------------------------
 	nodeList := ketangx.PullNodeListAction(userCache, course) //拉取对应课程的视频列表
 	//失效重登检测
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.Title+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.Title+"】 ")
 	// 提交学时
 	for _, node := range nodeList {
 		//视频处理逻辑
@@ -110,7 +111,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *ketangx
 			break
 		}
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.Title+"】 ", "学习完毕")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.Title+"】 ", "学习完毕")
 
 }
 
@@ -124,16 +125,16 @@ func videoAction(setting config.Setting, user *config.User, UserCache *ketangxAp
 	}
 	action, err := ketangx.CompleteVideoAction(UserCache, &node)
 	if err != nil {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", err.Error())
 		return
 	}
 	status := gojsonq.New().JSONString(action).Find("Success")
 	if status != nil && !status.(bool) {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", action)
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", action)
 		return
 	}
-	lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", "结点类型: ", "<", lg.Yellow, node.Type, lg.Default, "> ", lg.Green, "学习完毕，服务器返回状态:"+strconv.FormatBool(status.(bool)))
-	//modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, "【"+node.Title+"】 ")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", "结点类型: ", "<", lg.Yellow, node.Type, lg.Default, "> ", lg.Green, "学习完毕，服务器返回状态:"+strconv.FormatBool(status.(bool)))
+	//modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO,fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]),"[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, "【"+node.Title+"】 ")
 
-	//modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "视频：", lg.Default, "【"+node.Title+"】 ", lg.Green, "学习完毕")
+	//modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO,fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]),"[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "视频：", lg.Default, "【"+node.Title+"】 ", lg.Green, "学习完毕")
 }

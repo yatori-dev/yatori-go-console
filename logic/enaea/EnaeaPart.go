@@ -7,6 +7,7 @@ import (
 	"sync"
 	time2 "time"
 	"yatori-go-console/config"
+	"yatori-go-console/global"
 	utils2 "yatori-go-console/utils"
 	modelLog "yatori-go-console/utils/log"
 
@@ -48,7 +49,7 @@ func UserLoginOperation(users []config.User) []*enaeaApi.EnaeaUserCache {
 			cache := &enaeaApi.EnaeaUserCache{Account: user.Account, Password: user.Password}
 			_, err := enaea.EnaeaLoginAction(cache) // 登录
 			if err != nil {
-				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
 				log.Fatal(err) //登录失败则直接退出
 			}
 			UserCaches = append(UserCaches, cache)
@@ -76,16 +77,16 @@ func userBlock(setting config.Setting, user *config.User, cache *enaeaApi.EnaeaU
 		}
 		courseList, err := enaea.CourseListAction(cache, course.CircleId)
 		if err != nil {
-			lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.BoldRed, "拉取项目列表错误", err.Error())
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.BoldRed, "拉取项目列表错误", err.Error())
 			os.Exit(0)
 		}
-		lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "正在学习项目", " 【"+course.ClusterName+"】 ")
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "正在学习项目", " 【"+course.ClusterName+"】 ")
 		for _, item := range courseList { //遍历所有待刷视频
 			nodeListStudy(setting, user, cache, &item) //多携程刷课
 		}
 	}
 
-	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, user.AccountType))
@@ -109,13 +110,13 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *enaeaAp
 		nodeList = nodeList1
 		err = err1
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.TitleTag+"】", "【"+course.CourseTitle+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.TitleTag+"】", "【"+course.CourseTitle+"】 ")
 	// 提交学时
 	for _, node := range nodeList {
 		//视频处理逻辑
 		videoAction(setting, user, userCache, node)
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", " 【"+course.TitleTag+"】", "【"+course.CourseTitle+"】 ", "学习完毕")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", " 【"+course.TitleTag+"】", "【"+course.CourseTitle+"】 ", "学习完毕")
 
 }
 
@@ -125,14 +126,14 @@ func videoAction(setting config.Setting, user *config.User, UserCache *enaeaApi.
 		return
 	}
 
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】 ")
 	err := enaea.StatisticTicForCCVideAction(UserCache, &node)
 	if err != nil {
-		lg.Print(lg.INFO, `[`, UserCache.Account, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, UserCache.Account, `] `, lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
 	}
 	for {
 		if node.StudyProgress >= 100 {
-			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【"+node.TitleTag+"】", " 【"+node.CourseName+"】", "【"+node.CourseContentStr+"】", " ", lg.Blue, "学习完毕")
+			modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【"+node.TitleTag+"】", " 【"+node.CourseName+"】", "【"+node.CourseContentStr+"】", " ", lg.Blue, "学习完毕")
 			break //如果看完了，也就是进度为100那么直接跳过
 		}
 		//提交学时
@@ -145,13 +146,13 @@ func videoAction(setting config.Setting, user *config.User, UserCache *enaeaApi.
 
 		if err != nil {
 			if err.Error() != "request frequently!" {
-				lg.Print(lg.INFO, `[`, UserCache.Account, `] `, " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】 ", lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, UserCache.Account, `] `, " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】 ", lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
 			}
 		}
 		//失效重登检测
 		enaea.LoginTimeoutAfreshAction(UserCache, err)
 
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】  >>> ", "提交状态：", "成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", node.StudyProgress), "%")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", " 【"+node.TitleTag+"】", "【"+node.CourseName+"】", "【"+node.CourseContentStr+"】  >>> ", "提交状态：", "成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", node.StudyProgress), "%")
 		time2.Sleep(25 * time2.Second) //每隔25s进行一次学时提交
 		if node.StudyProgress >= 100 {
 			break //如果看完该视频则直接下一个

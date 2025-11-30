@@ -5,6 +5,7 @@ import (
 	"log"
 	"sync"
 	"yatori-go-console/config"
+	"yatori-go-console/global"
 	utils2 "yatori-go-console/utils"
 	modelLog "yatori-go-console/utils/log"
 
@@ -47,20 +48,20 @@ func UserLoginOperation(users []config.User) []*icve.IcveUserCache {
 				cache := &icve.IcveUserCache{Account: user.Account, Password: user.Password}
 				err := action.IcveCookieLogin(cache)
 				if err != nil {
-					lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Red, err.Error())
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Red, err.Error())
 					log.Fatal(err) //登录失败则直接退出
 				}
-				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
 				UserCaches = append(UserCaches, cache)
 			} else {
 				cache := &icve.IcveUserCache{Account: user.Account, Password: user.Password}
 
 				err := action.IcveLoginAction(cache)
 				if err != nil {
-					lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Red, err.Error())
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Red, err.Error())
 					log.Fatal(err) //登录失败则直接退出
 				}
-				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
 				UserCaches = append(UserCaches, cache)
 			}
 
@@ -87,7 +88,7 @@ func userBlock(setting config.Setting, user *config.User, cache *icve.IcveUserCa
 	}
 	videosLock.Wait() //等待课程刷完
 
-	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, user.AccountType))
@@ -113,13 +114,13 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *icve.Ic
 	}
 	//如果课程已结束，那么直接跳过
 	if course.Status == "3" {
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Yellow, "【"+course.CourseName+"】 ", "该课程已结束，已自动跳过...")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Yellow, "【"+course.CourseName+"】 ", "该课程已结束，已自动跳过...")
 		return
 	}
 	//执行刷课---------------------------------
 
 	//失效重登检测
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.CourseName+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.CourseName+"】 ")
 	// 提交学时
 	chapterList, err := action.PullZYKCourseNodeAction(userCache, *course) //拉取对应课程的章节
 	if err != nil {
@@ -133,7 +134,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *icve.Ic
 			break
 		}
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.CourseName+"】 ", "学习完毕")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.CourseName+"】 ", "学习完毕")
 
 }
 
@@ -148,9 +149,9 @@ func nodeCompleteAction(setting config.Setting, user *config.User, UserCache *ic
 	}
 	submitResult, err2 := action.SubmitZYKStudyTimeAction(UserCache, node)
 	if err2 != nil {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.Name+"】", lg.BoldRed, "学习异常：", err2.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.Name+"】", lg.BoldRed, "学习异常：", err2.Error())
 		return
 	}
 
-	lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.Name+"】", lg.Green, "学习完毕,学习状态：", submitResult)
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.CourseName+"】 ", "【"+node.Name+"】", lg.Green, "学习完毕,学习状态：", submitResult)
 }

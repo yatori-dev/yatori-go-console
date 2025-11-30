@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 	"yatori-go-console/config"
+	"yatori-go-console/global"
 	utils2 "yatori-go-console/utils"
 	modelLog "yatori-go-console/utils/log"
 
@@ -50,10 +51,10 @@ func UserLoginOperation(users []config.User) []*welearn.WeLearnUserCache {
 			cache := &welearn.WeLearnUserCache{Account: user.Account, Password: user.Password}
 			err := action.WeLearnLoginAction(cache) // 登录
 			if err != nil {
-				lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
 				log.Fatal(err) //登录失败则直接退出
 			}
-			lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
 			UserCaches = append(UserCaches, cache)
 		}
 	}
@@ -79,7 +80,7 @@ func userBlock(setting config.Setting, user *config.User, cache *welearn.WeLearn
 	}
 	videosLock.Wait() //等待课程刷完
 
-	lg.Print(lg.INFO, "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, user.AccountType))
@@ -107,7 +108,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *welearn
 
 	//nodeList := ketangx.PullNodeListAction(userCache, course) //拉取对应课程的视频列表
 	//失效重登检测
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.Name+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.Name+"】 ")
 	// 提交学时
 	chapterList, err := action.WeLearnPullCourseChapterAction(userCache, *course) //拉取对应课程的章节
 	if err != nil {
@@ -129,7 +130,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *welearn
 			}
 		}
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.Name+"】 ", "学习完毕")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.Name+"】 ", "学习完毕")
 
 }
 
@@ -139,7 +140,7 @@ func nodeCompleteAction(setting config.Setting, user *config.User, UserCache *we
 		return
 	}
 	if !node.IsVisible {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Yellow, "该任务点还未解锁，已自动跳过")
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Yellow, "该任务点还未解锁，已自动跳过")
 		return
 	}
 	//如果完成了的直接跳过
@@ -149,11 +150,11 @@ func nodeCompleteAction(setting config.Setting, user *config.User, UserCache *we
 	//action, err := ketangx.CompleteVideoAction(UserCache, &node)
 	err := action.WeLearnCompletePointAction(UserCache, *course, node)
 	if err != nil {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.BoldRed, "学习异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.BoldRed, "学习异常：", err.Error())
 		return
 	}
 
-	lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Green, "学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Green, "学习完毕")
 
 }
 
@@ -163,7 +164,7 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.User, UserCache *
 		return
 	}
 	if !node.IsVisible {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Yellow, "该任务点还未解锁，已自动跳过")
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Yellow, "该任务点还未解锁，已自动跳过")
 		return
 	}
 	//如果完成了的直接跳过
@@ -181,12 +182,12 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.User, UserCache *
 	if learnTime != "" {
 		a, err1 := strconv.Atoi(strings.Split(learnTime, "-")[0])
 		if err1 != nil {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", "大哥，你", UserCache.Account, "账号的weLearnTime配置写错了，注意是xx-xx范围，当然xxx到xxx也都可以，但是xx必须是整数数字，并且前面部分的xx要大于后面的xx")
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", "大哥，你", UserCache.Account, "账号的weLearnTime配置写错了，注意是xx-xx范围，当然xxx到xxx也都可以，但是xx必须是整数数字，并且前面部分的xx要大于后面的xx")
 			panic("")
 		}
 		b, err2 := strconv.Atoi(strings.Split(learnTime, "-")[1])
 		if err2 != nil {
-			lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", "大哥，你", UserCache.Account, "账号的weLearnTime配置写错了，注意是xx-xx范围，当然xxx到xxx也都可以，但是xx必须是整数数字，并且前面部分的xx要大于后面的xx")
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", "大哥，你", UserCache.Account, "账号的weLearnTime配置写错了，注意是xx-xx范围，当然xxx到xxx也都可以，但是xx必须是整数数字，并且前面部分的xx要大于后面的xx")
 			panic("")
 		}
 		endTime = (rand.Intn(b-a+1) + a) * 60 // 生成100到999之间的随机数
@@ -201,7 +202,7 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.User, UserCache *
 			fmt.Println(err1)
 		}
 		//fmt.Println(totalTime, api)
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Green, "学时提交成功，进度: ", fmt.Sprintf("%d/%d", totalTime, endTime), "服务器返回信息: ", api)
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Green, "学时提交成功，进度: ", fmt.Sprintf("%d/%d", totalTime, endTime), "服务器返回信息: ", api)
 		if sessionTime >= endTime {
 			break
 		}
@@ -216,10 +217,10 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.User, UserCache *
 	//fmt.Println(submitApi2)
 
 	if err != nil {
-		lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.BoldRed, "学习异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.BoldRed, "学习异常：", err.Error())
 		return
 	}
 
-	lg.Print(lg.INFO, "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Green, "学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Name+"】 ", "【"+node.Location+"】", lg.Green, "学习完毕")
 
 }
