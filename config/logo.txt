@@ -13,7 +13,7 @@
       :  \  \;  :   .'   \ |  ,   /  `----'   ---'    ;  :    ;
        \  ' ;|  ,     .-./  ---`-'                    |  ,   /
         `--`  `--`---'                                 ---`-'
-                      Yatori-go-console v2.6.1-Beta.1
+                      Yatori-go-console v2.6.1-Beta.2
                      仅用于学习交流，请勿用于违法和商业用途！！！
               GitHub开源地址：https://github.com/yatori-dev/yatori-go-console
               个人博客：https://blogs.changbaiqi.top
