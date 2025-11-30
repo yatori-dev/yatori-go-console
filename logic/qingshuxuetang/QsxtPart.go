@@ -187,9 +187,10 @@ func nodeSubmitTimeAction(setting config.Setting, user *config.User, cache *qsxt
 
 // 作业
 func nodeWorkAction(setting config.Setting, user *config.User, cache *qsxt.QsxtUserCache, course *action.QsxtCourse, work *action.QsxtWork) {
-	if work.AnswerStatus != 2 { //如果答过了则直接退出
+	if work.AnswerStatus == 2 { //如果答过了则直接退出
 		return
 	}
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+work.Title+"】", lg.Yellow, "正在自动完成作业... ")
 	submitStatus := false
 	if user.CoursesCustom.ExamAutoSubmit == 0 {
 		submitStatus = false
