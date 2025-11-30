@@ -21,7 +21,7 @@ setting:
 # 更多详细配置文件说明请参考官方文档：https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html
 # 如果害怕配置文件写错也可以使用配置文件生成器：https://yatori-dev.github.io/yatori-config-generate
 users:
-  - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE、码上研训：KETANGX、Welearn（随行课堂）：WELEARN、智慧职教：ICVE
+  - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE、码上研训：KETANGX、Welearn（随行课堂）：WELEARN、智慧职教：ICVE、青书学堂：QSXT
     url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
     account: "账号" #账号
     password: "密码" #密码，智慧职教推荐使用Cookie登录方式
