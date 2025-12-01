@@ -11,7 +11,7 @@ type Activity interface {
 	Start() error      //启动
 	Stop() error       //停止任务统一接口
 	GetUserCache() any //获取Cache
-	SetUser(po config.User)
+	SetUser(user config.User)
 	GetUser() config.User
 }
 
@@ -23,8 +23,8 @@ type UserActivityBase struct {
 	UserCache any
 }
 
-func (u *UserActivityBase) SetUser(po config.User) {
-	u.User = po
+func (u *UserActivityBase) SetUser(user config.User) {
+	u.User = user
 }
 
 func (u *UserActivityBase) GetUser() config.User {

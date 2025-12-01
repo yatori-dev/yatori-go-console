@@ -78,7 +78,7 @@ func userBlock(setting config.Setting, user *config.User, cache *qsxt.QsxtUserCa
 	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
-		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, user.AccountType))
+		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, global.AccountTypeStr[user.AccountType]))
 	}
 	if setting.BasicSetting.CompletionTone == 1 { //如果声音提示开启，那么播放
 		soundMut.Lock()
