@@ -3,26 +3,28 @@ name: Go Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*' # 触发条件：推送 tag
   workflow_dispatch:
     inputs:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.3'
+        default: 'v2.6.1-Beta.2'
 
 permissions:
   contents: write
-
+#  - [👏]
+#  - [‍🔧]
+#  - [☠️]
 env:
   PROJECT_NAME: ${{ github.event.repository.name }}
   BUILD_DATE: ${{ github.run_id }}
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [🔧] 修复青书学堂无法正常写作业问题
-    - [🔧] 修复Linux下部分接口出现证书校验错误问题
-    - [‍🔧] 修复学习通部分课程无法正常过人脸问题
+    - [👏] 优化青书学堂接口
+    - [👏] 适配学习通卡片任务点
+    
     
     
     学习通用户注意：
@@ -30,7 +32,6 @@ env:
         每天学习累计学时不要太久，超过1200分钟可能会打回学习进度（尤其是多课程或多任务点模式），请自行把控好。因为太离谱了。
     
     注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
-
 jobs:
   build:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
@@ -53,6 +54,10 @@ jobs:
           - os: macos-latest
             arch: arm64
             goos: darwin
+          # 如果需要 armv7 (32位) 交叉编译，加下面一行
+          # - os: ubuntu-latest
+          #   arch: arm
+          #   goos: linux
 
     steps:
       - name: Checkout code
@@ -60,115 +65,104 @@ jobs:
         with:
           fetch-depth: 0
 
-      # -----------------------------------------------------
-      # 🔥 安装 OpenCV（GoCV 必须）
-      # -----------------------------------------------------
-      - name: Install OpenCV for GoCV (Linux)
-        if: runner.os == 'Linux'
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux' && matrix.arch=='amd64'
         run: |
-          sudo apt-get install -y \
-          libopencv-dev \
-          build-essential \
-          pkg-config \
-          libjpeg-dev libpng-dev libtiff-dev \
-          libavformat-dev libavcodec-dev libavutil-dev \
-          libswscale-dev libswresample-dev \
-          libgtk2.0-dev libgtk-3-dev libtbb-dev libeigen3-dev
-    
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
 
-    # 避免 ARM 交叉编译失败
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux' && matrix.arch=='arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+      #  sudo dpkg --add-architecture arm64
+      #  sudo apt-get update
+      #  sudo apt-get install -y libc6:arm64 libc6-dev:arm64
+      #  sudo apt-get install -y libasound2-dev:arm64 pkg-config gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
 
-          # 输出 OpenCV 信息确认可用
-          pkg-config --modversion opencv4 || true
-          ls /usr/lib/pkgconfig | grep opencv || true
-          echo "OpenCV 已安装完成"
-
-      # -----------------------------------------------------
-      # 🟦 Go 环境
-      # -----------------------------------------------------
+      # Set up Go
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: 'go.mod'  # Use Go version from go.mod
+          cache: true  # Enable dependency caching
 
-      - name: Get dependencies (Linux)
+      - name: Get dependencies(Linux)
         if: runner.os == 'Linux'
         run: |
           export GOPROXY=direct
+          export GONOSUMDB=*
           rm -rf go.sum
           go clean -modcache
           go env -w GOSUMDB=off
           go mod tidy
 
-      - name: Get dependencies (MacOS)
+      - name: Get dependencies(MacOS)
         if: runner.os == 'macOS'
         run: |
           export GOPROXY=direct
+          export GONOSUMDB=*
           rm -rf go.sum
           go clean -modcache
           go env -w GOSUMDB=off
           go mod tidy
 
-      - name: Get dependencies (Windows)
+      - name: Get dependencies(Windows)
         if: runner.os=='Windows'
         run: |
           set GOPROXY=direct
+          set GONOSUMDB=*
           go clean -modcache
           del go.sum
+          go get -u ./...
           go mod tidy
 
-      - name: Prepare Release Directory
-        run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
+      - name: Prepare Release Directory #创建压缩目录
+        run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
 
 
-      # -----------------------------------------------------
-      # 🟩 各平台编译
-      # -----------------------------------------------------
-
-      - name: Build Linux (amd64)
+      # Build Linux
+      - name: Build Linux
         if: runner.os=='Linux' && matrix.arch=='amd64'
         run: |
-          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build \
-          -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-amd64-release/${{ env.PROJECT_NAME }}
+          CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
 
-      - name: Build Linux (arm64)
+      # Build Linux
+      - name: Build Linux
         if: runner.os=='Linux' && matrix.arch=='arm64'
         run: |
-          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build \
-          -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-arm64-release/${{ env.PROJECT_NAME }}
+          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
 
+      # Build Windows
       - name: Build Windows
         if: runner.os == 'Windows'
         run: |
           set CGO_ENABLED=1
-          set GOOS=windows
-          set GOARCH=${{matrix.arch}}
+          set GOOS=windows 
+          set GOARCH=${{matrix.arch}} 
           go build -o ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release\${{ env.PROJECT_NAME }}.exe
 
+      # 🧱 构建 Macos
       - name: Build macOS
         if: matrix.goos == 'darwin'
         run: |
           CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} go build \
-          -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
 
-      # -----------------------------------------------------
-      # 📦 打包 Linux
-      # -----------------------------------------------------
-      - name: Create release tar (Linux)
+      - name: Create release tar
         if: runner.os=='Linux'
-        run: |
+        run: | # 打包发布版本压缩包
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
           tar -czvf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           rm -rf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           cd ..
 
-      # -----------------------------------------------------
-      # 📦 打包 Windows
-      # -----------------------------------------------------
-      - name: Create Release zip (Windows)
+
+      - name: Create Release zip
         if: runner.os=='Windows'
         run: |
           copy command\config.yaml ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
@@ -179,27 +173,22 @@ jobs:
           Remove-Item -Recurse -Force "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release"
           cd ..
 
-      # -----------------------------------------------------
-      # 📦 打包 macOS
-      # -----------------------------------------------------
+      # 📦 打包 macOS (amd64+arm64)
       - name: Create macOS Release tar
         if: matrix.goos == 'darwin'
         run: |
-          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cd ${{ env.RELEASE_DIR }}
-          tar -czvf yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release.tar.gz yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release
-          rm -rf yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release
+          tar -czvf yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release.tar.gz yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          rm -rf yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cd ..
 
-      # -----------------------------------------------------
-      # 🚀 发布 Release
-      # -----------------------------------------------------
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ${{ env.RELEASE_DIR }}/*
+          files: ${{ env.RELEASE_DIR }}/*  # 文件发布目录
           tag_name: ${{ env.VERSION }}
           body: ${{ env.RELEASE_NOTICES }}
           draft: false
