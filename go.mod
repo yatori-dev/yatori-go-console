@@ -71,6 +71,7 @@ require (
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/yalue/onnxruntime_go v1.17.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
+	gocv.io/x/gocv v0.42.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa // indirect
