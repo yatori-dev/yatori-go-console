@@ -66,17 +66,17 @@ jobs:
       - name: Install OpenCV for GoCV (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
           sudo apt-get install -y \
-            libopencv-dev \
-            build-essential \
-            pkg-config \
-            libjpeg-dev libpng-dev libtiff-dev \
-            libavformat-dev libavcodec-dev libavutil-dev \
-            libswscale-dev libavresample-dev libgtk2.0-dev \
-            libgtk-3-dev libtbb-dev libeigen3-dev
+          libopencv-dev \
+          build-essential \
+          pkg-config \
+          libjpeg-dev libpng-dev libtiff-dev \
+          libavformat-dev libavcodec-dev libavutil-dev \
+          libswscale-dev libswresample-dev \
+          libgtk2.0-dev libgtk-3-dev libtbb-dev libeigen3-dev
+    
 
-          # 避免 ARM 交叉编译失败
+    # 避免 ARM 交叉编译失败
           sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
 
           # 输出 OpenCV 信息确认可用
