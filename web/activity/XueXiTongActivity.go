@@ -54,7 +54,7 @@ func (activity *XXTActivity) Login() error {
 func (activity *XXTActivity) Start() error {
 	//TODO implement me
 	activity.IsRunning = true
-	activity.userBlock()
+	activity.userBlock() //开刷
 	return nil
 }
 

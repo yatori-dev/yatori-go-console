@@ -34,6 +34,8 @@ func (u *UserActivityBase) GetUser() config.User {
 func (u *UserActivityBase) GetUserCache() any {
 	return u.UserCache
 }
+
+// 构建活动
 func BuildUserActivity(po pojo.UserPO) Activity {
 	switch po.AccountType {
 	case "XUEXITONG":
