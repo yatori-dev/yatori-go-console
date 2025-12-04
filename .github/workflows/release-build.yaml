@@ -23,6 +23,7 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [🔧] 修复CQIE登录部分字段为空导致无法正常登录问题
+    - [🔧] 修复CQIE无法正常拉取课程问题
     
     
     
