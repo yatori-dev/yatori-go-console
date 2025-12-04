@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.3'
+        default: 'v2.6.1-Beta.4'
 
 permissions:
   contents: write
@@ -22,9 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [🔧] 修复青书学堂无法正常写作业问题
-    - [🔧] 修复Linux下部分接口出现证书校验错误问题
-    - [‍🔧] 修复学习通部分课程无法正常过人脸问题
+    - [🔧] 修复CQIE登录部分字段为空导致无法正常登录问题
     
     
     

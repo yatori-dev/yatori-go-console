@@ -46,11 +46,12 @@ func UserLoginOperation(users []config.User) []*cqieApi.CqieUserCache {
 	for _, user := range users {
 		if user.AccountType == "CQIE" {
 			cache := &cqieApi.CqieUserCache{Account: user.Account, Password: user.Password}
-			error := cqie.CqieLoginAction(cache) // 登录
-			if error != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, error.Error())
-				log.Fatal(error) //登录失败则直接退出
+			err := cqie.CqieLoginAction(cache) // 登录
+			if err != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
+				log.Fatal(err) //登录失败则直接退出
 			}
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "["+cache.Account+"] "+" 登录成功")
 			UserCaches = append(UserCaches, cache)
 		}
 	}
