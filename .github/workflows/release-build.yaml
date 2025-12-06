@@ -3,7 +3,7 @@ name: Go Build and Release
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*' # 触发条件：推送 tag
   workflow_dispatch:
     inputs:
       tag_name:
@@ -13,7 +13,9 @@ on:
 
 permissions:
   contents: write
-
+#  - [👏]
+#  - [‍🔧]
+#  - [☠️]
 env:
   PROJECT_NAME: ${{ github.event.repository.name }}
   BUILD_DATE: ${{ github.run_id }}
@@ -23,119 +25,26 @@ env:
     - [🔧] 修复CQIE登录部分字段为空导致无法正常登录问题
     - [🔧] 修复CQIE无法正常拉取课程问题
     
+    
+    
     学习通用户注意：
         如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！（多任务点模式会失效）
         每天学习累计学时不要太久，超过1200分钟可能会打回学习进度（尤其是多课程或多任务点模式），请自行把控好。因为太离谱了。
     
     注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
-
 jobs:
-  # 专门用于 CentOS 7 构建的工作
-  build-centos:
-    name: Build CentOS 7 (${{ matrix.arch }})
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        arch: [amd64, arm64]
-
-    container:
-      image: centos:7
-      options: --privileged
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install CentOS 7 dependencies
-        run: |
-          # 安装基础工具
-          yum update -y
-          yum install -y wget tar gzip gcc gcc-c++ make glibc-devel glibc-static
-          
-          # 安装交叉编译工具链
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            # CentOS 7 官方仓库可能没有 aarch64 交叉编译工具
-            # 从 EPEL 仓库安装
-            yum install -y epel-release
-            yum install -y gcc-aarch64-linux-gnu
-          fi
-
-      - name: Install Go
-        run: |
-          # 下载并安装 Go
-          wget -q https://dl.google.com/go/go1.21.0.linux-amd64.tar.gz
-          tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-          export PATH=$PATH:/usr/local/go/bin
-          echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-          
-          # 验证安装
-          go version
-
-      - name: Get Go dependencies
-        run: |
-          export PATH=$PATH:/usr/local/go/bin
-          export GOPROXY=direct
-          export GONOSUMDB=*
-          go env -w GOSUMDB=off
-          
-          # 清理和获取依赖
-          rm -f go.sum
-          go clean -modcache
-          go mod tidy
-
-      - name: Prepare Release Directory
-        run: |
-          mkdir -p /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release
-
-      - name: Build for amd64
-        if: matrix.arch == 'amd64'
-        run: |
-          export PATH=$PATH:/usr/local/go/bin
-          CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} \
-          go build -o /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
-
-      - name: Build for arm64
-        if: matrix.arch == 'arm64'
-        run: |
-          export PATH=$PATH:/usr/local/go/bin
-          if command -v aarch64-linux-gnu-gcc &> /dev/null; then
-            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} \
-            go build -o /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
-          else
-            # 如果没有交叉编译工具，尝试直接编译
-            echo "Warning: aarch64-linux-gnu-gcc not found, attempting direct build"
-            CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} \
-            go build -o /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
-          fi
-
-      - name: Copy configuration files
-        run: |
-          if [ -f "command/config.yaml" ]; then
-            cp command/config.yaml /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/
-          fi
-
-      - name: Package release
-        run: |
-          cd /tmp/${{ env.RELEASE_DIR }}
-          tar -czvf ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release.tar.gz ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: centos7-build-${{ matrix.arch }}
-          path: /tmp/${{ env.RELEASE_DIR }}/*.tar.gz
-          retention-days: 1
-
-  # 其他平台的构建
-  build-other:
+  build:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
-    needs: build-centos
     strategy:
       matrix:
         include:
+          - os: ubuntu-latest
+            arch: amd64
+            goos: linux
+          - os: ubuntu-latest
+            arch: arm64
+            goos: linux
           - os: windows-latest
             arch: amd64
             goos: windows
@@ -145,6 +54,10 @@ jobs:
           - os: macos-latest
             arch: arm64
             goos: darwin
+          # 如果需要 armv7 (32位) 交叉编译，加下面一行
+          # - os: ubuntu-latest
+          #   arch: arm
+          #   goos: linux
 
     steps:
       - name: Checkout code
@@ -152,117 +65,130 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux' && matrix.arch=='amd64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux' && matrix.arch=='arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+      #  sudo dpkg --add-architecture arm64
+      #  sudo apt-get update
+      #  sudo apt-get install -y libc6:arm64 libc6-dev:arm64
+      #  sudo apt-get install -y libasound2-dev:arm64 pkg-config gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      # Set up Go
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'
-          cache: true
+          go-version-file: 'go.mod'  # Use Go version from go.mod
+          cache: true  # Enable dependency caching
 
-      - name: Get dependencies
+      - name: Get dependencies(Linux)
+        if: runner.os == 'Linux'
         run: |
-          if [ "${{ runner.os }}" = "Linux" ]; then
-            export GOPROXY=direct
-            export GONOSUMDB=*
-            go env -w GOSUMDB=off
-          elif [ "${{ runner.os }}" = "macOS" ]; then
-            export GOPROXY=direct
-            export GONOSUMDB=*
-            go env -w GOSUMDB=off
-          elif [ "${{ runner.os }}" = "Windows" ]; then
-            set GOPROXY=direct
-            set GONOSUMDB=*
-            go env -w GOSUMDB=off
-          fi
-          
-          rm -f go.sum
+          export GOPROXY=direct
+          export GONOSUMDB=*
+          rm -rf go.sum
           go clean -modcache
+          go env -w GOSUMDB=off
           go mod tidy
 
-      - name: Prepare Release Directory
+      - name: Get dependencies(MacOS)
+        if: runner.os == 'macOS'
         run: |
-          mkdir -p ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          export GOPROXY=direct
+          export GONOSUMDB=*
+          rm -rf go.sum
+          go clean -modcache
+          go env -w GOSUMDB=off
+          go mod tidy
 
+      - name: Get dependencies(Windows)
+        if: runner.os=='Windows'
+        run: |
+          set GOPROXY=direct
+          set GONOSUMDB=*
+          go clean -modcache
+          del go.sum
+          go get -u ./...
+          go mod tidy
+
+      - name: Prepare Release Directory #创建压缩目录
+        run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
+
+
+      # Build Linux
+      - name: Build Linux
+        if: runner.os=='Linux' && matrix.arch=='amd64'
+        run: |
+          CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+
+      # Build Linux
+      - name: Build Linux
+        if: runner.os=='Linux' && matrix.arch=='arm64'
+        run: |
+          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+
+      # Build Windows
       - name: Build Windows
         if: runner.os == 'Windows'
         run: |
           set CGO_ENABLED=1
           set GOOS=windows 
-          set GOARCH=${{ matrix.arch }} 
-          go build -o ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release\${{ env.PROJECT_NAME }}.exe
+          set GOARCH=${{matrix.arch}} 
+          go build -o ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release\${{ env.PROJECT_NAME }}.exe
 
+      # 🧱 构建 Macos
       - name: Build macOS
         if: matrix.goos == 'darwin'
         run: |
-          CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} \
-          go build -o ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
+          CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
 
-      - name: Copy configuration files for Windows
-        if: runner.os == 'Windows'
-        run: |
-          copy command\config.yaml ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-          copy command\start.bat ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-          copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-
-      - name: Copy configuration files for macOS
-        if: matrix.goos == 'darwin'
-        run: |
-          cp command/config.yaml ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/
-
-      - name: Package Windows release
-        if: runner.os == 'Windows'
-        run: |
+      - name: Create release tar
+        if: runner.os=='Linux'
+        run: | # 打包发布版本压缩包
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
-          Compress-Archive -Path "${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release" -DestinationPath "${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release.zip"
-          Remove-Item -Recurse -Force "${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release"
+          tar -czvf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
+          rm -rf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           cd ..
 
-      - name: Package macOS release
-        if: matrix.goos == 'darwin'
+
+      - name: Create Release zip
+        if: runner.os=='Windows'
         run: |
+          copy command\config.yaml ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
+          copy command\start.bat ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
+          copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
-          tar -czvf ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release.tar.gz ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-          rm -rf ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          Compress-Archive -Path "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release" -DestinationPath "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release.zip"
+          Remove-Item -Recurse -Force "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release"
           cd ..
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.goos }}-build-${{ matrix.arch }}
-          path: ${{ env.RELEASE_DIR }}/*
-          retention-days: 1
-
-  # 发布阶段
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [build-centos, build-other]
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: List downloaded artifacts
-        run: find artifacts -type f
-
-      - name: Prepare release files
+      # 📦 打包 macOS (amd64+arm64)
+      - name: Create macOS Release tar
+        if: matrix.goos == 'darwin'
         run: |
-          mkdir -p ${{ env.RELEASE_DIR }}
-          # 将所有构建产物移动到 release 目录
-          find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
-            cp "$file" ${{ env.RELEASE_DIR }}/
-          done
-          
-          # 列出最终要发布的文件
-          ls -la ${{ env.RELEASE_DIR }}
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          cd ${{ env.RELEASE_DIR }}
+          tar -czvf yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release.tar.gz yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          rm -rf yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          cd ..
 
-      - name: Create Release
+      - name: Upload Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ${{ env.RELEASE_DIR }}/*
+          files: ${{ env.RELEASE_DIR }}/*  # 文件发布目录
           tag_name: ${{ env.VERSION }}
           body: ${{ env.RELEASE_NOTICES }}
           draft: false
