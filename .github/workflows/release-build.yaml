@@ -3,7 +3,7 @@ name: Go Build and Release
 on:
   push:
     tags:
-      - 'v*' # 触发条件：推送 tag
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -30,25 +30,112 @@ env:
     注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
 
 jobs:
-  build:
+  # 专门用于 CentOS 7 构建的工作
+  build-centos:
+    name: Build CentOS 7 (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+
+    container:
+      image: centos:7
+      options: --privileged
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install CentOS 7 dependencies
+        run: |
+          # 安装基础工具
+          yum update -y
+          yum install -y wget tar gzip gcc gcc-c++ make glibc-devel glibc-static
+          
+          # 安装交叉编译工具链
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            # CentOS 7 官方仓库可能没有 aarch64 交叉编译工具
+            # 从 EPEL 仓库安装
+            yum install -y epel-release
+            yum install -y gcc-aarch64-linux-gnu
+          fi
+
+      - name: Install Go
+        run: |
+          # 下载并安装 Go
+          wget -q https://dl.google.com/go/go1.21.0.linux-amd64.tar.gz
+          tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+          export PATH=$PATH:/usr/local/go/bin
+          echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+          
+          # 验证安装
+          go version
+
+      - name: Get Go dependencies
+        run: |
+          export PATH=$PATH:/usr/local/go/bin
+          export GOPROXY=direct
+          export GONOSUMDB=*
+          go env -w GOSUMDB=off
+          
+          # 清理和获取依赖
+          rm -f go.sum
+          go clean -modcache
+          go mod tidy
+
+      - name: Prepare Release Directory
+        run: |
+          mkdir -p /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release
+
+      - name: Build for amd64
+        if: matrix.arch == 'amd64'
+        run: |
+          export PATH=$PATH:/usr/local/go/bin
+          CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} \
+          go build -o /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
+
+      - name: Build for arm64
+        if: matrix.arch == 'arm64'
+        run: |
+          export PATH=$PATH:/usr/local/go/bin
+          if command -v aarch64-linux-gnu-gcc &> /dev/null; then
+            CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} \
+            go build -o /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
+          else
+            # 如果没有交叉编译工具，尝试直接编译
+            echo "Warning: aarch64-linux-gnu-gcc not found, attempting direct build"
+            CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.arch }} \
+            go build -o /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
+          fi
+
+      - name: Copy configuration files
+        run: |
+          if [ -f "command/config.yaml" ]; then
+            cp command/config.yaml /tmp/${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release/
+          fi
+
+      - name: Package release
+        run: |
+          cd /tmp/${{ env.RELEASE_DIR }}
+          tar -czvf ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release.tar.gz ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-linux-${{ matrix.arch }}-release
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: centos7-build-${{ matrix.arch }}
+          path: /tmp/${{ env.RELEASE_DIR }}/*.tar.gz
+          retention-days: 1
+
+  # 其他平台的构建
+  build-other:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    needs: build-centos
     strategy:
       matrix:
         include:
-          # 使用 CentOS 7 构建 Linux 版本
-          - os: ubuntu-latest
-            container:
-              image: centos:7
-            arch: amd64
-            goos: linux
-            platform: centos7
-          - os: ubuntu-latest
-            container:
-              image: centos:7
-            arch: arm64
-            goos: linux
-            platform: centos7
           - os: windows-latest
             arch: amd64
             goos: windows
@@ -65,53 +152,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 设置 CentOS 7 环境（仅 Linux 构建）
-      - name: Setup CentOS 7 environment for Linux builds
-        if: matrix.platform == 'centos7'
-        run: |
-          # 更新 yum 仓库并安装基础依赖
-          yum update -y
-          yum install -y epel-release
-          yum install -y wget tar gzip gcc gcc-c++ make glibc-devel glibc-static
-          
-          # 安装交叉编译工具链
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            # 安装 aarch64 交叉编译工具
-            yum install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
-          elif [ "${{ matrix.arch }}" = "arm" ]; then
-            # 安装 armv7 交叉编译工具
-            yum install -y gcc-arm-linux-gnu binutils-arm-linux-gnu
-          fi
-
-      # 为其他平台设置环境
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux' && matrix.platform != 'centos7'
-        run: |
-          apt-get update
-          apt-get install -y libasound2-dev pkg-config
-
-      # Set up Go - 需要在容器内安装
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: 'go.mod'  # Use Go version from go.mod
-          cache: true  # Enable dependency caching
-
-      - name: Install Go on CentOS 7 (if needed)
-        if: matrix.platform == 'centos7'
-        run: |
-          # 如果 setup-go 在容器中无法正常工作，手动安装 Go
-          if ! command -v go &> /dev/null; then
-            echo "Installing Go manually on CentOS 7"
-            wget https://golang.org/dl/go1.21.0.linux-amd64.tar.gz
-            tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
-            echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
-            source ~/.bashrc
-          fi
+          go-version-file: 'go.mod'
+          cache: true
 
       - name: Get dependencies
         run: |
-          # 设置 Go 环境变量
           if [ "${{ runner.os }}" = "Linux" ]; then
             export GOPROXY=direct
             export GONOSUMDB=*
@@ -126,7 +174,6 @@ jobs:
             go env -w GOSUMDB=off
           fi
           
-          # 清理和获取依赖
           rm -f go.sum
           go clean -modcache
           go mod tidy
@@ -135,23 +182,6 @@ jobs:
         run: |
           mkdir -p ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
 
-      # 在 CentOS 7 容器中构建 Linux
-      - name: Build Linux on CentOS 7
-        if: matrix.platform == 'centos7' && matrix.arch == 'amd64'
-        run: |
-          # 在 CentOS 7 环境中构建
-          CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} \
-          go build -o ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
-
-      - name: Build Linux ARM64 on CentOS 7
-        if: matrix.platform == 'centos7' && matrix.arch == 'arm64'
-        run: |
-          # 使用交叉编译工具链构建 arm64
-          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 \
-          GOOS=linux GOARCH=${{ matrix.arch }} \
-          go build -o ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
-
-      # Build Windows
       - name: Build Windows
         if: runner.os == 'Windows'
         run: |
@@ -160,46 +190,33 @@ jobs:
           set GOARCH=${{ matrix.arch }} 
           go build -o ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release\${{ env.PROJECT_NAME }}.exe
 
-      # Build macOS
       - name: Build macOS
         if: matrix.goos == 'darwin'
         run: |
           CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} \
           go build -o ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
 
-      # 复制配置文件
-      - name: Copy configuration files
+      - name: Copy configuration files for Windows
+        if: runner.os == 'Windows'
         run: |
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            if [ "${{ runner.os }}" = "Windows" ]; then
-              copy command\config.yaml ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-              copy command\start.bat ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-              copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-            fi
-          else
-            if [ "${{ runner.os }}" = "Linux" ] || [ "${{ runner.os }}" = "macOS" ]; then
-              cp command/config.yaml ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/
-            fi
-          fi
+          copy command\config.yaml ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          copy command\start.bat ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
 
-      # 打包不同平台的发布文件
-      - name: Package Linux release (tar.gz)
-        if: matrix.goos == 'linux'
+      - name: Copy configuration files for macOS
+        if: matrix.goos == 'darwin'
         run: |
-          cd ${{ env.RELEASE_DIR }}
-          tar -czvf ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release.tar.gz ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-          rm -rf ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
-          cd ..
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release/
 
-      - name: Package Windows release (zip)
-        if: runner.os == 'Windows' && matrix.goos == 'windows'
+      - name: Package Windows release
+        if: runner.os == 'Windows'
         run: |
           cd ${{ env.RELEASE_DIR }}
           Compress-Archive -Path "${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release" -DestinationPath "${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release.zip"
           Remove-Item -Recurse -Force "${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release"
           cd ..
 
-      - name: Package macOS release (tar.gz)
+      - name: Package macOS release
         if: matrix.goos == 'darwin'
         run: |
           cd ${{ env.RELEASE_DIR }}
@@ -207,12 +224,45 @@ jobs:
           rm -rf ${{ env.PROJECT_NAME }}-${{ env.VERSION }}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cd ..
 
-      - name: Upload Release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.goos }}-build-${{ matrix.arch }}
+          path: ${{ env.RELEASE_DIR }}/*
+          retention-days: 1
+
+  # 发布阶段
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-centos, build-other]
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: find artifacts -type f
+
+      - name: Prepare release files
+        run: |
+          mkdir -p ${{ env.RELEASE_DIR }}
+          # 将所有构建产物移动到 release 目录
+          find artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
+            cp "$file" ${{ env.RELEASE_DIR }}/
+          done
+          
+          # 列出最终要发布的文件
+          ls -la ${{ env.RELEASE_DIR }}
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ${{ env.RELEASE_DIR }}/*  # 文件发布目录
+          files: ${{ env.RELEASE_DIR }}/*
           tag_name: ${{ env.VERSION }}
           body: ${{ env.RELEASE_NOTICES }}
           draft: false
