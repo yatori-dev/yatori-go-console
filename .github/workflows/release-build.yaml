@@ -3,7 +3,7 @@ name: Go Build and Release
 on:
   push:
     tags:
-      - 'v*' # 触发条件：推送 tag
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
@@ -13,9 +13,7 @@ on:
 
 permissions:
   contents: write
-#  - [👏]
-#  - [‍🔧]
-#  - [☠️]
+
 env:
   PROJECT_NAME: ${{ github.event.repository.name }}
   BUILD_DATE: ${{ github.run_id }}
@@ -24,14 +22,8 @@ env:
   RELEASE_NOTICES: |
     - [🔧] 修复CQIE登录部分字段为空导致无法正常登录问题
     - [🔧] 修复CQIE无法正常拉取课程问题
-    
-    
-    
-    学习通用户注意：
-        如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！（多任务点模式会失效）
-        每天学习累计学时不要太久，超过1200分钟可能会打回学习进度（尤其是多课程或多任务点模式），请自行把控好。因为太离谱了。
-    
-    注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
+
+
 jobs:
   build:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
@@ -54,10 +46,6 @@ jobs:
           - os: macos-latest
             arch: arm64
             goos: darwin
-          # 如果需要 armv7 (32位) 交叉编译，加下面一行
-          # - os: ubuntu-latest
-          #   arch: arm
-          #   goos: linux
 
     steps:
       - name: Checkout code
@@ -65,115 +53,78 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux' && matrix.arch=='amd64'
+      # ========== Linux glibc 2.17 build (amd64) ==========
+      - name: Build on glibc 2.17 (CentOS7 - amd64)
+        if: runner.os == 'Linux' && matrix.arch == 'amd64'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2-dev pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+          docker run --rm \
+            -v $PWD:/src \
+            -w /src \
+            centos:7 \
+            bash -c "
+              yum install -y gcc gcc-c++ git make wget && \
+              wget https://go.dev/dl/go1.21.5.linux-amd64.tar.gz && \
+              tar -C /usr/local -xzf go1.21.5.linux-amd64.tar.gz && \
+              export PATH=/usr/local/go/bin:\$PATH && \
+              go version && \
+              CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-amd64-release/${PROJECT_NAME}
+            "
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux' && matrix.arch=='arm64'
+      # ========== Linux glibc 2.17 build (arm64) ==========
+      - name: Build on glibc 2.17 (CentOS7 - arm64)
+        if: runner.os == 'Linux' && matrix.arch == 'arm64'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
-      #  sudo dpkg --add-architecture arm64
-      #  sudo apt-get update
-      #  sudo apt-get install -y libc6:arm64 libc6-dev:arm64
-      #  sudo apt-get install -y libasound2-dev:arm64 pkg-config gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          docker run --rm \
+            --platform linux/arm64 \
+            -v $PWD:/src \
+            -w /src \
+            centos:7 \
+            bash -c "
+              yum install -y gcc gcc-c++ git make wget && \
+              wget https://go.dev/dl/go1.21.5.linux-arm64.tar.gz && \
+              tar -C /usr/local -xzf go1.21.5.linux-arm64.tar.gz && \
+              export PATH=/usr/local/go/bin:\$PATH && \
+              go version && \
+              CGO_ENABLED=1 GOOS=linux GOARCH=arm64 go build -o ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-arm64-release/${PROJECT_NAME}
+            "
 
-      # Set up Go
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: 'go.mod'  # Use Go version from go.mod
-          cache: true  # Enable dependency caching
-
-      - name: Get dependencies(Linux)
-        if: runner.os == 'Linux'
-        run: |
-          export GOPROXY=direct
-          export GONOSUMDB=*
-          rm -rf go.sum
-          go clean -modcache
-          go env -w GOSUMDB=off
-          go mod tidy
-
-      - name: Get dependencies(MacOS)
-        if: runner.os == 'macOS'
-        run: |
-          export GOPROXY=direct
-          export GONOSUMDB=*
-          rm -rf go.sum
-          go clean -modcache
-          go env -w GOSUMDB=off
-          go mod tidy
-
-      - name: Get dependencies(Windows)
-        if: runner.os=='Windows'
-        run: |
-          set GOPROXY=direct
-          set GONOSUMDB=*
-          go clean -modcache
-          del go.sum
-          go get -u ./...
-          go mod tidy
-
-      - name: Prepare Release Directory #创建压缩目录
-        run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
-
-
-      # Build Linux
-      - name: Build Linux
-        if: runner.os=='Linux' && matrix.arch=='amd64'
-        run: |
-          CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
-            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
-
-      # Build Linux
-      - name: Build Linux
-        if: runner.os=='Linux' && matrix.arch=='arm64'
-        run: |
-          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
-            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
-
-      # Build Windows
+      # ========== Windows 构建 ==========
       - name: Build Windows
         if: runner.os == 'Windows'
         run: |
           set CGO_ENABLED=1
-          set GOOS=windows 
-          set GOARCH=${{matrix.arch}} 
+          set GOOS=windows
+          set GOARCH=${{ matrix.arch }}
           go build -o ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release\${{ env.PROJECT_NAME }}.exe
 
-      # 🧱 构建 Macos
+      # ========== macOS 构建 ==========
       - name: Build macOS
         if: matrix.goos == 'darwin'
         run: |
           CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} go build \
             -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
 
+      # -------- 打包 Linux --------
       - name: Create release tar
         if: runner.os=='Linux'
-        run: | # 打包发布版本压缩包
+        run: |
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
           tar -czvf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release.tar.gz yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           rm -rf yatori-go-console.${{env.VERSION}}-linux-${{matrix.arch}}-release
           cd ..
 
-
+      # -------- Windows 压缩 --------
       - name: Create Release zip
         if: runner.os=='Windows'
         run: |
           copy command\config.yaml ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
-          copy command\start.bat ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
-          copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
           Compress-Archive -Path "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release" -DestinationPath "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release.zip"
           Remove-Item -Recurse -Force "yatori-go-console.${{env.VERSION}}-windows-${{matrix.arch}}-release"
           cd ..
 
-      # 📦 打包 macOS (amd64+arm64)
+      # -------- macOS 打包 --------
       - name: Create macOS Release tar
         if: matrix.goos == 'darwin'
         run: |
@@ -183,13 +134,13 @@ jobs:
           rm -rf yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cd ..
 
+      # ===== 发布 Release =====
       - name: Upload Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ${{ env.RELEASE_DIR }}/*  # 文件发布目录
+          files: ${{ env.RELEASE_DIR }}/*
           tag_name: ${{ env.VERSION }}
           body: ${{ env.RELEASE_NOTICES }}
           draft: false
-          prerelease: false
