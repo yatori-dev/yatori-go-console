@@ -83,7 +83,9 @@
 > 
 > 如果害怕配置文件写错可以使用配置文件生成器：[点击此处查看](https://yatori-dev.github.io/yatori-config-generate/)
 
-注：Linux系统环境下是推荐使用Docker版本运行的，因为`yatori-go-console`编译的环境是在`glibc2.35`下进行，有些老系统比如`CentOS7`无法正常使用会报错glibc版本过低。
+> [!TIP]
+> Linux系统环境下是推荐使用Docker版本运行的，因为`yatori-go-console`编译的环境是在`glibc2.35`下进行，有些老系统比如`CentOS7`无法正常使用会报错glibc版本过低。
+
 
 ### Docker版本食用:
 > [文档链接](https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html#%F0%9F%9A%80-docker%E7%89%88%E6%9C%AC%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E-%E5%9F%BA%E4%BA%8Elinux)
@@ -95,7 +97,10 @@
 * go: [1.23.4](https://studygolang.com/dl/golang/go1.23.4.windows-amd64.zip)
 * gcc: [11.2.0](https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev1/x86_64-11.2.0-release-posix-seh-rt_v9-rev1.7z)
 
-注：要进行代码开发时才需要这些环境，正常使用打包好的不需要安装这些环境。若使用打包好的，请自行去[release](https://github.com/yatori-dev/yatori-go-console/releases)处下载。
+> [!TIP]
+> 注：要进行代码开发时才需要这些环境，正常使用打包好的不需要安装这些环境。若使用打包好的，请自行去[release](https://github.com/yatori-dev/yatori-go-console/releases)处下载。
+
+
 
 
 ## 🎉贡献者
