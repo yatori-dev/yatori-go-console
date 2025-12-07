@@ -1,15 +1,15 @@
-name: Go Build and Release (Docker glibc 2.31)
+name: Go Build and Release
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
     inputs:
       tag_name:
-        description: "Tag name for the release"
+        description: 'Tag name for the release'
         required: true
-        default: "v1.0.0"
+        default: 'v2.6.1-Beta.4'
 
 permissions:
   contents: write
@@ -23,13 +23,19 @@ env:
     - [🔧] 修复CQIE登录部分字段为空导致无法正常登录问题
     - [🔧] 修复CQIE无法正常拉取课程问题
 
+    学习通用户注意：
+        如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！
+        每天学习累计学时不要太久，超过1200分钟可能会打回学习进度，请自行把控好。
+
 jobs:
 
-  # ----------------------------------------------------
-  # 🐳 Linux 在 Docker (glibc 2.31) 中编译
-  # ----------------------------------------------------
+  # ===========================================================
+  #  Linux (amd64/arm64) — 使用 CentOS7 (glibc 2.17) Docker 构建
+  # ===========================================================
   linux-build:
-    runs-on: ubuntu-latest
+    name: Build Linux (CentOS7 glibc2.17) — ${{ matrix.arch }}
+    runs-on: ubuntu-22.04
+
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -39,75 +45,101 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build Linux inside Docker (glibc 2.31)
+      - name: Build inside CentOS 7
         run: |
-          # 使用 Ubuntu 20.04, glibc = 2.31
           docker run --rm \
             -v $PWD:/app \
             -w /app \
-            ubuntu:20.04 \
+            centos:7 \
             bash -c "
-              apt-get update &&
-              apt-get install -y golang gcc-aarch64-linux-gnu gcc pkg-config tar &&
-              export CGO_ENABLED=1 &&
-              export GOOS=linux &&
-              export GOARCH=${{ matrix.arch }} &&
-              if [ '${{ matrix.arch }}' = 'arm64' ]; then export CC=aarch64-linux-gnu-gcc; fi &&
-              rm -rf go.sum &&
-              go mod tidy &&
-              mkdir -p ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release &&
-              go build -o ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release/${PROJECT_NAME} &&
-              cp command/config.yaml ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release &&
-              cd ${RELEASE_DIR} &&
-              tar -czvf yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release.tar.gz yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release &&
+              yum install -y epel-release &&
+              yum install -y golang tar which make git gcc \
+                             centos-release-scl \
+                             devtoolset-7 devtoolset-7-gcc devtoolset-7-gcc-c++ &&
+
+              # 启动新 gcc7
+              source /opt/rh/devtoolset-7/enable &&
+
+              # arm64 交叉编译工具
+              if [ '${{ matrix.arch }}' = 'arm64' ]; then
+                yum install -y aarch64-linux-gnu-gcc || true
+                export CC=aarch64-linux-gnu-gcc
+              fi
+
+              export GOPROXY=https://goproxy.cn,direct
+              export GOSUMDB=off
+
+              rm -f go.sum
+              go mod tidy
+
+              mkdir -p ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release
+
+              CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} go build \
+                -o ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release/${PROJECT_NAME}
+
+              cp command/config.yaml ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release
+
+              cd ${RELEASE_DIR}
+              tar -czvf yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release.tar.gz yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release
               rm -rf yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release
             "
 
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: linux-${{ matrix.arch }}
           path: ${{ env.RELEASE_DIR }}/*.tar.gz
 
 
-  # ----------------------------------------------------
-  # 🪟 Windows 原生构建
-  # ----------------------------------------------------
+  # ===========================================================
+  #   Windows 构建
+  # ===========================================================
   windows-build:
+    name: Build Windows
     runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v5
         with:
-          go-version-file: "go.mod"
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Get dependencies
+        run: |
+          set GOPROXY=direct
+          set GOSUMDB=off
+          go mod tidy
 
       - name: Build Windows
         run: |
-          mkdir $env:RELEASE_DIR\yatori-go-console.${env:VERSION}-windows-amd64-release
-          go build -o $env:RELEASE_DIR\yatori-go-console.${env:VERSION}-windows-amd64-release\$env:PROJECT_NAME.exe
+          mkdir %RELEASE_DIR%\yatori-go-console.%VERSION%-windows-amd64-release
+          go build -o %RELEASE_DIR%\yatori-go-console.%VERSION%-windows-amd64-release\%PROJECT_NAME%.exe
 
-          copy command\config.yaml $env:RELEASE_DIR\yatori-go-console.${env:VERSION}-windows-amd64-release
-          copy command\start.bat $env:RELEASE_DIR\yatori-go-console.${env:VERSION}-windows-amd64-release
+      - name: Create ZIP
+        run: |
+          copy command\config.yaml %RELEASE_DIR%\yatori-go-console.%VERSION%-windows-amd64-release
+          copy command\start.bat %RELEASE_DIR%\yatori-go-console.%VERSION%-windows-amd64-release
 
-          cd $env:RELEASE_DIR
-          Compress-Archive -Path "yatori-go-console.${env:VERSION}-windows-amd64-release" `
-                           -DestinationPath "yatori-go-console.${env:VERSION}-windows-amd64-release.zip"
-          rm -Recurse -Force "yatori-go-console.${env:VERSION}-windows-amd64-release"
+          cd %RELEASE_DIR%
+          Compress-Archive -Path "yatori-go-console.%VERSION%-windows-amd64-release" -DestinationPath "yatori-go-console.%VERSION%-windows-amd64-release.zip"
+          cd ..
 
-      - name: Upload Win artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: ${{ env.RELEASE_DIR }}/*.zip
+          path: release/*.zip
 
 
-  # ----------------------------------------------------
-  # 🍎 macOS 原生构建
-  # ----------------------------------------------------
+  # ===========================================================
+  #  macOS 构建 (amd64 + arm64)
+  # ===========================================================
   mac-build:
+    name: Build macOS (${{ matrix.arch }})
     runs-on: macos-latest
+
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -117,51 +149,52 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: "go.mod"
+          go-version-file: 'go.mod'
+
+      - name: Get dependencies
+        run: |
+          export GOPROXY=direct
+          export GOSUMDB=off
+          go mod tidy
 
       - name: Build macOS
         run: |
-          export GOOS=darwin
-          export GOARCH=${{ matrix.arch }}
-          export CGO_ENABLED=1
-          
-          mkdir -p $RELEASE_DIR/yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
-          go build -o $RELEASE_DIR/yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release/$PROJECT_NAME
-          cp command/config.yaml $RELEASE_DIR/yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
-          
-          cd $RELEASE_DIR
-          tar -czvf yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release.tar.gz yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
-          rm -rf yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
+          mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release
+          CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} go build \
+            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
 
-      - name: Upload mac artifact
-        uses: actions/upload-artifact@v4
+      - name: TAR
+        run: |
+          cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release
+          cd ${{ env.RELEASE_DIR }}
+          tar -czvf yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release.tar.gz yatori-go-console.${{env.VERSION}}-darwin-${{ matrix.arch }}-release
+          cd ..
+
+      - uses: actions/upload-artifact@v4
         with:
           name: mac-${{ matrix.arch }}
-          path: ${{ env.RELEASE_DIR }}/*.tar.gz
+          path: release/*.tar.gz
 
 
-  # ----------------------------------------------------
-  # 📦 Release 汇总所有产物
-  # ----------------------------------------------------
+  # ===========================================================
+  #   Release 发布
+  # ===========================================================
   release:
-    needs: [linux-build, mac-build, windows-build]
-    runs-on: ubuntu-latest
+    needs: [linux-build, windows-build, mac-build]
+    runs-on: ubuntu-22.04
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Publish GitHub Release
+      - name: Publish Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
+          files: artifacts/**/*
           tag_name: ${{ env.VERSION }}
           body: ${{ env.RELEASE_NOTICES }}
-          files: artifacts/**/*
           draft: false
           prerelease: false
