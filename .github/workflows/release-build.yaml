@@ -45,15 +45,13 @@ jobs:
             bash -c "
               export DEBIAN_FRONTEND=noninteractive &&
               apt-get update &&
-              apt-get install -y tzdata --no-install-recommends &&
-              apt-get install -y ca-certificates curl golang gcc-aarch64-linux-gnu gcc pkg-config tar &&
+              apt-get install -y tzdata git ca-certificates curl golang gcc-aarch64-linux-gnu gcc pkg-config tar &&
 
               export CGO_ENABLED=1 &&
               export GOOS=linux &&
               export GOARCH=${{ matrix.arch }} &&
               if [ '${{ matrix.arch }}' = 'arm64' ]; then export CC=aarch64-linux-gnu-gcc; fi &&
 
-              # 禁用 Go 模块 sum 校验
               export GOSUMDB=off &&
               export GONOSUMDB=* &&
               export GOPROXY=direct &&
@@ -76,7 +74,6 @@ jobs:
           name: linux-${{ matrix.arch }}
           path: ${{ env.RELEASE_DIR }}/*.tar.gz
 
-  # ---------------- Windows Build ----------------
   windows-build:
     runs-on: windows-latest
 
@@ -105,7 +102,6 @@ jobs:
           name: windows
           path: ${{ env.RELEASE_DIR }}/*.zip
 
-  # ---------------- macOS Build ----------------
   mac-build:
     runs-on: macos-latest
     strategy:
@@ -138,7 +134,6 @@ jobs:
           name: mac-${{ matrix.arch }}
           path: ${{ env.RELEASE_DIR }}/*.tar.gz
 
-  # ---------------- Final Release ----------------
   release:
     needs: [linux-build, mac-build, windows-build]
     runs-on: ubuntu-latest
