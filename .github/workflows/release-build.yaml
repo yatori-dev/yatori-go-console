@@ -20,14 +20,11 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [🔧] 修复CQIE登录部分字段为空导致无法正常登录问题
-    - [🔧] 修复CQIE无法正常拉取课程问题
+    - [🔧] 修复CQIE登录字段问题
+    - [🔧] 修复CQIE无法拉取课程问题
 
 jobs:
 
-  # ----------------------------------------------------
-  # 🐳 Linux 在 Docker (glibc 2.31) 中编译
-  # ----------------------------------------------------
   linux-build:
     runs-on: ubuntu-latest
     strategy:
@@ -41,23 +38,28 @@ jobs:
 
       - name: Build Linux inside Docker (glibc 2.31)
         run: |
-          # 使用 Ubuntu 20.04, glibc = 2.31
           docker run --rm \
             -v $PWD:/app \
             -w /app \
             ubuntu:20.04 \
             bash -c "
+              export DEBIAN_FRONTEND=noninteractive &&
               apt-get update &&
+              apt-get install -y tzdata --no-install-recommends &&
               apt-get install -y golang gcc-aarch64-linux-gnu gcc pkg-config tar &&
+
               export CGO_ENABLED=1 &&
               export GOOS=linux &&
               export GOARCH=${{ matrix.arch }} &&
               if [ '${{ matrix.arch }}' = 'arm64' ]; then export CC=aarch64-linux-gnu-gcc; fi &&
+
               rm -rf go.sum &&
               go mod tidy &&
+
               mkdir -p ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release &&
               go build -o ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release/${PROJECT_NAME} &&
               cp command/config.yaml ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release &&
+
               cd ${RELEASE_DIR} &&
               tar -czvf yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release.tar.gz yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release &&
               rm -rf yatori-go-console.${VERSION}-linux-${{ matrix.arch }}-release
@@ -70,15 +72,12 @@ jobs:
           path: ${{ env.RELEASE_DIR }}/*.tar.gz
 
 
-  # ----------------------------------------------------
-  # 🪟 Windows 原生构建
-  # ----------------------------------------------------
+  # ---------------- Windows Build ----------------
   windows-build:
     runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
@@ -103,9 +102,8 @@ jobs:
           path: ${{ env.RELEASE_DIR }}/*.zip
 
 
-  # ----------------------------------------------------
-  # 🍎 macOS 原生构建
-  # ----------------------------------------------------
+
+  # ---------------- macOS Build ----------------
   mac-build:
     runs-on: macos-latest
     strategy:
@@ -114,7 +112,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version-file: "go.mod"
@@ -124,11 +121,11 @@ jobs:
           export GOOS=darwin
           export GOARCH=${{ matrix.arch }}
           export CGO_ENABLED=1
-          
+
           mkdir -p $RELEASE_DIR/yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
           go build -o $RELEASE_DIR/yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release/$PROJECT_NAME
           cp command/config.yaml $RELEASE_DIR/yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
-          
+
           cd $RELEASE_DIR
           tar -czvf yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release.tar.gz yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
           rm -rf yatori-go-console.$VERSION-darwin-${{ matrix.arch }}-release
@@ -140,9 +137,7 @@ jobs:
           path: ${{ env.RELEASE_DIR }}/*.tar.gz
 
 
-  # ----------------------------------------------------
-  # 📦 Release 汇总所有产物
-  # ----------------------------------------------------
+  # ---------------- Final Release ----------------
   release:
     needs: [linux-build, mac-build, windows-build]
     runs-on: ubuntu-latest
