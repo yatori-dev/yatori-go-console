@@ -73,8 +73,6 @@
 
 ## 🎉食用方式：
 
-### 代码食用：
-
 ### 可执行文件食用:
 
 > 下载releases然后解压修改config配置文件之后点击start.bat启动即可。
@@ -91,7 +89,7 @@
 > [文档链接](https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html#%F0%9F%9A%80-docker%E7%89%88%E6%9C%AC%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E-%E5%9F%BA%E4%BA%8Elinux)
 
 
-### 代码食用请转至[yatori-dev/yatori-go-core](https://github.com/yatori-dev/yatori-go-core)项目
+### 代码二开食用请转至[yatori-dev/yatori-go-core](https://github.com/yatori-dev/yatori-go-core)项目
 
 #### 代码运行环境（以下只提供Windows环境下载直连）:
 * go: [1.23.4](https://studygolang.com/dl/golang/go1.23.4.windows-amd64.zip)
