@@ -61,38 +61,42 @@ jobs:
       - name: Prepare Release Directory
         run: mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
 
+        # ============================================================
+      # Linux 构建流程（真正稳定版本）
       # ============================================================
-      # Linux 构建：使用 CentOS 7 (glibc 2.17) Docker 编译
-      # ============================================================
+      - name: Install Go on Host
+        if: runner.os == 'Linux'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
       - name: Build Linux inside CentOS7 (glibc 2.17)
         if: runner.os == 'Linux'
         run: |
-          docker run --rm -v $PWD:/app -w /app centos:7 bash -c "
-            echo '--- Fixing CentOS7 yum repo (mirrorlist down) ---'
+          docker run --rm \
+            -v $PWD:/app \
+            -v $(go env GOROOT):/goroot \
+            -w /app \
+            centos:7 \
+          bash -c "
+            echo '--- Fixing CentOS7 yum repo ---'
             sed -i 's|mirrorlist=|#mirrorlist=|g' /etc/yum.repos.d/CentOS-*.repo
             sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*.repo
-          
+
             yum clean all
             yum makecache
-            yum install -y gcc gcc-c++ make wget tar
+            yum install -y gcc gcc-c++ make
 
-            echo '--- Install Go ---'
-            GO_VERSION=\$(grep -oP '(?<=go )[0-9]+\.[0-9]+' go.mod)
-            echo Using Go version: \$GO_VERSION
-
-            cd /tmp
-            wget https://go.dev/dl/go\${GO_VERSION}.linux-amd64.tar.gz
-            tar -C /usr/local -xzf go\${GO_VERSION}.linux-amd64.tar.gz
-            export PATH=/usr/local/go/bin:\$PATH
-
-            cd /app
-            go env -w GOPROXY=direct
-            go mod tidy
+            # use Go from setup-go
+            export GOROOT=/goroot
+            export PATH=\$GOROOT/bin:\$PATH
+            go version
 
             echo '--- Building Linux Binary ---'
             CGO_ENABLED=1 GOOS=linux GOARCH=${{ matrix.arch }} go build \
               -o ${RELEASE_DIR}/yatori-go-console.${VERSION}-linux-${{matrix.arch}}-release/${PROJECT_NAME}
           "
+
 
       # ============================================================
       # Windows 构建
