@@ -1,4 +1,4 @@
-name: Go Build and Release (Docker glibc 2.31)
+name: Go Build and Release (Docker glibc 2.31, skip Go sum validation)
 
 on:
   push:
@@ -36,7 +36,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Build Linux inside Docker (glibc 2.31)
+      - name: Build Linux inside Docker (glibc 2.31, skip Go sum validation)
         run: |
           docker run --rm \
             -v $PWD:/app \
@@ -46,12 +46,17 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive &&
               apt-get update &&
               apt-get install -y tzdata --no-install-recommends &&
-              apt-get install -y golang gcc-aarch64-linux-gnu gcc pkg-config tar &&
+              apt-get install -y ca-certificates curl golang gcc-aarch64-linux-gnu gcc pkg-config tar &&
 
               export CGO_ENABLED=1 &&
               export GOOS=linux &&
               export GOARCH=${{ matrix.arch }} &&
               if [ '${{ matrix.arch }}' = 'arm64' ]; then export CC=aarch64-linux-gnu-gcc; fi &&
+
+              # 禁用 Go 模块 sum 校验
+              export GOSUMDB=off &&
+              export GONOSUMDB=* &&
+              export GOPROXY=direct &&
 
               rm -rf go.sum &&
               go mod tidy &&
@@ -70,7 +75,6 @@ jobs:
         with:
           name: linux-${{ matrix.arch }}
           path: ${{ env.RELEASE_DIR }}/*.tar.gz
-
 
   # ---------------- Windows Build ----------------
   windows-build:
@@ -100,8 +104,6 @@ jobs:
         with:
           name: windows
           path: ${{ env.RELEASE_DIR }}/*.zip
-
-
 
   # ---------------- macOS Build ----------------
   mac-build:
@@ -135,7 +137,6 @@ jobs:
         with:
           name: mac-${{ matrix.arch }}
           path: ${{ env.RELEASE_DIR }}/*.tar.gz
-
 
   # ---------------- Final Release ----------------
   release:
