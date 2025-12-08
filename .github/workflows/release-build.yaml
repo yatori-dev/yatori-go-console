@@ -23,6 +23,7 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [👏] 优化学习通答题正确率
+    - [👏] 更新支持CQIE自动答题
     - [🔧] 修复学习通答题出现AI回复对的，但是学习通显示错的问题
     
     
