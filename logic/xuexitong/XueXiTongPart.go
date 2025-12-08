@@ -781,6 +781,9 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 	//选择题
 	for i := range questionAction.Choice {
 		q := &questionAction.Choice[i] // 获取对应选项
+		if strings.Contains(q.Text, "航空工程材料课程的主要学习内容分为上下") {
+			fmt.Sprintf("debugger")
+		}
 		switch user.CoursesCustom.AutoExam {
 		case 1:
 			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
