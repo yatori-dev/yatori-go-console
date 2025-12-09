@@ -426,7 +426,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 		}
 	}
 	// 直播任务点刷取
-	if liveDTOs != nil {
+	if liveDTOs != nil && user.CoursesCustom.VideoModel != 0 {
 		for _, liveDTO := range liveDTOs {
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, liveDTO.KnowledgeID, liveDTO.CardIndex, courseItem.Cpi)
