@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.5'
+        default: 'v2.6.1-Beta.6'
 
 permissions:
   contents: write
@@ -22,9 +22,10 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化学习通答题正确率
-    - [👏] 更新支持CQIE自动答题
-    - [🔧] 修复学习通答题出现AI回复对的，但是学习通显示错的问题
+    - [👏] 更改学习通题目截取形式（去掉前部题目类型以及题序截取
+    - [👏] 放宽AI以及外置题库同时请求数量
+    - [👏] 进一步提高答题速度
+    
     
     
     
