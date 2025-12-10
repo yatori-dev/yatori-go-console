@@ -8,7 +8,7 @@
 
 <div align="center"><h2>Yatori-go-console</h2></div>
 
-<div align="center"><img width="125px" src="https://img.shields.io/badge/GO1.23.4-building-r.svg?logo=go"></img> <img width="80px" src="https://img.shields.io/github/stars/yatori-dev/yatori-go-console.svg"></img> <img width="90px" src="https://img.shields.io/github/downloads/yatori-dev/yatori-go-console/total.svg"></img> <img width="70px" src="https://img.shields.io/github/license/Yatori-Dev/yatori-go-console.svg"></img></div>
+<div align="center"><img width="125px" src="https://img.shields.io/badge/GO1.24.0-building-r.svg?logo=go"></img> <img width="80px" src="https://img.shields.io/github/stars/yatori-dev/yatori-go-console.svg"></img> <img width="90px" src="https://img.shields.io/github/downloads/yatori-dev/yatori-go-console/total.svg"></img> <img width="70px" src="https://img.shields.io/github/license/Yatori-Dev/yatori-go-console.svg"></img></div>
 
 ## 📢作者有话说
 
