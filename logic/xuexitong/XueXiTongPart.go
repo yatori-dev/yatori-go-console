@@ -397,7 +397,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			//	continue
 			//}
 			WorkAction(userCache, user, setting, courseItem, pointAction.Knowledge[index], questionAction)
-			time.Sleep(time.Duration(rand.Intn(5)+5) * time.Second) //随机暂停5~10s，避免太快
+			time.Sleep(time.Duration(rand.Intn(30)+30) * time.Second) //随机暂停30~60s，避免太快
 		}
 	}
 
