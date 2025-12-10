@@ -769,12 +769,19 @@ func GetImageShape(img image.Image) (height, width, channels int) {
 // 常规讨论任务处理
 func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, bbsDto *entity.PointBBsDto) {
 	//bbsTopic, err := point.PullBbsInfoAction(cache, bbsDto) //拉取相关数据
-	bbsTopic, err := point.PullPhoneBbsInfoAction(cache, bbsDto) //拉取相关数据
+	bbsTopic, err1 := point.PullPhoneBbsInfoAction(cache, bbsDto) //拉取相关数据
 
-	if err != nil {
-		fmt.Println(err)
+	if err1 != nil {
+		lg.Print(lg.INFO, err1.Error())
 	}
-	report, err := bbsTopic.AIAnswer(cache, bbsDto, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, setting.AiSetting.APIKEY)
+	var report string
+	var err error
+	if user.CoursesCustom.AutoExam == 1 {
+		report, err = bbsTopic.AIAnswer(cache, bbsDto, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, setting.AiSetting.APIKEY)
+	} else if user.CoursesCustom.AutoExam == 2 {
+		report, err = bbsTopic.ExternalAnswer(cache, bbsDto, setting.ApiQueSetting.Url)
+	}
+
 	if err != nil {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】", lg.BoldRed, "讨论任务点学习提交接口访问异常，返回信息：", report, err.Error())
 	} else {
