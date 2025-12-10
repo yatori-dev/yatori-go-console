@@ -2,6 +2,7 @@ package xuexitong
 
 import (
 	"fmt"
+	"image"
 	"log"
 	"math/rand"
 	"os"
@@ -747,26 +748,39 @@ func ExecuteLive(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseI
 		time.Sleep(30 * time.Second)
 	}
 }
+func GetImageShape(img image.Image) (height, width, channels int) {
+	b := img.Bounds()
+	width = b.Dx()
+	height = b.Dy()
+
+	switch img.(type) {
+	case *image.RGBA, *image.NRGBA, *image.NRGBA64, *image.RGBA64:
+		channels = 3 // 或 4——看你模型是否使用 RGB 或 RGBA
+	case *image.Gray, *image.Gray16:
+		channels = 1
+	default:
+		// 无法确定 → 默认按 RGB 处理
+		channels = 3
+	}
+
+	return
+}
 
 // 常规讨论任务处理
 func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, bbsDto *entity.PointBBsDto) {
-	bbsTopic, err := point.PullBbsInfoAction(cache, bbsDto) //拉取相关数据
+	//bbsTopic, err := point.PullBbsInfoAction(cache, bbsDto) //拉取相关数据
+	bbsTopic, err := point.PullPhoneBbsInfoAction(cache, bbsDto) //拉取相关数据
+
 	if err != nil {
 		fmt.Println(err)
 	}
 	report, err := bbsTopic.AIAnswer(cache, bbsDto, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, setting.AiSetting.APIKEY)
-	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
-		if err == nil {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】", lg.BoldRed, "讨论任务点学习提交接口访问异常，返回信息：", report)
-		} else {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】", lg.BoldRed, "讨论任务点学习提交接口访问异常，返回信息：", report, err.Error())
-		}
-		return
+	if err != nil {
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】", lg.BoldRed, "讨论任务点学习提交接口访问异常，返回信息：", report, err.Error())
+	} else {
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】 >>> ", "讨论任务点状态：", lg.Green, lg.Green, gojsonq.New().JSONString(report).Find("msg").(string))
 	}
 
-	if gojsonq.New().JSONString(report).Find("status").(bool) {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsTopic.Title, "】 >>> ", "讨论任务点状态：", lg.Green, lg.Green, gojsonq.New().JSONString(report).Find("msg").(string), lg.Default, " ")
-	}
 }
 
 // 作业处理逻辑
