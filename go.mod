@@ -1,6 +1,6 @@
 module yatori-go-console
 
-go 1.24.0
+go 1.24.11
 
 toolchain go1.24.11
 
