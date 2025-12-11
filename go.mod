@@ -16,7 +16,7 @@ require (
 )
 
 require (
-	github.com/yatori-dev/yatori-go-core v2.0.1.3 //2.0.1.3
+	github.com/yatori-dev/yatori-go-core v1.9.1-0.20251211141745-61ff240990e6 //2.0.1.3
 	golang.org/x/sys v0.39.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -28,7 +28,7 @@ require (
 )
 
 require (
-	github.com/Changbaiqi/ddddocr-go v0.0.9 // indirect
+	github.com/Changbaiqi/ddddocr-go v0.1.0 // indirect
 	github.com/PuerkitoBio/goquery v1.10.2 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
@@ -69,7 +69,7 @@ require (
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
-	github.com/yalue/onnxruntime_go v1.17.0 // indirect
+	github.com/yalue/onnxruntime_go v1.24.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/crypto v0.46.0 // indirect
