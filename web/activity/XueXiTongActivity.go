@@ -15,7 +15,6 @@ import (
 	"github.com/thedevsaddam/gojsonq"
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong/point"
-	"github.com/yatori-dev/yatori-go-core/api/entity"
 	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
 
 	"github.com/yatori-dev/yatori-go-core/utils"
@@ -200,7 +199,7 @@ func (activity *XXTActivity) nodeRun(userCache *xuexitongApi.XueXiTUserCache, co
 		lg.Print(lg.INFO, "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
 		return
 	}
-	videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := entity.ParsePointDto(fetchCards)
+	videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := xuexitongApi.ParsePointDto(fetchCards)
 	if !activity.IsRunning { //打断
 		return
 	}
@@ -332,7 +331,7 @@ func (activity *XXTActivity) nodeRun(userCache *xuexitongApi.XueXiTUserCache, co
 }
 
 // 常规刷视频逻辑
-func (activity *XXTActivity) ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
+func (activity *XXTActivity) ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointVideoDto, key, courseCpi int) {
 
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 
@@ -460,7 +459,7 @@ func (activity *XXTActivity) ExecuteVideo2(cache *xuexitongApi.XueXiTUserCache, 
 }
 
 // 常规刷文档逻辑
-func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointDocumentDto) {
+func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointDocumentDto) {
 	report, err := point.ExecuteDocument(cache, p)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
 		if err == nil {
@@ -478,7 +477,7 @@ func ExecuteDocument(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.
 }
 
 // 常规外链任务处理
-func ExecuteHyperlink(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointHyperlinkDto) {
+func ExecuteHyperlink(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointHyperlinkDto) {
 	report, err := point.ExecuteHyperlink(cache, p)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
 		if err == nil {
@@ -494,7 +493,7 @@ func ExecuteHyperlink(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong
 }
 
 // 常规直播任务处理
-func ExecuteLive(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointLiveDto) {
+func ExecuteLive(cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointLiveDto) {
 	point.PullLiveInfoAction(cache, p)
 	var passValue float64 = 90
 

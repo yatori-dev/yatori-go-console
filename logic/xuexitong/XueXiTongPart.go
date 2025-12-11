@@ -16,7 +16,6 @@ import (
 	"github.com/thedevsaddam/gojsonq"
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong/point"
-	"github.com/yatori-dev/yatori-go-core/api/entity"
 	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/que-core/aiq"
 	"github.com/yatori-dev/yatori-go-core/que-core/external"
@@ -267,7 +266,8 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "无法正常拉取卡片信息，请联系作者查明情况,报错信息：", err1.Error())
 		return
 	}
-	videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := entity.ParsePointDto(fetchCards)
+
+	videoDTOs, workDTOs, documentDTOs, hyperlinkDTOs, liveDTOs, bbsDTOs := xuexitongApi.ParsePointDto(fetchCards)
 	if videoDTOs == nil && workDTOs == nil && documentDTOs == nil && hyperlinkDTOs == nil && liveDTOs == nil && bbsDTOs == nil {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "课程对应章节无任何任务节点，已自动跳过")
 		return
@@ -494,7 +494,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 }
 
 // 检测答题是否有留空
-func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fills []entity.FillQue, shorts []entity.ShortQue) bool {
+func CheckAnswerIsAvoid(choices []xuexitongApi.ChoiceQue, judges []xuexitongApi.JudgeQue, fills []xuexitongApi.FillQue, shorts []xuexitongApi.ShortQue) bool {
 	for _, choice := range choices {
 		resStatus := true
 		if choice.Answers != nil {
@@ -548,7 +548,7 @@ func CheckAnswerIsAvoid(choices []entity.ChoiceQue, judges []entity.JudgeQue, fi
 }
 
 // 常规刷视频逻辑
-func ExecuteVideo2(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointVideoDto, key, courseCpi int) {
+func ExecuteVideo2(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointVideoDto, key, courseCpi int) {
 
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 
@@ -673,7 +673,7 @@ func ExecuteVideo2(user *config.User, cache *xuexitongApi.XueXiTUserCache, cours
 }
 
 // 常规刷文档逻辑
-func ExecuteDocument(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointDocumentDto) {
+func ExecuteDocument(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointDocumentDto) {
 	report, err := point.ExecuteDocument(cache, p)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
 		if err == nil {
@@ -691,7 +691,7 @@ func ExecuteDocument(user *config.User, cache *xuexitongApi.XueXiTUserCache, cou
 }
 
 // 常规外链任务处理
-func ExecuteHyperlink(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointHyperlinkDto) {
+func ExecuteHyperlink(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointHyperlinkDto) {
 	report, err := point.ExecuteHyperlink(cache, p)
 	if gojsonq.New().JSONString(report).Find("status") == nil || err != nil || gojsonq.New().JSONString(report).Find("status") == false {
 		if err == nil {
@@ -707,7 +707,7 @@ func ExecuteHyperlink(user *config.User, cache *xuexitongApi.XueXiTUserCache, co
 }
 
 // 常规直播任务处理
-func ExecuteLive(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *entity.PointLiveDto) {
+func ExecuteLive(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointLiveDto) {
 	point.PullLiveInfoAction(cache, p)
 	var passValue float64 = 90
 
@@ -749,7 +749,7 @@ func ExecuteLive(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseI
 }
 
 // 常规讨论任务处理
-func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, bbsDto *entity.PointBBsDto) {
+func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, bbsDto *xuexitongApi.PointBBsDto) {
 	//bbsTopic, err := point.PullBbsInfoAction(cache, bbsDto) //拉取相关数据
 	bbsTopic, err1 := point.PullPhoneBbsInfoAction(cache, bbsDto) //拉取相关数据
 
@@ -773,12 +773,13 @@ func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting 
 }
 
 // 作业处理逻辑
-func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction entity.Question) {
+func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction xuexitongApi.Question) {
 	if user.CoursesCustom.AutoExam == 1 {
-
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), lg.Default, "【"+courseItem.CourseName+"】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Yellow, "正在AI自动写章节作业...")
-	} else {
+	} else if user.CoursesCustom.AutoExam == 2 {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", lg.Default, "【"+courseItem.CourseName+"】 ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Yellow, "正在外挂题库自动写章节作业...")
+	} else if user.CoursesCustom.AutoExam == 3 {
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", lg.Default, "【"+courseItem.CourseName+"】 ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Yellow, "正在内置AI自动写章节作业...")
 	}
 
 	//选择题
@@ -789,7 +790,7 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		}
 		switch user.CoursesCustom.AutoExam {
 		case 1:
-			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
 				XueXChoiceQue: *q,
 			})
 
@@ -797,6 +798,11 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 		case 2:
 			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		case 3:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
+				XueXChoiceQue: *q,
+			})
+			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
 
 	}
@@ -805,7 +811,7 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		q := &questionAction.Judge[i] // 获取对应选项
 		switch user.CoursesCustom.AutoExam {
 		case 1:
-			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
 				XueXJudgeQue: *q,
 			})
 
@@ -813,6 +819,11 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 		case 2:
 			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		case 3:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
+				XueXJudgeQue: *q,
+			})
+			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
 
 	}
@@ -821,13 +832,18 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		q := &questionAction.Fill[i] // 获取对应选项
 		switch user.CoursesCustom.AutoExam {
 		case 1:
-			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
 				XueXFillQue: *q,
 			})
 			aiSetting := setting.AiSetting //获取AI设置
 			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 		case 2:
 			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		case 3:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
+				XueXFillQue: *q,
+			})
+			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
 
 	}
@@ -836,13 +852,18 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		q := &questionAction.Short[i] // 获取对应选项
 		switch user.CoursesCustom.AutoExam {
 		case 1:
-			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
 				XueXShortQue: *q,
 			})
 			aiSetting := setting.AiSetting //获取AI设置
 			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 		case 2:
 			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		case 3:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
+				XueXShortQue: *q,
+			})
+			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
 
 	}
@@ -851,13 +872,18 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		q := &questionAction.TermExplanation[i] // 获取对应选项
 		switch user.CoursesCustom.AutoExam {
 		case 1:
-			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
 				XueXTermExplanationQue: *q,
 			})
 			aiSetting := setting.AiSetting //获取AI设置
 			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 		case 2:
 			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		case 3:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
+				XueXTermExplanationQue: *q,
+			})
+			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
 
 	}
@@ -866,13 +892,18 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		q := &questionAction.Essay[i] // 获取对应选项
 		switch user.CoursesCustom.AutoExam {
 		case 1:
-			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
 				XueXEssayQue: *q,
 			})
 			aiSetting := setting.AiSetting //获取AI设置
 			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 		case 2:
 			q.AnswerExternalGet(setting.ApiQueSetting.Url)
+		case 3:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
+				XueXEssayQue: *q,
+			})
+			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
 
 	}
@@ -882,15 +913,20 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		q := &questionAction.Matching[i] // 获取对应选项
 		switch user.CoursesCustom.AutoExam {
 		case 1:
-			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), entity.ExamTurn{
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
 				XueXMatchingQue: *q,
 			})
 			aiSetting := setting.AiSetting //获取AI设置
 			q.AnswerAIGet(userCache.UserID, aiSetting.AiUrl, aiSetting.Model, aiSetting.AiType, message, aiSetting.APIKEY)
 		case 2:
 			q.AnswerExternalGet(setting.ApiQueSetting.Url)
-		}
+		case 3:
+			message := xuexitong.AIProblemMessage(questionAction.Title, q.Type.String(), xuexitongApi.ExamTurn{
+				XueXMatchingQue: *q,
+			})
+			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 
+		}
 	}
 
 	var resultStr string
@@ -910,6 +946,8 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
 				} else if user.CoursesCustom.AutoExam == 2 {
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.BoldRed, "外挂题库答题保存失败,返回信息："+resultStr, " 外挂题库答题信息：", questionAction.String())
+				} else if user.CoursesCustom.AutoExam == 3 {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", "学习通内置AI"), "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
 				}
 
 			}
@@ -921,6 +959,8 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
 				} else if user.CoursesCustom.AutoExam == 2 {
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.BoldRed, "外挂题库答题保存失败,返回信息："+resultStr, " 外挂题库答题信息：", questionAction.String())
+				} else if user.CoursesCustom.AutoExam == 3 {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", "学习通内置AI"), "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.BoldRed, "AI答题保存失败,返回信息："+resultStr, " AI答题信息：", questionAction.String())
 				}
 			}
 		}
@@ -931,6 +971,8 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Green, "章节作业AI答题完毕,服务器返回信息：", resultStr)
 	} else if user.CoursesCustom.AutoExam == 2 {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Green, "章节作业外挂题库答题完毕,服务器返回信息：", resultStr)
+	} else if user.CoursesCustom.AutoExam == 3 {
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Green, "章节作业内置AI答题完毕,服务器返回信息：", resultStr)
 	}
 
 }

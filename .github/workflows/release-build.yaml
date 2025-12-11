@@ -22,6 +22,7 @@ env:
   VERSION: ${{ github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
+    - [👏] 学习通现支持免费AI答题，autoExam改3即可直接用，无需任何其他繁琐配置
     - [👏] 优化API请求
     - [👏] 升级go版本
     - [👏] 优化软件存储占用大小    
