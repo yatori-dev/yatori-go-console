@@ -2,8 +2,6 @@ module yatori-go-console
 
 go 1.24.11
 
-toolchain go1.24.11
-
 // 若出现hash校验错误请使用以下指令
 // set GONOSUMDB=*
 // set GOPROXY=direct
