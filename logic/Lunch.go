@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -32,6 +33,13 @@ func Lunch() {
 
 	// 检查config.yaml是否存在
 	if !fileExists("./config.yaml") {
+		fmt.Println(`
+程序未检测到config.yaml配置文件，
+
+如果你用的配置文件生成器你确定你文件放对位置了？
+以及请不要放个config（1）.yaml，config（2）.yaml这样子的的文件，要的是config.yaml。
+
+`)
 		// 不存在使用生成方式建立
 		setConfig := config.JSONDataForConfig{}
 		// 设置基本设置
