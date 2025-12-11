@@ -117,7 +117,7 @@ jobs:
           set GONOSUMDB=*
           go clean -modcache
           del go.sum
-          go get -u ./...
+          go get ./...
           go mod tidy
 
       - name: Prepare Release Directory #创建压缩目录
