@@ -752,7 +752,10 @@ func ExecuteLive(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseI
 func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, bbsDto *xuexitongApi.PointBBsDto) {
 	//bbsTopic, err := point.PullBbsInfoAction(cache, bbsDto) //拉取相关数据
 	bbsTopic, err1 := point.PullPhoneBbsInfoAction(cache, bbsDto) //拉取相关数据
-
+	if bbsTopic == nil {
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", bbsDto.Title, "】", lg.BoldRed, "无法正常拉取讨论任务点主题，已自动跳过该讨论任务点...")
+		return
+	}
 	if err1 != nil {
 		lg.Print(lg.INFO, err1.Error())
 	}
@@ -762,6 +765,8 @@ func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting 
 		report, err = bbsTopic.AIAnswer(cache, bbsDto, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, setting.AiSetting.APIKEY)
 	} else if user.CoursesCustom.AutoExam == 2 {
 		report, err = bbsTopic.ExternalAnswer(cache, bbsDto, setting.ApiQueSetting.Url)
+	} else if user.CoursesCustom.AutoExam == 3 {
+		report, err = bbsTopic.XXTAIAnswer(cache, bbsDto)
 	}
 
 	if err != nil {
