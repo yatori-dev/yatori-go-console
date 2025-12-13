@@ -1,8 +1,10 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"yatori-go-console/config"
 	"yatori-go-console/dao"
 	"yatori-go-console/entity/pojo"
 	"yatori-go-console/global"
@@ -109,30 +111,6 @@ func UpdateUserService(c *gin.Context) {
 		updateMap["password"] = req.Password
 	}
 
-	updateMap["is_proxy"] = req.IsProxy
-
-	updateMap["email_inform_sw"] = req.EmailInformSw
-
-	updateMap["inform_emails"] = req.InformEmails
-
-	if req.WeLearnTime != "" {
-		updateMap["weLearn_time"] = req.WeLearnTime
-	}
-
-	updateMap["cxNode"] = req.CxNode
-
-	updateMap["shuffle_sw"] = req.ShuffleSw
-
-	updateMap["video_model"] = req.VideoModel
-
-	updateMap["auto_exam"] = req.AutoExam
-
-	updateMap["exam_auto_submit"] = req.ExamAutoSubmit
-
-	updateMap["exclude_courses"] = req.ExcludeCourses
-
-	updateMap["include_courses"] = req.IncludeCourses
-
 	// 空字段检查
 	if len(updateMap) == 0 {
 		c.JSON(400, gin.H{
@@ -177,11 +155,11 @@ func AccountCourseListService(c *gin.Context) {
 	//如果没有活动中的账号则添加活动账号
 	if userActivity == nil {
 		//构建用户活动
-		//createActivity := activity.UserActivity{
-		//	UserPO: *user,
+		//createActivity := activity.UserActivityBase{
+		//	User: *user,
 		//}
 		//global.PutUserActivity(*user, &createActivity)
-		userActivity = global.GetUserActivity(*user)
+		//userActivity = global.GetUserActivity(*user)
 	}
 	//if !userActivity.IsLogin {
 	//	//登录
@@ -230,9 +208,6 @@ func AddUserService(c *gin.Context) {
 		})
 		return
 	}
-	req.InformEmails = []string{}
-	req.IncludeCourses = []string{}
-	req.ExcludeCourses = []string{}
 	//检测账号是否已存在
 	user, _ := dao.QueryUser(global.GlobalDB, req)
 	if user != nil {
@@ -245,36 +220,26 @@ func AddUserService(c *gin.Context) {
 
 	uuidV7, _ := uuid.NewV7()
 	req.Uid = uuidV7.String() //设置uuid值
-	//构建用户活动
-	//activity := activity.UserActivityBase{
-	//	: pojo.UserPO{
-	//		Uid:         req.Uid,
-	//		AccountType: req.AccountType,
-	//		Account:     req.Account,
-	//		Password:    req.Password},
-	//}
+	userConfig := config.User{}
 
-	//登录
-	//err := activity.UserLoginOperation()
+	userConfigJson, err2 := json.Marshal(userConfig)
+	if err2 != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 400,
+			"msg":  err2.Error(),
+		})
+		return
+	}
+	req.UserConfigJson = string(userConfigJson) //赋值Config配置
 
-	//如果登录失败
-	//if err != nil {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"code": 400,
-	//		"msg":  err.Error(),
-	//	})
-	//	return
-	//}
-	//activity.IsLogin = true //
-	//global.UserActivityMap[fmt.Sprintf("%s-%s-%s", req.AccountType, req.Url, req.Account)] = &activity
-	//err = dao.InsertUser(global.GlobalDB, &req)
-	//if err != nil {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"code": 400,
-	//		"msg":  err.Error(),
-	//	})
-	//	return
-	//}
+	err := dao.InsertUser(global.GlobalDB, &req)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 400,
+			"msg":  err.Error(),
+		})
+		return
+	}
 	//登录成功
 	c.JSON(200, gin.H{
 		"code": 200,
@@ -353,6 +318,10 @@ func StopBrushService(c *gin.Context) {
 	})
 	if err != nil {
 		c.JSON(400, gin.H{})
+	}
+	if user == nil {
+		c.JSON(400, gin.H{})
+		return
 	}
 	userActivity := global.GetUserActivity(*user)
 	if userActivity == nil {

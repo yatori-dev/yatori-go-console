@@ -1,6 +1,7 @@
 package activity
 
 import (
+	"encoding/json"
 	"yatori-go-console/config"
 	"yatori-go-console/entity/pojo"
 )
@@ -18,19 +19,22 @@ type Activity interface {
 // 用户活动
 // 基础用户活动信息
 type UserActivityBase struct {
-	User      config.User
+	User      config.User //配置文件
 	IsRunning bool
 	UserCache any
 }
 
+// 设置User
 func (u *UserActivityBase) SetUser(user config.User) {
 	u.User = user
 }
 
+// 获取User
 func (u *UserActivityBase) GetUser() config.User {
 	return u.User
 }
 
+// 获取UserCache
 func (u *UserActivityBase) GetUserCache() any {
 	return u.UserCache
 }
@@ -39,24 +43,31 @@ func (u *UserActivityBase) GetUserCache() any {
 func BuildUserActivity(po pojo.UserPO) Activity {
 	switch po.AccountType {
 	case "XUEXITONG":
+		user := config.User{}
+		err2 := json.Unmarshal([]byte(po.UserConfigJson), &user)
+		if err2 != nil {
+			return nil
+		}
 		return &XXTActivity{
 			UserActivityBase: UserActivityBase{
-				User:      config.User{AccountType: po.AccountType, Account: po.Account, Password: po.Password},
+				User:      user,
 				IsRunning: false,
 				UserCache: nil,
 			},
 		}
 	case "YINGHUA":
+		user := config.User{}
+		err2 := json.Unmarshal([]byte(po.UserConfigJson), &user)
+		if err2 != nil {
+			return nil
+		}
 		return &YingHuaActivity{
 			UserActivityBase: UserActivityBase{
-				User:      config.User{AccountType: po.AccountType, Account: po.Account, Password: po.Password},
+				User:      user,
 				IsRunning: false,
 				UserCache: nil,
 			},
 		}
-
-	// case "ZHIHUIZHIJIAO":
-	//	  return &zhihuizhijiao.ZJYActivity{...}
 
 	default:
 		return nil

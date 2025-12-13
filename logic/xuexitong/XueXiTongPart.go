@@ -17,6 +17,7 @@ import (
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong"
 	"github.com/yatori-dev/yatori-go-core/aggregation/xuexitong/point"
 	xuexitongApi "github.com/yatori-dev/yatori-go-core/api/xuexitong"
+	"github.com/yatori-dev/yatori-go-core/models/ctype"
 	"github.com/yatori-dev/yatori-go-core/que-core/aiq"
 	"github.com/yatori-dev/yatori-go-core/que-core/external"
 	"github.com/yatori-dev/yatori-go-core/utils"
@@ -302,7 +303,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			videoDTO.AttachmentsDetection(card)
 
 			if !videoDTO.IsJob {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "该视屏非任务点或已完成，已自动跳过")
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, `[`, pointAction.Knowledge[index].Name, `] `, lg.Blue, "该视屏或音频非任务点或已完成，已自动跳过")
 				continue
 			}
 			videoDTO.Enc = enc                                        //赋值enc值
@@ -311,14 +312,12 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			} else if videoDTO.IsPassed == false && videoDTO.Attachment == nil && videoDTO.JobID == "" && videoDTO.Duration <= videoDTO.PlayTime { //非任务点如果完成了
 				continue
 			}
-			switch user.CoursesCustom.VideoModel {
-			case 1:
-				ExecuteVideo2(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //普通模式
-			case 2:
-				ExecuteVideo2(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多课程模式
-			case 3:
-				ExecuteVideo2(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi) //多任务点模式
+			if videoDTO.Type == ctype.Video { //如果是视频
+				ExecuteVideo(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi)
+			} else if videoDTO.Type == ctype.InsertAudio { //如果是音频
+				ExecuteAudio(user, userCache, courseItem, pointAction.Knowledge[index], &videoDTO, key, courseItem.Cpi)
 			}
+
 			randSleepTime := rand.Intn(51) + 10
 			time.Sleep(time.Duration(randSleepTime) * time.Second)
 		}
@@ -554,7 +553,7 @@ func CheckAnswerIsAvoid(choices []xuexitongApi.ChoiceQue, judges []xuexitongApi.
 }
 
 // 常规刷视频逻辑
-func ExecuteVideo2(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointVideoDto, key, courseCpi int) {
+func ExecuteVideo(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointVideoDto, key, courseCpi int) {
 
 	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
 
@@ -674,6 +673,131 @@ func ExecuteVideo2(user *config.User, cache *xuexitongApi.XueXiTUserCache, cours
 		}
 	} else {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Red, "该视屏任务点解析失败，可能是任务点视屏本身问题，已自动跳过")
+		//log.Fatal("视频解析失败")
+	}
+}
+
+// 常规刷音频逻辑
+func ExecuteAudio(user *config.User, cache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, p *xuexitongApi.PointVideoDto, key, courseCpi int) {
+
+	if state, _ := xuexitong.VideoDtoFetchAction(cache, p); state {
+
+		var playingTime = p.PlayTime
+		if p.IsPassed == false && p.PlayTime == p.Duration {
+			playingTime = 0
+		}
+		var overTime = 0
+		//secList := []int{58} //停滞时间随机表
+		selectSec := 58                     //默认60s
+		extendSec := 5                      //过超提交停留时间
+		limitTime := max(500, p.Duration/2) //过超时间最大限制
+		mode := 1                           //0为Web模式，1为手机模式
+		//flag := 0
+		for {
+			var playReport string
+			var err error
+			//selectSec = secList[rand.Intn(len(secList))] //随机选择时间
+			if playingTime != p.Duration {
+
+				if playingTime == p.PlayTime {
+					playReport, err = xuexitong.AudioSubmitStudyTimeAction(cache, p, playingTime, mode, 3)
+				} else {
+					playReport, err = xuexitong.AudioSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
+				}
+			} else {
+				playReport, err = xuexitong.AudioSubmitStudyTimeAction(cache, p, playingTime, mode, 0)
+			}
+			if err != nil {
+				//若报错500并且已经过超，那么可能是视屏有问题，所以最好直接跳过进行下一个视频
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 500") {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，触发风控500，重登次数过多已自动跳到下一任务点。", "，返回信息：", playReport, err.Error())
+					break
+				}
+				//当报错无权限的时候尝试人脸
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 403") { //触发403立即使用人脸检测
+					if mode == 1 {
+						mode = 0
+						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Yellow, "检测到手机端触发403正在切换为Web端...")
+						continue
+					}
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Yellow, "触发403正在尝试绕过人脸识别...")
+					//上传人脸
+					pullJson, img, err2 := cache.GetHistoryFaceImg("")
+					if err2 != nil {
+						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.BoldRed, "上传人脸失败，已自动跳过该音频", pullJson, err2)
+						return
+						//os.Exit(0)
+					}
+					disturbImage := utils.ImageRGBDisturb(img)
+					//uuid,qrEnc,ObjectId,successEnc
+					_, _, _, _, errPass := xuexitong.PassFacePCAction(cache, p.CourseID, p.ClassID, p.Cpi, fmt.Sprintf("%d", p.KnowledgeID), p.Enc, p.JobID, p.ObjectID, p.Mid, p.RandomCaptureTime, disturbImage)
+					if errPass != nil {
+						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Red, "绕过人脸失败", errPass.Error(), "请在学习通客户端上确保最近一次人脸识别是正确的，yatori会自动拉取最近一次识别的人脸数据进行")
+					} else {
+						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Green, "绕过人脸成功")
+					}
+					time.Sleep(5 * time.Second) //不要删！！！！一定要等待一小段时间才能请求PageMobile
+					continue
+				}
+				if strings.Contains(err.Error(), "failed to fetch video, status code: 404") { //触发404
+					time.Sleep(10 * time.Second)
+					continue
+				}
+			}
+			if err != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", err.Error())
+				break
+			}
+			if gojsonq.New().JSONString(playReport).Find("isPassed") == nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), `[`, cache.Name, `] `, "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】", lg.BoldRed, "提交学时接口访问异常，返回信息：", playReport)
+				break
+			}
+			//阈值超限提交
+			outTimeMsg := gojsonq.New().JSONString(playReport).Find("OutTimeMsg")
+			if outTimeMsg != nil {
+				if outTimeMsg.(string) == "观看时长超过阈值" {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), "音频提交时长超过阈值，已直接提交", lg.Default, " ", "提交时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+					break
+				}
+			}
+			if gojsonq.New().JSONString(playReport).Find("isPassed").(bool) == true && playingTime >= p.Duration { //看完了，则直接退出
+				if overTime == 0 {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				} else {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(p.Duration)+"/"+strconv.Itoa(p.Duration), " ", "过超时间：", strconv.Itoa(overTime)+"/"+strconv.Itoa(limitTime), " ", lg.Green, "过超提交成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float32(p.Duration)/float32(p.Duration)*100), "%")
+				}
+				break
+			}
+
+			if overTime == 0 { //正常提交
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+			} else { //过超提交
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "观看时间：", strconv.Itoa(playingTime)+"/"+strconv.Itoa(p.Duration), " ", "过超时间：", strconv.Itoa(overTime)+"/"+strconv.Itoa(limitTime), " ", "观看进度：", fmt.Sprintf("%.2f", float32(playingTime)/float32(p.Duration)*100), "%")
+			}
+			if overTime >= limitTime { //过超提交触发
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Red, "过超提交失败，自动进行下一任务...")
+				break
+			}
+
+			if p.Duration-playingTime < selectSec && p.Duration != playingTime { //时间小于58s时
+				playingTime = p.Duration
+				time.Sleep(time.Duration(p.Duration-playingTime) * time.Second)
+			} else if p.Duration == playingTime { //记录过超提交触发条件
+				//判断是否为任务点，如果为任务点那么就不累计过超提交
+				if p.JobID == "" && p.Attachment == nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", "提交状态：", lg.Green, strconv.FormatBool(gojsonq.New().JSONString(playReport).Find("isPassed").(bool)), lg.Default, " ", "该音频为非任务点看完后直接跳入下一任务点")
+					break
+				} else {
+					overTime += extendSec
+				}
+				time.Sleep(time.Duration(extendSec) * time.Second)
+			} else { //正常计时逻辑
+				playingTime = playingTime + selectSec
+				time.Sleep(time.Duration(selectSec) * time.Second)
+			}
+		}
+	} else {
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", p.Title, "】 >>> ", lg.Red, "该音频任务点解析失败，可能是任务点音频本身问题，已自动跳过")
 		//log.Fatal("视频解析失败")
 	}
 }
