@@ -23,6 +23,7 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [👏] 适配学习通音频任务点
+    - [🔧] 修复部分视屏任务点数据读取错误导致报错问题
     
     
     
