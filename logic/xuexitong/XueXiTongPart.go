@@ -48,7 +48,13 @@ func UserLoginOperation(users []config.User) []*xuexitongApi.XueXiTUserCache {
 				cache.IpProxySW = true
 				cache.ProxyIP = "http://" + utils2.RandProxyStr()
 			}
-			loginError := xuexitong.XueXiTLoginAction(cache) // 登录
+			var loginError error
+			if len(cache.Password) < 50 {
+				loginError = xuexitong.XueXiTLoginAction(cache) // 登录
+			} else {
+				loginError = xuexitong.XueXiTCookieLoginAction(cache) // 登录
+			}
+
 			if loginError != nil {
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.White, "] ", lg.Red, loginError.Error())
 				os.Exit(0) //登录失败直接退出
