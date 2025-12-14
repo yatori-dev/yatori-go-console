@@ -97,14 +97,8 @@ func userBlock(setting config.Setting, user *config.User, cache *yinghuaApi.Ying
 
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Yellow, "暴力模式执行完毕，正在自动执行去红模式(需延迟一分钟执行)...")
 				time2.Sleep(time2.Minute)
-				resUser := *user                          //改为去红模式
-				resUser.CoursesCustom.VideoModel = 3      //标记为去红模式并启动
-				err1 := yinghua.YingHuaLoginAction(cache) // 登录
-				if err1 != nil {
-					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err1.Error())
-					log.Fatal(err1) //登录失败则直接退出
-				}
-				//nodesLock.Add(1)
+				resUser := *user                               //改为去红模式
+				resUser.CoursesCustom.VideoModel = 3           //标记为去红模式并启动
 				nodeListStudy(setting, &resUser, cache, &item) //递归执行去红模式
 
 			}
@@ -164,6 +158,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *yinghua
 	}
 	var videosLock sync.WaitGroup //视频节点锁
 	// 提交学时
+	redAns := 0 //标红记录统计（标红为0才退出去红模式
 	for _, node := range nodeList {
 		//视频处理逻辑
 		switch user.CoursesCustom.VideoModel { //根据视频模式进行刷课
@@ -178,9 +173,17 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *yinghua
 			}()
 			break
 		case 3:
+			if node.ErrorMessage != "检测到可能使用并行播放刷课" { //累计
+				redAns++
+			}
 			videoBadRedAction(setting, user, userCache, course, node) //去红模式
 			break
 
+		}
+		//如果还有标红的则再运行一遍
+		if user.CoursesCustom.VideoModel == 3 && redAns != 0 {
+			nodeListStudy(setting, user, userCache, course)
+			return
 		}
 		//作业处理逻辑
 		workAction(setting, user, userCache, course, node)
