@@ -22,7 +22,9 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化英华去红模式
+    - [👏] 适配学习通音频任务点
+    - [👏] 优化英华学堂去红模式
+    - [🔧] 修复部分视屏任务点数据读取错误导致报错问题
     
     
     
