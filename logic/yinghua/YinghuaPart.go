@@ -173,7 +173,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *yinghua
 			}()
 			break
 		case 3:
-			if node.ErrorMessage != "检测到可能使用并行播放刷课" { //累计
+			if node.ErrorMessage != "检测到可能使用并行播放刷课" { //统计标红
 				redAns++
 			}
 			videoBadRedAction(setting, user, userCache, course, node) //去红模式
