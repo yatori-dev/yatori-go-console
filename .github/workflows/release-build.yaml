@@ -22,7 +22,7 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 适配学习通考试
+    - [👏] 适配学习通考试（暂时只能考无人脸）
     
     
     
