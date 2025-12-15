@@ -23,6 +23,7 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [👏] 适配学习通考试（暂时只能考无人脸）
+    - [‍🔧] 修复学习通多任务点模式下内部AI答题模式有时候无法正常回答BUG
     
     
     
