@@ -168,100 +168,154 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 		return
 	}
 	//如果该课程已刷完了则直接return
-	if courseItem.JobRate >= 100 {
-		return
-	}
+	if courseItem.JobRate < 100 {
 
-	key, _ := strconv.Atoi(courseItem.Key)
-	action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
+		key, _ := strconv.Atoi(courseItem.Key)
+		action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
 
-	//如果选择了顺序打乱，则直接不按顺序学习
-	if user.CoursesCustom.ShuffleSw == 1 {
-		rand.Seed(time.Now().UnixNano())
-		rand.Shuffle(len(action.Knowledge), func(i, j int) {
-			action.Knowledge[i], action.Knowledge[j] = action.Knowledge[j], action.Knowledge[i]
-		})
-	}
+		//如果选择了顺序打乱，则直接不按顺序学习
+		if user.CoursesCustom.ShuffleSw == 1 {
+			rand.Seed(time.Now().UnixNano())
+			rand.Shuffle(len(action.Knowledge), func(i, j int) {
+				action.Knowledge[i], action.Knowledge[j] = action.Knowledge[j], action.Knowledge[i]
+			})
+		}
 
-	if err != nil {
-		if strings.Contains(err.Error(), "课程章节为空") {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
+		if err != nil {
+			if strings.Contains(err.Error(), "课程章节为空") {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "该课程章节为空已自动跳过")
+				return
+			}
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
+			return
+			//log.Fatal()
+		}
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, "获取课程章节成功 (共 ", lg.Yellow, strconv.Itoa(len(action.Knowledge)), lg.Default, " 个) ")
+
+		var nodes []int
+		for _, item := range action.Knowledge {
+			nodes = append(nodes, item.ID)
+		}
+
+		courseId, _ := strconv.Atoi(courseItem.CourseID)
+		userId, _ := strconv.Atoi(userCache.UserID)
+		// 检测节点完成情况
+		pointAction, err := xuexitong.ChapterFetchPointAction(userCache, nodes, &action, key, userId, courseItem.Cpi, courseId)
+		if err != nil {
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
+			//log.Fatal()
 			return
 		}
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "拉取章节信息接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
-		return
-		//log.Fatal()
-	}
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, "获取课程章节成功 (共 ", lg.Yellow, strconv.Itoa(len(action.Knowledge)), lg.Default, " 个) ")
-
-	var nodes []int
-	for _, item := range action.Knowledge {
-		nodes = append(nodes, item.ID)
-	}
-
-	courseId, _ := strconv.Atoi(courseItem.CourseID)
-	userId, _ := strconv.Atoi(userCache.UserID)
-	// 检测节点完成情况
-	pointAction, err := xuexitong.ChapterFetchPointAction(userCache, nodes, &action, key, userId, courseItem.Cpi, courseId)
-	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "探测节点完成情况接口访问异常，若需要继续可以配置中添加排除此异常课程。返回信息：", err.Error())
-		//log.Fatal()
-		return
-	}
-	var isFinished = func(index int) bool {
-		if index < 0 || index >= len(pointAction.Knowledge) {
-			return false
-		}
-		i := pointAction.Knowledge[index]
-		if i.PointTotal == 0 && i.PointFinished == 0 {
-			//如果是0任务点，则直接浏览一遍主页面即可完成任务，不必继续下去
-			err2 := xuexitong.EnterChapterForwardCallAction(userCache, strconv.Itoa(courseId), strconv.Itoa(key), strconv.Itoa(pointAction.Knowledge[index].ID), strconv.Itoa(courseItem.Cpi))
-			if err2 != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "零任务点遍历失败。返回信息：", err2.Error())
+		var isFinished = func(index int) bool {
+			if index < 0 || index >= len(pointAction.Knowledge) {
+				return false
 			}
+			i := pointAction.Knowledge[index]
+			if i.PointTotal == 0 && i.PointFinished == 0 {
+				//如果是0任务点，则直接浏览一遍主页面即可完成任务，不必继续下去
+				err2 := xuexitong.EnterChapterForwardCallAction(userCache, strconv.Itoa(courseId), strconv.Itoa(key), strconv.Itoa(pointAction.Knowledge[index].ID), strconv.Itoa(courseItem.Cpi))
+				if err2 != nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", `[`, courseItem.CourseName, `] `, lg.BoldRed, "零任务点遍历失败。返回信息：", err2.Error())
+				}
+			}
+			return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
 		}
-		return i.PointTotal >= 0 && i.PointTotal == i.PointFinished
-	}
 
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "正在学习该课程")
-	//初始化模式3用的队列
-	queue := make(chan int, len(model3Caches[userCache.Name]))
-	for i := 0; i < len(model3Caches[userCache.Name]); i++ {
-		queue <- i
-	}
-	var nodeLock sync.WaitGroup
-	//遍历结点
-	for index := range nodes {
-		if isFinished(index) { //如果完成了的那么直接跳过
-			continue
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "正在学习该课程")
+		//初始化模式3用的队列
+		queue := make(chan int, len(model3Caches[userCache.Name]))
+		for i := 0; i < len(model3Caches[userCache.Name]); i++ {
+			queue <- i
 		}
-		//如果无限制模式
-		if user.CoursesCustom.VideoModel == 3 {
-			nodeLock.Add(1)
-			//如果是-1模式
-			if user.CoursesCustom.CxNode == -1 {
-				go func(index int) {
-					defer nodeLock.Done()
-					resUser := *userCache
-					xuexitong.ReLogin(&resUser)
-					nodeRun(setting, user, &resUser, courseItem, pointAction, action, nodes, index, key, courseId)
-				}(index)
-				time.Sleep(1 * time.Second) //防止请求过快
+		var nodeLock sync.WaitGroup
+		//遍历结点
+		for index := range nodes {
+			if isFinished(index) { //如果完成了的那么直接跳过
+				continue
+			}
+			//如果无限制模式
+			if user.CoursesCustom.VideoModel == 3 {
+				nodeLock.Add(1)
+				//如果是-1模式
+				if user.CoursesCustom.CxNode == -1 {
+					go func(index int) {
+						defer nodeLock.Done()
+						resUser := *userCache
+						xuexitong.ReLogin(&resUser)
+						nodeRun(setting, user, &resUser, courseItem, pointAction, action, nodes, index, key, courseId)
+					}(index)
+					time.Sleep(1 * time.Second) //防止请求过快
+				} else {
+					// 从队列中取一个资源（如果空则会自动阻塞）
+					idx := <-queue
+					go func(idx int, index int) {
+						defer nodeLock.Done()
+						defer func() { queue <- idx }()
+						nodeRun(setting, user, &model3Caches[userCache.Name][idx], courseItem, pointAction, action, nodes, index, key, courseId)
+					}(idx, index)
+				}
+
 			} else {
-				// 从队列中取一个资源（如果空则会自动阻塞）
-				idx := <-queue
-				go func(idx int, index int) {
-					defer nodeLock.Done()
-					defer func() { queue <- idx }()
-					nodeRun(setting, user, &model3Caches[userCache.Name][idx], courseItem, pointAction, action, nodes, index, key, courseId)
-				}(idx, index)
+				nodeRun(setting, user, userCache, courseItem, pointAction, action, nodes, index, key, courseId)
 			}
+		}
+		nodeLock.Wait()
+	}
 
-		} else {
-			nodeRun(setting, user, userCache, courseItem, pointAction, action, nodes, index, key, courseId)
+	if user.CoursesCustom.AutoExam == 1 || user.CoursesCustom.AutoExam == 2 || user.CoursesCustom.AutoExam == 3 {
+		//拉取考试列表
+		examList, err1 := xuexitong.PullExamListAction(userCache, *courseItem)
+		if err1 != nil {
+			//log.Fatal(err1)
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "拉取考试列表失败,已自动跳过")
+			return
+		}
+		for _, exam := range examList {
+			if exam.Status != "待做" {
+				continue
+			}
+			//进入考试
+			err2 := xuexitong.EnterExamAction(userCache, &exam)
+			if err2 != nil {
+				log.Fatal(err2)
+			}
+			//拉取题目
+			for i := range exam.QuestionTotal {
+				question, err2 := exam.PullExamQuestionAction(userCache, i)
+				if err2 != nil {
+					log.Fatal(err2)
+				}
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Yellow, fmt.Sprintf("考试状态中,正在回答第%d题", i+1))
+				//内置AI自动写题
+				if user.CoursesCustom.AutoExam == 1 {
+					err3 := question.WriteQuestionForAIAction(userCache, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, setting.AiSetting.APIKEY)
+					if err3 != nil {
+						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "AI回答错误:", err3.Error())
+					}
+				} else if user.CoursesCustom.AutoExam == 2 {
+					question.WriteQuestionForExternalAction(setting.ApiQueSetting.Url)
+				} else if user.CoursesCustom.AutoExam == 3 {
+					err3 := question.WriteQuestionForXXTAIAction(userCache, question.ClassId, question.CourseId, question.Cpi)
+					if err3 != nil {
+						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "内置AI回答错误:", err3.Error())
+					}
+				}
+				//提交写的题
+				isSubmit := false
+				if (user.CoursesCustom.ExamAutoSubmit == 1 || user.CoursesCustom.ExamAutoSubmit == 2) && exam.QuestionTotal == i+1 {
+					isSubmit = true //满足提交条件则提交试卷
+				}
+				submitResult, err3 := question.SubmitExamAnswerAction(userCache, isSubmit)
+				if err3 != nil {
+					//log.Fatal(err3)
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "试卷提交失败:", err3.Error())
+				}
+
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Green, fmt.Sprintf("第%d题回答成功,服务器返回:%s", i+1, submitResult))
+			}
 		}
 	}
-	nodeLock.Wait()
+
 	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
 }
 
@@ -401,7 +455,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			//if !strings.Contains(questionAction.Title, "2.1小节测验") {
 			//	continue
 			//}
-			WorkAction(userCache, user, setting, courseItem, pointAction.Knowledge[index], questionAction)
+			chapterTestAction(userCache, user, setting, courseItem, pointAction.Knowledge[index], questionAction)
 			time.Sleep(time.Duration(rand.Intn(30)+30) * time.Second) //随机暂停30~60s，避免太快
 		}
 	}
@@ -907,8 +961,8 @@ func ExecuteBBS(user *config.User, cache *xuexitongApi.XueXiTUserCache, setting 
 
 }
 
-// 作业处理逻辑
-func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction xuexitongApi.Question) {
+// 章测处理逻辑
+func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction xuexitongApi.Question) {
 	if user.CoursesCustom.AutoExam == 1 {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), lg.Default, "【"+courseItem.CourseName+"】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Yellow, "正在AI自动写章节作业...")
 	} else if user.CoursesCustom.AutoExam == 2 {
@@ -1109,5 +1163,11 @@ func WorkAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 	} else if user.CoursesCustom.AutoExam == 3 {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Green, "章节作业内置AI答题完毕,服务器返回信息：", resultStr)
 	}
+
+}
+
+// 考试处理逻辑
+
+func examAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction xuexitongApi.Question) {
 
 }
