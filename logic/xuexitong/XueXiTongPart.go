@@ -445,7 +445,6 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 			//	continue
 			//}
 			chapterTestAction(userCache, user, setting, courseItem, pointAction.Knowledge[index], questionAction)
-			time.Sleep(time.Duration(rand.Intn(30)+30) * time.Second) //随机暂停30~60s，避免太快
 		}
 	}
 
@@ -959,7 +958,8 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 	} else if user.CoursesCustom.AutoExam == 3 {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", lg.Default, "【"+courseItem.CourseName+"】", "【", knowledgeItem.Label, " ", knowledgeItem.Name, "】", "【", questionAction.Title, "】", lg.Yellow, "正在内置AI自动写章节作业...")
 	}
-
+	stopStart := 1
+	stopEnd := 2
 	//选择题
 	for i := range questionAction.Choice {
 		q := &questionAction.Choice[i] // 获取对应选项
@@ -982,7 +982,7 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 			})
 			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
-
+		time.Sleep(time.Duration(rand.Intn(stopEnd-stopStart)+stopStart) * time.Second) //随机暂停，避免太快
 	}
 	//判断题
 	for i := range questionAction.Judge {
@@ -1003,7 +1003,7 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 			})
 			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
-
+		time.Sleep(time.Duration(rand.Intn(stopEnd-stopStart)+stopStart) * time.Second) //随机暂停，避免太快
 	}
 	//填空题
 	for i := range questionAction.Fill {
@@ -1023,7 +1023,7 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 			})
 			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
-
+		time.Sleep(time.Duration(rand.Intn(stopEnd-stopStart)+stopStart) * time.Second) //随机暂停，避免太快
 	}
 	//简答题
 	for i := range questionAction.Short {
@@ -1043,7 +1043,7 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 			})
 			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
-
+		time.Sleep(time.Duration(rand.Intn(stopEnd-stopStart)+stopStart) * time.Second) //随机暂停，避免太快
 	}
 	//名词解释
 	for i := range questionAction.TermExplanation {
@@ -1063,7 +1063,7 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 			})
 			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
-
+		time.Sleep(time.Duration(rand.Intn(stopEnd-stopStart)+stopStart) * time.Second) //随机暂停，避免太快
 	}
 	//论述题
 	for i := range questionAction.Essay {
@@ -1083,7 +1083,7 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 			})
 			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 		}
-
+		time.Sleep(time.Duration(rand.Intn(stopEnd-stopStart)+stopStart) * time.Second) //随机暂停，避免太快
 	}
 
 	//连线题
@@ -1105,6 +1105,7 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 			q.AnswerXXTAIGet(userCache, questionAction.ClassId, questionAction.CourseId, questionAction.Cpi, message)
 
 		}
+		time.Sleep(time.Duration(rand.Intn(stopEnd-stopStart)+stopStart) * time.Second) //随机暂停，避免太快
 	}
 
 	var resultStr string
