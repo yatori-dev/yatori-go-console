@@ -271,7 +271,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 
 		} else {
 			for _, work := range workList {
-				if work.Status != "待做" {
+				if !(work.Status == "待做" || work.Status == "未交" || work.Status == "待重做") {
 					continue
 				}
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", work.Name, "】", lg.Yellow, "正在考试...")
