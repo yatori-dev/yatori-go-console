@@ -274,7 +274,6 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 				if !(work.Status == "待做" || work.Status == "未交" || work.Status == "待重做") {
 					continue
 				}
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", work.Name, "】", lg.Yellow, "正在考试...")
 				//进入作业
 				err2 := xuexitong.EnterWorkAction(userCache, &work)
 				if err2 != nil {
@@ -294,7 +293,6 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 				if exam.Status != "待做" {
 					continue
 				}
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Yellow, "正在考试...")
 				//进入考试
 				err2 := xuexitong.EnterExamAction(userCache, &exam)
 				if err2 != nil {
@@ -368,7 +366,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 		}
 	}
 	// 文档类型
-	if documentDTOs != nil {
+	if documentDTOs != nil && user.CoursesCustom.VideoModel != 0 {
 		for _, documentDTO := range documentDTOs {
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, documentDTO.KnowledgeID, documentDTO.CardIndex, courseItem.Cpi)
@@ -452,7 +450,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 	}
 
 	//外链任务点刷取
-	if hyperlinkDTOs != nil {
+	if hyperlinkDTOs != nil && user.CoursesCustom.VideoModel != 0 {
 		for _, hyperlinkDTO := range hyperlinkDTOs {
 			card, _, err2 := xuexitong.PageMobileChapterCardAction(
 				userCache, key, courseId, hyperlinkDTO.KnowledgeID, hyperlinkDTO.CardIndex, courseItem.Cpi)
