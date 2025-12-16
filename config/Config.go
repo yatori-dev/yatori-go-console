@@ -56,12 +56,15 @@ type CoursesSettings struct {
 	ExcludeExams []string `json:"excludeExams" yaml:"excludeExams"`
 }
 type CoursesCustom struct {
-	StudyTime       string            `json:"studyTime" yaml:"studyTime"`           //WeLearn设置刷学时的时候范围
-	CxNode          int               `json:"cxNode" yaml:"cxNode"`                 //学习通多任务点模式下设置同时任务点数量
-	ShuffleSw       int               `json:"shuffleSw" yaml:"shuffleSw"`           //是否打乱顺序学习，1为打乱顺序，0为不打乱
-	VideoModel      int               `json:"videoModel" yaml:"videoModel"`         //观看视频模式
-	AutoExam        int               `json:"autoExam" yaml:"autoExam"`             //是否自动考试
-	ExamAutoSubmit  int               `json:"examAutoSubmit" yaml:"examAutoSubmit"` //是否自动提交试卷
+	StudyTime       string            `json:"studyTime" yaml:"studyTime"`             //WeLearn设置刷学时的时候范围
+	CxNode          int               `json:"cxNode" yaml:"cxNode"`                   //学习通多任务点模式下设置同时任务点数量
+	CxChapterTestSw int               `json:"cxChapterTestSw" yaml:"cxChapterTestSw"` //学习通是否开启章测
+	CxWorkSw        int               `json:"cxWorkSw" yaml:"cxWorkSw"`               //学习通是否开启作业
+	CxExamSw        int               `json:"cxExamSw" yaml:"cxExamSw"`               //学习通是否开启考试
+	ShuffleSw       int               `json:"shuffleSw" yaml:"shuffleSw"`             //是否打乱顺序学习，1为打乱顺序，0为不打乱
+	VideoModel      int               `json:"videoModel" yaml:"videoModel"`           //观看视频模式
+	AutoExam        int               `json:"autoExam" yaml:"autoExam"`               //是否自动考试
+	ExamAutoSubmit  int               `json:"examAutoSubmit" yaml:"examAutoSubmit"`   //是否自动提交试卷
 	ExcludeCourses  []string          `json:"excludeCourses" yaml:"excludeCourses"`
 	IncludeCourses  []string          `json:"includeCourses" yaml:"includeCourses"`
 	CoursesSettings []CoursesSettings `json:"coursesSettings" yaml:"coursesSettings"`
