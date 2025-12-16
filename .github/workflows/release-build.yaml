@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.11'
+        default: 'v2.6.1-Beta.12'
 
 permissions:
   contents: write
@@ -22,8 +22,9 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 适配学习通考试（暂时只能考无人脸）
-    - [‍🔧] 修复学习通多任务点模式下内部AI答题模式有时候无法正常回答BUG
+    - [👏] 适配学习通作业
+    - [‍🔧] 修复学习通阅读任务点引起的闪退问题
+    - [‍🔧] 修复学习通考试多选题无法正常回答问题
     
     
     
