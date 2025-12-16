@@ -288,9 +288,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 		//拉取考试列表
 		examList, err1 := xuexitong.PullExamListAction(userCache, *courseItem)
 		if err1 != nil {
-			//log.Fatal(err1)
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "拉取考试列表失败,已自动跳过")
-			return
 		} else {
 			for _, exam := range examList {
 				if exam.Status != "待做" {
