@@ -274,45 +274,14 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 			if exam.Status != "待做" {
 				continue
 			}
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Yellow, "正在考试...")
 			//进入考试
 			err2 := xuexitong.EnterExamAction(userCache, &exam)
 			if err2 != nil {
 				log.Fatal(err2)
 			}
-			//拉取题目
-			for i := range exam.QuestionTotal {
-				question, err2 := exam.PullExamQuestionAction(userCache, i)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Yellow, fmt.Sprintf("考试状态中,正在回答第%d题", i+1))
-				//内置AI自动写题
-				if user.CoursesCustom.AutoExam == 1 {
-					err3 := question.WriteQuestionForAIAction(userCache, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, setting.AiSetting.APIKEY)
-					if err3 != nil {
-						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "AI回答错误:", err3.Error())
-					}
-				} else if user.CoursesCustom.AutoExam == 2 {
-					question.WriteQuestionForExternalAction(setting.ApiQueSetting.Url)
-				} else if user.CoursesCustom.AutoExam == 3 {
-					err3 := question.WriteQuestionForXXTAIAction(userCache, question.ClassId, question.CourseId, question.Cpi)
-					if err3 != nil {
-						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "内置AI回答错误:", err3.Error())
-					}
-				}
-				//提交写的题
-				isSubmit := false
-				if (user.CoursesCustom.ExamAutoSubmit == 1 || user.CoursesCustom.ExamAutoSubmit == 2) && exam.QuestionTotal == i+1 {
-					isSubmit = true //满足提交条件则提交试卷
-				}
-				submitResult, err3 := question.SubmitExamAnswerAction(userCache, isSubmit)
-				if err3 != nil {
-					//log.Fatal(err3)
-					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "试卷提交失败:", err3.Error())
-				}
-
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Green, fmt.Sprintf("第%d题回答成功,服务器返回:%s", i+1, submitResult))
-			}
+			//执行考试
+			examAction(userCache, user, setting, courseItem, exam)
 		}
 	}
 
@@ -1168,6 +1137,41 @@ func chapterTestAction(userCache *xuexitongApi.XueXiTUserCache, user *config.Use
 
 // 考试处理逻辑
 
-func examAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, knowledgeItem xuexitong.KnowledgeItem, questionAction xuexitongApi.Question) {
+func examAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, setting config.Setting, courseItem *xuexitong.XueXiTCourse, exam xuexitong.XXTExam) {
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Yellow, "正在考试中...")
+	//拉取题目
+	for i := range exam.QuestionTotal {
+		question, err2 := exam.PullExamQuestionAction(userCache, i)
+		if err2 != nil {
+			log.Fatal(err2)
+		}
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Yellow, fmt.Sprintf("考试状态中,正在回答第%d题", i+1))
+		//内置AI自动写题
+		if user.CoursesCustom.AutoExam == 1 {
+			err3 := question.WriteQuestionForAIAction(userCache, setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, setting.AiSetting.APIKEY)
+			if err3 != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "AI回答错误:", err3.Error())
+			}
+		} else if user.CoursesCustom.AutoExam == 2 {
+			question.WriteQuestionForExternalAction(setting.ApiQueSetting.Url)
+		} else if user.CoursesCustom.AutoExam == 3 {
+			err3 := question.WriteQuestionForXXTAIAction(userCache, question.ClassId, question.CourseId, question.Cpi)
+			if err3 != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "内置AI回答错误:", err3.Error())
+			}
+		}
+		//提交写的题
+		isSubmit := false
+		if (user.CoursesCustom.ExamAutoSubmit == 1 || user.CoursesCustom.ExamAutoSubmit == 2) && exam.QuestionTotal == i+1 {
+			isSubmit = true //满足提交条件则提交试卷
+		}
+		submitResult, err3 := question.SubmitExamAnswerAction(userCache, isSubmit)
+		if err3 != nil {
+			//log.Fatal(err3)
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "试卷提交失败:", err3.Error())
+		}
+
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Green, fmt.Sprintf("第%d题回答成功,服务器返回:%s", i+1, submitResult))
+	}
 
 }
