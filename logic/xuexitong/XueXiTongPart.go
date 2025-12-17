@@ -1236,7 +1236,10 @@ func examAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 			//log.Fatal(err3)
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "试卷提交失败:", err3.Error())
 		}
-
+		if strings.Contains(submitResult, "考试时间已用完,不允许提交答案!") {
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "试卷提交失败，考试时间已用完，已自动跳过。服务器返回信息:", submitResult)
+			break
+		}
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Green, fmt.Sprintf("第%d题回答成功,服务器返回:%s", i+1, submitResult))
 	}
 	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Green, "考试已完成")
