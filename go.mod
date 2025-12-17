@@ -28,7 +28,7 @@ require (
 )
 
 require (
-	github.com/Changbaiqi/ddddocr-go v0.1.0 // indirect
+	github.com/Changbaiqi/ddddocr-go v0.1.1 // indirect
 	github.com/PuerkitoBio/goquery v1.10.2 // indirect
 	github.com/andybalholm/cascadia v1.3.3 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect

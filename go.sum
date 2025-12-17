@@ -2,6 +2,7 @@ cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMT
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/Changbaiqi/ddddocr-go v0.1.0 h1:VcS/j7XfOfVVMHCW5AciO3yNEwaD7kqQBMiRb7HSFKE=
 github.com/Changbaiqi/ddddocr-go v0.1.0/go.mod h1:v9LHr9YGWlNZCv3/jOKqEyzWeFaRq8Hfgm2jOeyaJMk=
+github.com/Changbaiqi/ddddocr-go v0.1.1/go.mod h1:v9LHr9YGWlNZCv3/jOKqEyzWeFaRq8Hfgm2jOeyaJMk=
 github.com/PuerkitoBio/goquery v1.10.2 h1:7fh2BdHcG6VFZsK7toXBT/Bh1z5Wmy8Q9MV9HqT2AM8=
 github.com/PuerkitoBio/goquery v1.10.2/go.mod h1:0guWGjcLu9AYC7C1GHnpysHy056u9aEkUHwhdnePMCU=
 github.com/andybalholm/cascadia v1.3.3 h1:AG2YHrzJIm4BZ19iwJ/DAua6Btl3IwJX+VI4kktS1LM=
