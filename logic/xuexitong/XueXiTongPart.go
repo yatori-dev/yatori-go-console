@@ -1236,6 +1236,7 @@ func examAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 			//log.Fatal(err3)
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "试卷提交失败:", err3.Error())
 		}
+		//如果考试时间已用完则直接退出
 		if strings.Contains(submitResult, "考试时间已用完,不允许提交答案!") {
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "试卷提交失败，考试时间已用完，已自动跳过。服务器返回信息:", submitResult)
 			break
