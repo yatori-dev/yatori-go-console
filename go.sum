@@ -1,7 +1,6 @@
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
-github.com/Changbaiqi/ddddocr-go v0.1.1 h1:PNRoECrk9kfNE90mlB+z/GFoiWYDNfs5D6Qg6sTNUg8=
-github.com/Changbaiqi/ddddocr-go v0.1.1/go.mod h1:v9LHr9YGWlNZCv3/jOKqEyzWeFaRq8Hfgm2jOeyaJMk=
+github.com/Changbaiqi/ddddocr-go v0.1.5-0.20251217103242-1896343369f8 h1:JXRQxmfqWK40l1xFbmAT9odrfx7QWz08yb2/d/xaPxQ=
 github.com/Changbaiqi/ddddocr-go v0.1.5-0.20251217103242-1896343369f8/go.mod h1:v9LHr9YGWlNZCv3/jOKqEyzWeFaRq8Hfgm2jOeyaJMk=
 github.com/PuerkitoBio/goquery v1.10.2 h1:7fh2BdHcG6VFZsK7toXBT/Bh1z5Wmy8Q9MV9HqT2AM8=
 github.com/PuerkitoBio/goquery v1.10.2/go.mod h1:0guWGjcLu9AYC7C1GHnpysHy056u9aEkUHwhdnePMCU=
@@ -148,8 +147,7 @@ github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65E
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/yalue/onnxruntime_go v1.24.0 h1:IdgJLxxyotlsUTmL1UnHZgBzXJGgY51LZ4vQ5rZeOXU=
 github.com/yalue/onnxruntime_go v1.24.0/go.mod h1:b4X26A8pekNb1ACJ58wAXgNKeUCGEAQ9dmACut9Sm/4=
-github.com/yatori-dev/yatori-go-core v1.9.1-0.20251216174215-91df26e1622a h1:kz8xCRrgHZx+jagO6Ny8+7JQ1HFkkz/G7Fn5bpJg7gY=
-github.com/yatori-dev/yatori-go-core v1.9.1-0.20251216174215-91df26e1622a/go.mod h1:uLbf2L25QL8aC+pxCvMhPzAGdK7wpiQw7HAbRlFi43w=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251217153042-dfc8aa26ad8f h1:W3ISIuvvzc2PXo5dyvKrusXmeZxsNvG7sFIQmQkS368=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251217153042-dfc8aa26ad8f/go.mod h1:nqgYsUW0XeAucAybHeSYEFP752ES+RGL1+xOhyN7FjM=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
