@@ -162,13 +162,9 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程还未开课，已自动跳过该课程")
 		return
 	}
-	//如果该课程已经结束
-	if courseItem.State == 1 {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Blue, "该课程已经结束，已自动跳过该课程")
-		return
-	}
-	//如果该课程已刷完了则直接return
-	if courseItem.JobRate < 100 {
+
+	//如果该课程已刷完了，或者课程已结束则直接return
+	if courseItem.JobRate < 100 && courseItem.State != 1 {
 
 		key, _ := strconv.Atoi(courseItem.Key)
 		action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
@@ -263,6 +259,19 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 	}
 
 	if user.CoursesCustom.AutoExam == 1 || user.CoursesCustom.AutoExam == 2 || user.CoursesCustom.AutoExam == 3 {
+		if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
+			err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
+			if err2 != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), lg.BoldRed, "<"+setting.AiSetting.AiType+">", "AI不可用，错误信息："+err2.Error())
+				os.Exit(0)
+			}
+		} else if user.CoursesCustom.AutoExam == 2 { // 检测外挂题库可用性
+			err2 := external.CheckApiQueRequest(setting.ApiQueSetting.Url, 5, nil)
+			if err2 != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), lg.BoldRed, "外挂题库不可用，错误信息："+err2.Error())
+				os.Exit(0)
+			}
+		}
 		//拉取作业列表
 		workList, err1 := xuexitong.PullWorkListAction(userCache, *courseItem)
 		if err1 != nil {
