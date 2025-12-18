@@ -149,6 +149,8 @@ github.com/yalue/onnxruntime_go v1.24.0 h1:IdgJLxxyotlsUTmL1UnHZgBzXJGgY51LZ4vQ5
 github.com/yalue/onnxruntime_go v1.24.0/go.mod h1:b4X26A8pekNb1ACJ58wAXgNKeUCGEAQ9dmACut9Sm/4=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251217153042-dfc8aa26ad8f h1:W3ISIuvvzc2PXo5dyvKrusXmeZxsNvG7sFIQmQkS368=
 github.com/yatori-dev/yatori-go-core v1.9.1-0.20251217153042-dfc8aa26ad8f/go.mod h1:nqgYsUW0XeAucAybHeSYEFP752ES+RGL1+xOhyN7FjM=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251218113833-42dbe3512a84 h1:Y22WOEB3aJmRVrm2PVMsICoC3QXfq16qcKohrMzBuKc=
+github.com/yatori-dev/yatori-go-core v1.9.1-0.20251218113833-42dbe3512a84/go.mod h1:nqgYsUW0XeAucAybHeSYEFP752ES+RGL1+xOhyN7FjM=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=

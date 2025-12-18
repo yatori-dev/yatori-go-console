@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.14'
+        default: 'v2.6.1-Beta.15'
 
 permissions:
   contents: write
@@ -22,8 +22,9 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 精细化学习通做题控制（可单独控制章测、作业、考试）
-    - [👏] 新增离线配置文件生成器可直接使用
+    - [👏] 适配学习通编程题
+    - [👏] 优化AI答题处理逻辑以及提示词
+    
     
     
     
