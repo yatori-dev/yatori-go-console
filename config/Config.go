@@ -57,10 +57,10 @@ type CoursesSettings struct {
 }
 type CoursesCustom struct {
 	StudyTime       string            `json:"studyTime" yaml:"studyTime"`             //WeLearn设置刷学时的时候范围
-	CxNode          int               `json:"cxNode" yaml:"cxNode"`                   //学习通多任务点模式下设置同时任务点数量
-	CxChapterTestSw int               `json:"cxChapterTestSw" yaml:"cxChapterTestSw"` //学习通是否开启章测
-	CxWorkSw        int               `json:"cxWorkSw" yaml:"cxWorkSw"`               //学习通是否开启作业
-	CxExamSw        int               `json:"cxExamSw" yaml:"cxExamSw"`               //学习通是否开启考试
+	CxNode          *int              `json:"cxNode" yaml:"cxNode"`                   //学习通多任务点模式下设置同时任务点数量
+	CxChapterTestSw *int              `json:"cxChapterTestSw" yaml:"cxChapterTestSw"` //学习通是否开启章测
+	CxWorkSw        *int              `json:"cxWorkSw" yaml:"cxWorkSw"`               //学习通是否开启作业
+	CxExamSw        *int              `json:"cxExamSw" yaml:"cxExamSw"`               //学习通是否开启考试
 	ShuffleSw       int               `json:"shuffleSw" yaml:"shuffleSw"`             //是否打乱顺序学习，1为打乱顺序，0为不打乱
 	VideoModel      int               `json:"videoModel" yaml:"videoModel"`           //观看视频模式
 	AutoExam        int               `json:"autoExam" yaml:"autoExam"`               //是否自动考试
@@ -93,6 +93,28 @@ func ReadJsonConfig(filePath string) JSONDataForConfig {
 	return configJson
 }
 
+// 默认值处理
+func defaultValue(config *JSONDataForConfig) {
+	for i := range config.Users {
+		v := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+		if config.Users[i].CoursesCustom.CxNode == nil {
+			(&config.Users[i].CoursesCustom).CxNode = &v[3]
+		}
+		if config.Users[i].CoursesCustom.CxChapterTestSw == nil {
+			(&config.Users[i].CoursesCustom).CxChapterTestSw = &v[1]
+		}
+		if config.Users[i].CoursesCustom.CxChapterTestSw == nil {
+			(&config.Users[i].CoursesCustom).CxChapterTestSw = &v[1]
+		}
+		if config.Users[i].CoursesCustom.CxWorkSw == nil {
+			(&config.Users[i].CoursesCustom).CxWorkSw = &v[1]
+		}
+		if config.Users[i].CoursesCustom.CxExamSw == nil {
+			(&config.Users[i].CoursesCustom).CxExamSw = &v[1]
+		}
+	}
+}
+
 // 自动识别读取配置文件
 func ReadConfig(filePath string) JSONDataForConfig {
 	var configJson JSONDataForConfig
@@ -105,8 +127,7 @@ func ReadConfig(filePath string) JSONDataForConfig {
 		log.Fatal(err)
 	}
 	err = viper.Unmarshal(&configJson)
-	//viper.SetTypeByDefaultValue(true)
-	viper.SetDefault("setting.basicSetting.logModel", 5)
+	defaultValue(&configJson) //设置默认值
 
 	if err != nil {
 		log2.Print(log2.INFO, log2.BoldRed, "配置文件读取失败，请检查配置文件填写是否正确")

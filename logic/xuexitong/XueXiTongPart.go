@@ -93,10 +93,10 @@ func UserBlock(setting config.Setting, user *config.User, cache *xuexitongApi.Xu
 	//如果是多节点模式
 	if user.CoursesCustom.VideoModel == 3 {
 		num := 3
-		if user.CoursesCustom.CxNode != 0 { //根据设置自由定义同时任务点数量
-			num = user.CoursesCustom.CxNode
+		if *user.CoursesCustom.CxNode != 0 { //根据设置自由定义同时任务点数量
+			num = *user.CoursesCustom.CxNode
 		}
-		if user.CoursesCustom.CxNode == -1 {
+		if *user.CoursesCustom.CxNode == -1 {
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", lg.Yellow, "警告，当前账号使用的是多任务点无限制模式，该账号将会同时登录非常多的次数，这将会小概率性封号(一般封十几分钟)或封IP，单个账号使用基本没有事，多个账号请酌情使用")
 		} else {
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Name, lg.Default, "] ", lg.Yellow, "警告，当前账号使用的是多任务点模式，该账号将会同时登录", fmt.Sprintf("%d", num), "次，这将会小概率性封号(一般封十几分钟)或封IP，单个账号使用基本没有事，多个账号请酌情使用")
@@ -233,7 +233,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 			if user.CoursesCustom.VideoModel == 3 {
 				nodeLock.Add(1)
 				//如果是-1模式
-				if user.CoursesCustom.CxNode == -1 {
+				if *user.CoursesCustom.CxNode == -1 {
 					go func(index int) {
 						defer nodeLock.Done()
 						resUser := *userCache
@@ -272,46 +272,48 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 				os.Exit(0)
 			}
 		}
-		//拉取作业列表
-		workList, err1 := xuexitong.PullWorkListAction(userCache, *courseItem)
-		if err1 != nil {
-			//log.Fatal(err1)
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "拉取作业列表失败,已自动跳过")
+		if *user.CoursesCustom.CxWorkSw == 1 {
+			//拉取作业列表
+			workList, err1 := xuexitong.PullWorkListAction(userCache, *courseItem)
+			if err1 != nil {
+				//log.Fatal(err1)
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "拉取作业列表失败,已自动跳过")
 
-		} else {
-			for _, work := range workList {
-				if !(work.Status == "待做" || work.Status == "未交" || work.Status == "待重做") {
-					continue
+			} else {
+				for _, work := range workList {
+					if !(work.Status == "待做" || work.Status == "未交" || work.Status == "待重做") {
+						continue
+					}
+					//进入作业
+					err2 := xuexitong.EnterWorkAction(userCache, &work)
+					if err2 != nil {
+						log.Fatal(err2)
+					}
+					//执行作业
+					workAction(userCache, user, setting, courseItem, work)
 				}
-				//进入作业
-				err2 := xuexitong.EnterWorkAction(userCache, &work)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				//执行作业
-				workAction(userCache, user, setting, courseItem, work)
 			}
 		}
-
-		//拉取考试列表
-		examList, err1 := xuexitong.PullExamListAction(userCache, *courseItem)
-		if err1 != nil {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "拉取考试列表失败,已自动跳过")
-		} else {
-			for _, exam := range examList {
-				if exam.Status != "待做" {
-					continue
+		if *user.CoursesCustom.CxExamSw == 1 {
+			//拉取考试列表
+			examList, err1 := xuexitong.PullExamListAction(userCache, *courseItem)
+			if err1 != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Red, "拉取考试列表失败,已自动跳过")
+			} else {
+				for _, exam := range examList {
+					if exam.Status != "待做" {
+						continue
+					}
+					//进入考试
+					err2 := xuexitong.EnterExamAction(userCache, &exam)
+					if err2 != nil {
+						log.Fatal(err2)
+					}
+					//执行考试
+					examAction(userCache, user, setting, courseItem, exam)
 				}
-				//进入考试
-				err2 := xuexitong.EnterExamAction(userCache, &exam)
-				if err2 != nil {
-					log.Fatal(err2)
-				}
-				//执行考试
-				examAction(userCache, user, setting, courseItem, exam)
 			}
 		}
-
 	}
 
 	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "[", courseItem.CourseName, "] ", lg.Purple, "课程学习完毕")
@@ -402,7 +404,7 @@ func nodeRun(setting config.Setting, user *config.User, userCache *xuexitongApi.
 	}
 
 	//作业刷取
-	if workDTOs != nil && user.CoursesCustom.AutoExam != 0 {
+	if workDTOs != nil && user.CoursesCustom.AutoExam != 0 && *user.CoursesCustom.CxChapterTestSw == 1 {
 
 		if user.CoursesCustom.AutoExam == 1 { //检测AI可用性
 			err2 := aiq.AICheck(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.APIKEY, setting.AiSetting.AiType)
