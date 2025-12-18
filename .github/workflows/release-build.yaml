@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.13'
+        default: 'v2.6.1-Beta.14'
 
 permissions:
   contents: write
@@ -22,8 +22,8 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 添加学习通考试或者写作业前进行AI或者外置题库可用性验证
-    - [‍🔧] 修复学习通结课模式下无法正常考试或写作业问题
+    - [👏] 精细化学习通做题控制（可单独控制章测、作业、考试）
+    - [👏] 新增离线配置文件生成器可直接使用
     
     
     
@@ -153,6 +153,7 @@ jobs:
         if: runner.os=='Linux'
         run: | # 打包发布版本压缩包
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
+          cp command/配置文件生成器.html ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
           tar -czvf yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release.tar.gz yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           rm -rf yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
@@ -165,6 +166,7 @@ jobs:
           copy command\config.yaml ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           copy command\start.bat ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
+          copy command\配置文件生成器.html ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
           Compress-Archive -Path "yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release" -DestinationPath "yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release.zip"
           Remove-Item -Recurse -Force "yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release"
@@ -175,6 +177,7 @@ jobs:
         if: matrix.goos == 'darwin'
         run: |
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
+          cp command/配置文件生成器.html ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cd ${{ env.RELEASE_DIR }}
           tar -czvf yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release.tar.gz yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           rm -rf yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
@@ -187,16 +190,6 @@ jobs:
           name: release-${{ matrix.goos }}-${{ matrix.arch }}
           path: ${{ env.RELEASE_DIR }}/*
 
-#      - name: Upload Release
-#        uses: softprops/action-gh-release@v2
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#        with:
-#          files: ${{ env.RELEASE_DIR }}/*  # 文件发布目录
-#          tag_name: ${{ env.VERSION }}
-#          body: ${{ env.RELEASE_NOTICES }}
-#          draft: false
-#          prerelease: false
   # =========================================================
   # 🚀 Release Job（只跑一次，解决 finalize 炸雷）
   # =========================================================
