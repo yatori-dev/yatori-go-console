@@ -168,7 +168,6 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 
 		key, _ := strconv.Atoi(courseItem.Key)
 		action, _, err := xuexitong.PullCourseChapterAction(userCache, courseItem.Cpi, key) //获取对应章节信息
-
 		//如果选择了顺序打乱，则直接不按顺序学习
 		if user.CoursesCustom.ShuffleSw == 1 {
 			rand.Seed(time.Now().UnixNano())
