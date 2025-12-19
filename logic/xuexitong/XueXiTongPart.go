@@ -286,6 +286,10 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *xuexito
 					//进入作业
 					err2 := xuexitong.EnterWorkAction(userCache, &work)
 					if err2 != nil {
+						if strings.Contains(err2.Error(), "已过时效，不能操作!") {
+							lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", work.Name, "】", lg.Red, "该作业已过时，已自动跳过该作业...")
+							continue
+						}
 						log.Fatal(err2)
 					}
 					//执行作业

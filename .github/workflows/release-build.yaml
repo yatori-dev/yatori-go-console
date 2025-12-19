@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.15'
+        default: 'v2.6.1-Beta.16'
 
 permissions:
   contents: write
@@ -24,6 +24,8 @@ env:
   RELEASE_NOTICES: |
     - [👏] 适配学习通编程题
     - [👏] 优化AI答题处理逻辑以及提示词
+    - [🔧] 修复AI答题无法正常答题问题
+    - [🔧] 修复部分学习通作业无法正常答题问题
     
     
     
