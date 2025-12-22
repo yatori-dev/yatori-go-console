@@ -22,10 +22,8 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化AI答题处理逻辑以及提示词
-    - [🔧] 修复AI答题无法正常答题问题
-    - [🔧] 修复部分学习通作业无法正常答题问题
-    
+    - [👏] 优化API请求逻辑
+    - [🔧] 修复青书学堂拉取课程报错问题
     
     
     
