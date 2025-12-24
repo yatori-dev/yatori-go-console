@@ -17,8 +17,24 @@ func InsertUser(db *gorm.DB, user *pojo.UserPO) error {
 }
 
 // 删除指定uid用户
-func DeleteUser(db *gorm.DB, uid string) error {
-	if err := db.Where("uid = ?", uid).Delete(&pojo.UserPO{}).Error; err != nil {
+func DeleteUser(db *gorm.DB, cond *pojo.UserPO) error {
+
+	det := db.Model(&pojo.UserPO{})
+
+	// 动态拼接查询条件（如果字段非空才加入查询）
+	if cond.Uid != "" {
+		det = det.Where("uid = ?", cond.Uid)
+	}
+	if cond.AccountType != "" {
+		det = det.Where("account_type = ?", cond.AccountType)
+	}
+	if cond.Url != "" {
+		det = det.Where("url = ?", cond.Url)
+	}
+	if cond.Account != "" {
+		det = det.Where("account = ?", cond.Account)
+	}
+	if err := det.Delete(&pojo.UserPO{}).Error; err != nil {
 		return errors.New("删除用户失败: " + err.Error())
 	}
 	return nil

@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"yatori-go-console/config"
 )
 
 // 用户实体类
@@ -33,4 +34,14 @@ func (s *StringArray) Scan(value interface{}) error {
 		return fmt.Errorf("value is not []byte: %T", value)
 	}
 	return json.Unmarshal(bytes, s)
+}
+
+// 用户配置信息json转实体
+func (po *UserPO) UserConfigTurnEntity() config.User {
+	user := config.User{}
+	err := json.Unmarshal([]byte(po.UserConfigJson), &user)
+	if err != nil {
+		panic(err)
+	}
+	return user
 }

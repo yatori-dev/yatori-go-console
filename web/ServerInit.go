@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"yatori-go-console/dao"
 	"yatori-go-console/global"
 
@@ -32,22 +33,31 @@ type Group struct {
 // 初始化gin
 func serverInit() *gin.Engine {
 	router := gin.Default()
-
-	// 静态资源（Vue 构建产物）
-	router.Static("/assets", "./assets/web/assets")             // JS/CSS 静态资源
-	router.StaticFile("/", "./assets/web/index.html")           // 首页
-	router.StaticFile("/index.html", "./assets/web/index.html") // 兼容
-
 	router.Use(Cors())             // CORS
 	router.Use(LoggerMiddleware()) // 日志中间件
 
-	// API 路由
-	apiGroup := router.Group("/")
-	routerGroup := Group{apiGroup}
-	routerGroup.Router()
+	// 1️⃣ API 路由（必须最先）
+	apiGroup := router.Group("/api")
+	apiRouterGroup := Group{apiGroup}
+	apiRouterGroup.ApiV1Router()
 
-	// ⭐ 关键：Vue Router history fallback（解决直接打开 /account 报 404）
+	// 2️⃣ Next.js 核心静态资源（必须显式暴露）
+	router.StaticFS("/_next", http.Dir("./assets/web/_next"))
+
+	// 3️⃣ 其他静态资源（你原来的 /web 保留）
+	router.StaticFS("/web", http.Dir("./assets/web"))
+
+	// 4️⃣ 首页
+	router.GET("/", func(c *gin.Context) {
+		c.File("./assets/web/index.html")
+	})
+
+	// 5️⃣ SPA fallback（⚠️ 关键：放行 _next）
 	router.NoRoute(func(c *gin.Context) {
+		if strings.HasPrefix(c.Request.URL.Path, "/_next/") {
+			c.Status(404)
+			return
+		}
 		c.File("./assets/web/index.html")
 	})
 
