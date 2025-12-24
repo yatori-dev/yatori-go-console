@@ -95,8 +95,7 @@ func userBlock(setting config.Setting, user *config.User, cache *yinghuaApi.Ying
 			//如果是暴力模式，等结束后再进行一次去红模式
 			if user.CoursesCustom.VideoModel == 2 {
 
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Yellow, "暴力模式执行完毕，正在自动执行去红模式(需延迟一分钟执行)...")
-				time2.Sleep(time2.Minute)
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Yellow, "暴力模式执行完毕，正在自动执行去红模式...")
 				resUser := *user                               //改为去红模式
 				resUser.CoursesCustom.VideoModel = 3           //标记为去红模式并启动
 				nodeListStudy(setting, &resUser, cache, &item) //递归执行去红模式
@@ -173,17 +172,12 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *yinghua
 			}()
 			break
 		case 3:
-			if node.ErrorMessage != "检测到可能使用并行播放刷课" { //统计标红
+			if node.ErrorMessage == "检测到可能使用并行播放刷课" { //统计标红
 				redAns++
 			}
 			videoBadRedAction(setting, user, userCache, course, node) //去红模式
 			break
 
-		}
-		//如果还有标红的则再运行一遍
-		if user.CoursesCustom.VideoModel == 3 && redAns != 0 {
-			nodeListStudy(setting, user, userCache, course)
-			return
 		}
 		//作业处理逻辑
 		workAction(setting, user, userCache, course, node)
@@ -197,6 +191,11 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *yinghua
 			}
 			modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Default, " 【"+course.Name+"】 ", "视频学习进度：", strconv.Itoa(action.VideoLearned), "/", strconv.Itoa(action.VideoCount), " ", "课程总学习进度：", fmt.Sprintf("%.2f", action.Progress*100), "%")
 		}
+	}
+	//如果还有标红的则再运行一遍
+	if user.CoursesCustom.VideoModel == 3 && redAns != 0 {
+		nodeListStudy(setting, user, userCache, course)
+		return
 	}
 	videosLock.Wait() //等待所有视频刷完
 	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", " 【"+course.Name+"】 ", "学习完毕")
