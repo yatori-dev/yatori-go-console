@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.17'
+        default: 'v2.6.1-Beta.18'
 
 permissions:
   contents: write
@@ -22,9 +22,7 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化API请求逻辑
-    - [🔧] 修复青书学堂拉取课程报错问题
-    - [🔧] 修复学习通无任何任务点情况下无法正常写作业和考试问题
+    - [🔧] 修复英华学堂去红模式卡死问题
     
     
     
