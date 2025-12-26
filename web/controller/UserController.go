@@ -12,10 +12,6 @@ import (
 
 type UserApi struct{}
 
-func (UserApi) IndexHtml(c *gin.Context) {
-	c.File("./assets/web/index.html")
-}
-
 // 获取账号列表
 func (UserApi) AccountListController(c *gin.Context) {
 	//c.JSON(200, gin.H{})
@@ -27,12 +23,22 @@ func (UserApi) AddAccountController(c *gin.Context) {
 	service.AddUserService(c)
 }
 
+// 删除账号
+func (UserApi) DeleteAccountController(c *gin.Context) {
+	service.DeleteUserService(c)
+}
+
+// 账号登录检测，用于检测账号密码是否正确
+func (UserApi) AccountLoginCheckController(c *gin.Context) {
+	service.AccountLoginCheckService(c)
+}
+
 // 获取账号配置信息
 func (UserApi) GetAccountInformController(c *gin.Context) {
 	service.GetAccountInformService(c)
 }
 
-// 获取详细信息
+// 获取课程列表
 func (UserApi) AccountCourseListController(c *gin.Context) {
 	service.AccountCourseListService(c)
 }
@@ -45,11 +51,6 @@ func (UserApi) LoginAccountController(c *gin.Context) {
 // 更新账号信息
 func (UserApi) UpdateAccountController(c *gin.Context) {
 	service.UpdateUserService(c)
-}
-
-// 删除账号
-func (UserApi) DeleteAccountController(c *gin.Context) {
-	service.DeleteUserService(c)
 }
 
 // 拉取课程列列表

@@ -22,14 +22,14 @@ var AccountTypeStr = map[string]string{
 }
 
 // key的值为uuid
-var UserActivityMap = make(map[string]*activity.UserActivityBase) //
+var UserActivityMap = make(map[string]*activity.Activity) //
 
 // 获取UserActivity
-func GetUserActivity(user pojo.UserPO) *activity.UserActivityBase {
+func GetUserActivity(user pojo.UserPO) *activity.Activity {
 	return UserActivityMap[user.Uid]
 }
 
 // 添加UserActivity
-func PutUserActivity(user pojo.UserPO, activity *activity.UserActivityBase) {
+func PutUserActivity(user pojo.UserPO, activity *activity.Activity) {
 	UserActivityMap[user.Uid] = activity
 }

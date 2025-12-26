@@ -66,6 +66,9 @@ func (activity *XXTActivity) Stop() error {
 
 // 拉取课程列表
 func (user *XXTActivity) PullCourseList() ([]xuexitong.XueXiTCourse, error) {
+	if user.UserCache == nil { //如果为空则登录
+		user.Login()
+	}
 	cache := user.UserCache.(*xuexitongApi.XueXiTUserCache)
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
 	if err != nil {

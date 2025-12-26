@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.1-Beta.18'
+        default: 'v2.6.1-Beta.19'
 
 permissions:
   contents: write
@@ -22,7 +22,7 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [🔧] 修复英华学堂去红模式卡死问题
+    - [👏] 适配青书学堂资料任务
     
     
     

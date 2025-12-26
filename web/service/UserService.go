@@ -9,6 +9,7 @@ import (
 	"yatori-go-console/entity/pojo"
 	"yatori-go-console/entity/vo"
 	"yatori-go-console/global"
+	"yatori-go-console/web/activity"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -33,6 +34,147 @@ func UserListService(c *gin.Context) {
 		},
 	})
 }
+
+// 添加账号
+func AddUserService(c *gin.Context) {
+	// 1. 定义结构体用于接收 JSON
+	var req vo.AddAccountRequest
+	// 2. 解析 JSON 到结构体
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{
+			"code": 400,
+			"msg":  "请求参数错误: " + err.Error(),
+		})
+		return
+	}
+	//检测账号是否已存在
+	userPo := pojo.UserPO{
+		AccountType: req.AccountType,
+		Url:         req.Url,
+		Account:     req.Account,
+	}
+	user, _ := dao.QueryUser(global.GlobalDB, userPo)
+	if user != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 400,
+			"msg":  "该账号已存在",
+		})
+		return
+	}
+
+	uuidV7, _ := uuid.NewV7()
+	userPo.Uid = uuidV7.String()   //设置uuid值
+	userPo.Password = req.Password //设置密码
+	userConfig := config.User{
+		AccountType: userPo.AccountType,
+		URL:         userPo.Url,
+		Account:     userPo.Account,
+		Password:    userPo.Password,
+	}
+
+	userConfigJson, err2 := json.Marshal(userConfig)
+	if err2 != nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: err2.Error(),
+		})
+		return
+	}
+	userPo.UserConfigJson = string(userConfigJson) //赋值Config配置
+
+	err := dao.InsertUser(global.GlobalDB, &userPo)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code": 400,
+			"msg":  err.Error(),
+		})
+		return
+	}
+	//登录成功
+	c.JSON(200,
+		vo.Response{
+			Code:    200,
+			Message: "添加账号成功",
+			Data:    &userPo,
+		})
+}
+
+// 删除账号
+func DeleteUserService(c *gin.Context) {
+	var req vo.DeleteAccountRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "数据转换失败",
+		})
+		return
+	}
+	//如果uid不为空则采用uid方式删除
+	if req.Uid != "" {
+		err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{Uid: req.Uid})
+		if err != nil {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    400,
+				Message: "删除失败",
+			})
+			return
+		}
+	} else if req.AccountType != "" && req.Account != "" { //如果uid方式没有，则直接使用账号和账号类型方式联合查询删除
+		err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{
+			AccountType: req.AccountType,
+			Url:         req.Url,
+			Account:     req.Account,
+		})
+		if err != nil {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    400,
+				Message: "删除失败",
+			})
+			return
+		}
+	}
+
+	c.JSON(200,
+		vo.Response{
+			Code:    200,
+			Message: "删除成功",
+		})
+}
+
+// 检查账号密码是否正确
+func AccountLoginCheckService(c *gin.Context) {
+	// 1. 定义结构体用于接收 JSON
+	var req vo.AccountLoginCheckRequest
+	// 2. 解析 JSON 到结构体
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK,
+			vo.Response{
+				Code:    400,
+				Message: "请求参数错误: " + err.Error(),
+			})
+		return
+	}
+	//如果是uid检测登录则先查询
+	if req.Uid != "" {
+		user, _ := dao.QueryUser(global.GlobalDB, pojo.UserPO{Uid: req.Uid})
+		if user == nil {
+			c.JSON(http.StatusOK,
+				vo.Response{
+					Code:    400,
+					Message: "该账号不存在",
+				})
+			return
+		}
+		//登录逻辑......
+	}
+
+	c.JSON(http.StatusOK, vo.Response{
+		Code:    200,
+		Message: "账号登录正常",
+	})
+}
+
+// 获取账号配置信息
 func GetAccountInformService(c *gin.Context) {
 	uid := c.Param("uid")
 	//检测账号是否已存在
@@ -159,146 +301,26 @@ func AccountCourseListService(c *gin.Context) {
 	//如果没有活动中的账号则添加活动账号
 	if userActivity == nil {
 		//构建用户活动
-		//createActivity := activity.UserActivityBase{
-		//	User: *user,
-		//}
-		//global.PutUserActivity(*user, &createActivity)
-		//userActivity = global.GetUserActivity(*user)
+		createActivity := activity.BuildUserActivity(*user)
+		userActivity = &createActivity
+		global.PutUserActivity(*user, &createActivity)
 	}
-	//if !userActivity.IsLogin {
-	//	//登录
-	//	err := userActivity.UserLoginOperation()
-	//	userActivity.IsLogin = true
-	//	//如果登录失败
-	//	if err != nil {
-	//		c.JSON(http.StatusOK, gin.H{
-	//			"code": 400,
-	//			"msg":  err.Error(),
-	//		})
-	//		return
-	//	}
-	//}
-
-	//拉取课程列表
-	//list, err := userActivity.PullCourseList()
-	//if err != nil {
-	//	c.JSON(http.StatusOK, gin.H{
-	//		"code": 400,
-	//		"msg":  err.Error(),
-	//	})
-	//}
-
-	c.JSON(http.StatusOK, gin.H{
-		"code": 200,
-		"msg":  "拉取信息成功",
-		"data": gin.H{
-			//"isLogin":    userActivity.IsLogin,
-			"isRunning": userActivity.IsRunning,
-			//"courseList": list,
-		},
-	})
-
-}
-
-// 添加用户
-func AddUserService(c *gin.Context) {
-	// 1. 定义结构体用于接收 JSON
-	var req vo.AddAccountRequest
-	// 2. 解析 JSON 到结构体
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{
-			"code": 400,
-			"msg":  "请求参数错误: " + err.Error(),
-		})
-		return
-	}
-	//检测账号是否已存在
-	userPo := pojo.UserPO{
-		AccountType: req.AccountType,
-		Url:         req.Url,
-		Account:     req.Account,
-	}
-	user, _ := dao.QueryUser(global.GlobalDB, userPo)
-	if user != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  "该账号已存在",
-		})
-		return
-	}
-
-	uuidV7, _ := uuid.NewV7()
-	userPo.Uid = uuidV7.String()   //设置uuid值
-	userPo.Password = req.Password //设置密码
-	userConfig := config.User{}
-
-	userConfigJson, err2 := json.Marshal(userConfig)
-	if err2 != nil {
-		c.JSON(http.StatusOK, vo.Response{
-			Code:    400,
-			Message: err2.Error(),
-		})
-		return
-	}
-	userPo.UserConfigJson = string(userConfigJson) //赋值Config配置
-
-	err := dao.InsertUser(global.GlobalDB, &userPo)
-	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  err.Error(),
-		})
-		return
-	}
-	//登录成功
-	c.JSON(200,
-		vo.Response{
-			Code:    200,
-			Message: "添加账号成功",
-			Data:    &userPo,
-		})
-}
-
-// 删除账号
-func DeleteUserService(c *gin.Context) {
-	var req vo.DeleteAccountRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusOK, vo.Response{
-			Code:    400,
-			Message: "数据转换失败",
-		})
-		return
-	}
-	//如果uid不为空则采用uid方式删除
-	if req.Uid != "" {
-		err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{Uid: req.Uid})
+	//如果是学习通
+	if xxt, ok1 := (*userActivity).(activity.XXTAbility); ok1 {
+		list, err := xxt.PullCourseList()
 		if err != nil {
-			c.JSON(http.StatusOK, vo.Response{
-				Code:    400,
-				Message: "删除失败",
-			})
-			return
+			fmt.Println(err)
 		}
-	} else if req.AccountType != "" && req.Account != "" { //如果uid方式没有，则直接使用账号和账号类型方式联合查询删除
-		err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{
-			AccountType: req.AccountType,
-			Url:         req.Url,
-			Account:     req.Account,
+		//fmt.Println(list)
+		c.JSON(http.StatusOK, gin.H{
+			"code": 200,
+			"msg":  "拉取信息成功",
+			"data": gin.H{
+				"courseList": list,
+			},
 		})
-		if err != nil {
-			c.JSON(http.StatusOK, vo.Response{
-				Code:    400,
-				Message: "删除失败",
-			})
-			return
-		}
 	}
 
-	c.JSON(200,
-		vo.Response{
-			Code:    200,
-			Message: "删除成功",
-		})
 }
 
 // 开始刷课
@@ -316,7 +338,7 @@ func StartBrushService(c *gin.Context) {
 	}
 	userActivity := global.GetUserActivity(*user)
 	if userActivity != nil {
-		userActivity.IsRunning = false
+		//userActivity.IsRunning = false
 	}
 	//activity := activity.UserActivity{UserPO: *user}
 	//global.PutUserActivity(*user, &activity)
