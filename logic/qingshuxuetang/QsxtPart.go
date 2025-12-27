@@ -170,7 +170,7 @@ func nodeSubmitTimeAction(user *config.User, cache *qsxt.QsxtUserCache, course *
 
 	endTime := int(math.Ceil(float64(node.Duration / 1000)))
 	if endTime == 0 {
-		endTime = 300 //如果为0，则默认5分钟观看时间
+		endTime = 350 //如果为0，则默认5分钟观看时间
 	}
 	//获取配置中的学时
 	totalTime := node.TotalStudyDuration
