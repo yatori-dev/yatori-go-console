@@ -53,11 +53,6 @@ func (UserApi) UpdateAccountController(c *gin.Context) {
 	service.UpdateUserService(c)
 }
 
-// 拉取课程列列表
-func (UserApi) CourseListController(c *gin.Context) {
-	service.CourseListService(c)
-}
-
 // 启动刷课接口
 func (UserApi) StartBrushController(c *gin.Context) {
 	service.StartBrushService(c)

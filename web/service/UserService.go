@@ -224,18 +224,18 @@ func UpdateUserService(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		data, _ := c.GetRawData()
 		fmt.Println(string(data))
-		c.JSON(400, gin.H{
-			"code": 400,
-			"msg":  "JSON 解析失败",
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "JSON 解析失败",
 		})
 		return
 	}
 
 	// Uid 必须存在
 	if req.Uid == "" {
-		c.JSON(400, gin.H{
-			"code": 400,
-			"msg":  "UID 不能为空",
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "UID 不能为空",
 		})
 		return
 	}
@@ -259,18 +259,18 @@ func UpdateUserService(c *gin.Context) {
 
 	// 空字段检查
 	if len(updateMap) == 0 {
-		c.JSON(400, gin.H{
-			"code": 400,
-			"msg":  "没有可更新的字段",
+		c.JSON(200, vo.Response{
+			Code:    400,
+			Message: "没有可更新的字段",
 		})
 		return
 	}
 
 	// 调用 DAO 更新
 	if err := dao.UpdateUser(global.GlobalDB, req.Uid, updateMap); err != nil {
-		c.JSON(500, gin.H{
-			"code": 500,
-			"msg":  err.Error(),
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    500,
+			Message: err.Error(),
 		})
 		return
 	}
@@ -281,7 +281,7 @@ func UpdateUserService(c *gin.Context) {
 	})
 }
 
-// 拉取账号状态信息
+// 拉取课程列表
 func AccountCourseListService(c *gin.Context) {
 	// 2. 解析 JSON 到结构体
 	uid := c.Param("uid")
@@ -290,9 +290,9 @@ func AccountCourseListService(c *gin.Context) {
 		Uid: uid,
 	})
 	if user == nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  "该账号不存在",
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "该账号不存在",
 		})
 		return
 	}
@@ -311,13 +311,21 @@ func AccountCourseListService(c *gin.Context) {
 		if err != nil {
 			fmt.Println(err)
 		}
+		//转换为标准类型的列表数据
+		courseList := []vo.CourseInformResponse{}
+		for _, course := range list {
+			courseList = append(courseList, vo.CourseInformResponse{
+				CourseId:   course.CourseID,
+				CourseName: course.CourseName,
+				Progress:   float32(course.JobRate),
+				Instructor: course.CourseTeacher,
+			})
+		}
 		//fmt.Println(list)
-		c.JSON(http.StatusOK, gin.H{
-			"code": 200,
-			"msg":  "拉取信息成功",
-			"data": gin.H{
-				"courseList": list,
-			},
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    200,
+			Message: "拉取信息成功",
+			Data:    gin.H{"courseList": courseList},
 		})
 	}
 
@@ -330,9 +338,9 @@ func StartBrushService(c *gin.Context) {
 		Uid: uid,
 	})
 	if err != nil {
-		c.JSON(400, gin.H{
-			"code": 400,
-			"msg":  err.Error(),
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: err.Error(),
 		})
 		return
 	}
@@ -378,13 +386,8 @@ func StopBrushService(c *gin.Context) {
 		c.JSON(400, gin.H{})
 	}
 	//userActivity.Kill()
-	c.JSON(200, gin.H{
-		"code": 200,
-		"msg":  "停止成功",
+	c.JSON(http.StatusOK, vo.Response{
+		Code:    200,
+		Message: "停止成功",
 	})
-}
-
-// 拉取课程列表
-func CourseListService(c *gin.Context) {
-
 }
