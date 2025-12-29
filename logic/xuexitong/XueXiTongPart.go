@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -1250,6 +1251,16 @@ func examAction(userCache *xuexitongApi.XueXiTUserCache, user *config.User, sett
 			//log.Fatal(err3)
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "试卷提交失败:", err3.Error())
 		}
+		//处理限制提交时间的考试-----------------
+		re := regexp.MustCompile(`考试(\d+)分钟内不允许提交考试`)
+		matches := re.FindStringSubmatch(submitResult)
+		if len(matches) > 1 {
+			minSubmitTime, _ := strconv.Atoi(matches[1])
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Green, fmt.Sprintf("检测到该考试限制开考%d分钟内不允许提交考试，已自动延时%d分钟...", minSubmitTime, minSubmitTime))
+			time.Sleep(time.Duration(minSubmitTime) * time.Minute)
+			submitResult, err3 = question.SubmitExamAnswerAction(userCache, isSubmit)
+		}
+
 		//如果考试时间已用完则直接退出
 		if strings.Contains(submitResult, "考试时间已用完,不允许提交答案!") {
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Name, lg.Default, "] ", "【", courseItem.CourseName, "】", "【", exam.Name, "】", lg.Red, "试卷提交失败，考试时间已用完，已自动跳过。服务器返回信息:", submitResult)
