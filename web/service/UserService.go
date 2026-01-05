@@ -9,6 +9,7 @@ import (
 	"yatori-go-console/entity/pojo"
 	"yatori-go-console/entity/vo"
 	"yatori-go-console/global"
+	"yatori-go-console/utils"
 	"yatori-go-console/web/activity"
 
 	"github.com/gin-gonic/gin"
@@ -25,11 +26,26 @@ func UserListService(c *gin.Context) {
 		})
 		return
 	}
+	//转换列表--------------
+	resUserList := []map[string]any{}
+	for _, user := range users {
+		toMap := utils.StructToMap(user)
+		userActivity := global.GetUserActivity(user)
+		if userActivity != nil {
+			if xxt, ok := (*userActivity).(*activity.XXTActivity); ok {
+				toMap["isRunning"] = xxt.IsRunning
+			}
+		} else {
+			toMap["isRunning"] = false
+		}
+
+		resUserList = append(resUserList, toMap)
+	}
 	c.JSON(http.StatusOK, vo.Response{
 		Code:    200,
 		Message: "拉取账号成功",
 		Data: gin.H{
-			"users": users,
+			"users": resUserList,
 			"total": total,
 		},
 	})
@@ -348,20 +364,11 @@ func StartBrushService(c *gin.Context) {
 	if userActivity != nil {
 		//userActivity.IsRunning = false
 	}
-	//activity := activity.UserActivity{UserPO: *user}
-	//global.PutUserActivity(*user, &activity)
-	//userActivity = global.GetUserActivity(*user)
-	//err1 := activity.UserLoginOperation()
-	//if err1 != nil {
-	//	c.JSON(400, gin.H{
-	//		"code": 400,
-	//		"msg":  err1.Error(),
-	//	})
-	//}
-	//
-	//userActivity.Start()
-	//userActivity.UserPO = *user
-	//go userActivity.UserBlock()
+	go func() {
+		// 调用Start方法
+		(*userActivity).Start()
+	}()
+
 	c.JSON(200, gin.H{
 		"code": 200,
 		"msg":  "启动成功",
@@ -385,6 +392,13 @@ func StopBrushService(c *gin.Context) {
 	if userActivity == nil {
 		c.JSON(400, gin.H{})
 	}
+	// 根据账号类型断言为具体活动类型并设置IsRunning
+	if xxt, ok := (*userActivity).(*activity.XXTActivity); ok {
+		xxt.IsRunning = false
+	} else if yinghua, ok := (*userActivity).(*activity.YingHuaActivity); ok {
+		yinghua.IsRunning = true
+	}
+	(*userActivity).Stop()
 	//userActivity.Kill()
 	c.JSON(http.StatusOK, vo.Response{
 		Code:    200,

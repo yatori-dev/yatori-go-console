@@ -64,6 +64,7 @@
     "sass": "latest",
     "sass-embedded": "latest",
     "sonner": "^1.7.4",
+    "styled-jsx": "latest",
     "stylus": "latest",
     "sugarss": "latest",
     "tailwind-merge": "^3.3.1",
