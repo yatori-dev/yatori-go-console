@@ -19,6 +19,7 @@ var AccountTypeStr = map[string]string{
 	"ICVE":      "智慧职教",
 	"QSXT":      "青书学堂",
 	"WELEARN":   "WeLearn",
+	"HQKJ":      "海旗科技",
 }
 
 // key的值为uuid

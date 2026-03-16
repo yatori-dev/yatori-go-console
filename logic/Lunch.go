@@ -7,6 +7,7 @@ import (
 	"yatori-go-console/config"
 	"yatori-go-console/logic/cqie"
 	"yatori-go-console/logic/enaea"
+	"yatori-go-console/logic/haiqikeji"
 	"yatori-go-console/logic/icve"
 	"yatori-go-console/logic/ketangx"
 	qsxt "yatori-go-console/logic/qingshuxuetang"
@@ -142,6 +143,8 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	icveOperation := icve.UserLoginOperation(icveAccount)
 	qsxtAccount := qsxt.FilterAccount(configData)
 	qsxtOperation := qsxt.UserLoginOperation(qsxtAccount)
+	hqkjAccount := haiqikeji.FilterAccount(configData)
+	hqkjOperation := haiqikeji.UserLoginOperation(hqkjAccount)
 
 	//统一刷课---------------------------------------------------------------------
 	//英华
@@ -188,7 +191,13 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	//青书学堂
 	platformLock.Add(1)
 	go func() {
-		qsxt.RunBrushOperation(configData.Setting, qsxtAccount, qsxtOperation) //码上研训统一刷课模块
+		qsxt.RunBrushOperation(configData.Setting, qsxtAccount, qsxtOperation) //青书学堂统一刷课模块
+		platformLock.Done()
+	}()
+	//海旗科技
+	platformLock.Add(1)
+	go func() {
+		haiqikeji.RunBrushOperation(configData.Setting, hqkjAccount, hqkjOperation) //海旗科技统一刷课模块
 		platformLock.Done()
 	}()
 	platformLock.Wait()
@@ -204,7 +213,7 @@ func configJsonCheck(configData *config.JSONDataForConfig) {
 	//防止用户填完整url
 	for i, v := range configData.Users {
 
-		if v.AccountType == "YINGHUA" {
+		if v.AccountType == "YINGHUA" || v.AccountType == "HQKJ" {
 			if !strings.HasPrefix(v.URL, "http") {
 				lg.Print(lg.INFO, lg.BoldRed, "账号", v.Account, "未配置正确url，请先在config文件中配置好相应账号信息")
 				os.Exit(0)

@@ -22,7 +22,7 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复青书学堂coverImg字段参数为nil导致无法正常运行问题
+    - [👏] 支持英华学堂-海旗科技（注意accountType要改成HQKJ）
     
     
 
