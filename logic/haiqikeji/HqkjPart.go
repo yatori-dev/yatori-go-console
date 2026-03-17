@@ -75,6 +75,9 @@ func userBlock(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUse
 		//if course.Offline != 1 { //结束的课程过滤掉
 		//	continue
 		//}
+		if course.StartDate.After(time.Now()) || course.EndDate.Before(time.Now()) { //过滤掉过时课程
+			continue
+		}
 		coursesLock.Add(1)
 		go func() {
 			nodeListStudy(setting, user, cache, &course) //多携程刷课
@@ -114,7 +117,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *hqkjApi
 		return
 	}
 	//nodeList := ketangx.PullNodeListAction(userCache, course) //拉取对应课程的视频列表
-
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, " 【"+course.Name+"】 ")
 	//视频处理逻辑
 	switch user.CoursesCustom.VideoModel {
 	case 1:
@@ -184,21 +187,36 @@ func fastModeAction(setting config.Setting, user *config.User, UserCache *hqkjAp
 				videosLock.Done()
 				return
 			}
-			sessionId, err := haiqikeji.HqkjStartStudyAction(UserCache, node)
-			if err != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取学习sessionId失败：", err.Error())
-				videosLock.Done()
-				return
-			}
-			time.Sleep(30 * time.Second)
-			submitResult, err := haiqikeji.HqkjSubmitStudyTimeAction(UserCache, node, sessionId, 100)
-			if err != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "提交学时失败：", err.Error())
-				videosLock.Done()
-				return
+
+			var submitResult string
+			//这里采用提交学后进行检查，防止提交的进度没有记录问题
+			for {
+				sessionId, err := haiqikeji.HqkjStartStudyAction(UserCache, node)
+				if err != nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取学习sessionId失败：", err.Error())
+					videosLock.Done()
+					return
+				}
+				time.Sleep(30 * time.Second)
+				submitResult, err = haiqikeji.HqkjSubmitStudyTimeAction(UserCache, node, sessionId, 100)
+				if err != nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "提交学时失败：", err.Error())
+					return
+				}
+				progress, err = haiqikeji.HqkjGetNodeProgressAction(UserCache, node)
+				if err != nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取进度错误", err.Error())
+					videosLock.Done()
+					return
+				}
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(progress)), "%")
+				//检查是否看完
+				if progress >= 100 {
+					break
+				}
+				time.Sleep(30 * time.Second)
 			}
 			videosLock.Done()
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(100)), "%")
 		}(node)
 
 	}
