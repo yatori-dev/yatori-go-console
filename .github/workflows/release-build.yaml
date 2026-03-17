@@ -47,10 +47,10 @@ jobs:
           - os: windows-latest
             arch: amd64
             goos: windows
-          - os: macos-latest
+          - os: macos-15
             arch: amd64
             goos: darwin
-          - os: macos-latest
+          - os: macos-15
             arch: arm64
             goos: darwin
           # 如果需要 armv7 (32位) 交叉编译，加下面一行
