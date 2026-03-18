@@ -151,47 +151,56 @@ func normalModeAction(setting config.Setting, user *config.User, UserCache *hqkj
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取学习sessionId失败：", err.Error())
 			return
 		}
-		nowTime := float64(progress) * 0.01 * float64(node.VideoDuration) //计算当前学习到的时间点
-		failTotal := 0                                                    //用于统计无效提交次数，如果超过3次则直接充值sessionId
-		time.Sleep(30 * time.Second)
+		nowTime := int(float64(progress) * 0.01 * float64(node.VideoDuration)) //计算当前学习到的时间点
+		stopTime := 30                                                         //暂停时间
+		time.Sleep(time.Duration(stopTime) * time.Second)
 		for {
-			//progress += 3
-			nowTime += 30
+			nowAddV := stopTime //用于临时寄存减少量
+
 			//如果添加的进度大于视频长度那么就直接等于视频长度
-			if int(nowTime+30) > node.VideoDuration {
-				nowTime = float64(node.VideoDuration)
+			if nowTime+stopTime > node.VideoDuration {
+				nowAddV = node.VideoDuration - nowTime
 			}
+			nowTime += nowAddV //添加时间
+
 			//计算当前视频进度
-			submitProgress := int(nowTime / float64(node.VideoDuration) * 100)
+			submitProgress := int(float64(nowTime) / float64(node.VideoDuration) * 100)
 			submitResult, err := haiqikeji.HqkjSubmitStudyTimeAction(UserCache, node, sessionId, submitProgress)
 			if err != nil {
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "提交学时失败：", err.Error())
 			}
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", nowTime/float64(node.VideoDuration)*100), "%")
 
-			progress, err = haiqikeji.HqkjGetNodeProgressAction(UserCache, node) //拉取进度
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(submitProgress)), "%")
 			if err != nil {
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取进度错误", err.Error())
 				return
 			}
-			//对比进度是否小于当前，如果是的话，说明提交失败，那么就要累加失败次数
-			if progress < submitProgress {
-				failTotal++
-				if failTotal >= 3 { //如果次数大于等于3次那么就要换sessionId了
-					failTotal = 0 //重置失败次数
+
+			//如果进度达标了那就直接退出
+			if submitProgress >= 100 {
+				//保存结果
+				endResult, err := haiqikeji.HqkjEndStudyAction(UserCache, sessionId)
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", lg.Default, " ", "服务器返回：", endResult)
+				if err != nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), err.Error())
+					break
+				}
+				//拉取进度看看到底成功保存没，没有那么就重新开始刷
+				progress, err = haiqikeji.HqkjGetNodeProgressAction(UserCache, node) //拉取进度
+				//对比进度是否小于当前，如果是的话，说明提交失败，那么就要累加失败次数
+				if progress < 100 {
 					sessionId, err = haiqikeji.HqkjStartStudyAction(UserCache, node)
 					if err != nil {
 						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取学习sessionId失败：", err.Error())
 						break //如果获取新sessionId失败则直接退出不执行这个章节了
 					}
+					time.Sleep(time.Duration(stopTime) * time.Second)
+					nowTime = int(float64(node.VideoDuration) * 0.01 * float64(progress)) //恢复进度
+					continue
 				}
-				continue
-			}
-			//如果进度达标了那就直接退出
-			if progress >= 100 {
 				break
 			}
-			time.Sleep(30 * time.Second) //间隔为30s
+			time.Sleep(time.Duration(stopTime) * time.Second) //间隔为30s
 		}
 	}
 }
@@ -229,6 +238,13 @@ func fastModeAction(setting config.Setting, user *config.User, UserCache *hqkjAp
 				if err != nil {
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "提交学时失败：", err.Error())
 					return
+				}
+				//保存结果
+				endResult, err := haiqikeji.HqkjEndStudyAction(UserCache, sessionId)
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Default, " ", "服务器返回：", endResult)
+				if err != nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), err.Error())
+					break
 				}
 				progress, err = haiqikeji.HqkjGetNodeProgressAction(UserCache, node)
 				if err != nil {
