@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.2-Beta.2'
+        default: 'v2.6.2-Beta.3'
 
 permissions:
   contents: write
@@ -22,8 +22,7 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [👏] 优化海旗科技（注意accountType要改成HQKJ）
-    - [‍🔧] 修复已知问题
+    - [🔧] 修复海旗科技普通模式概率触发无法正常提交进度问题（注意使用海旗科技accountType要改成HQKJ）
 
     
     学习通用户注意：
