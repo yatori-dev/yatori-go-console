@@ -151,17 +151,44 @@ func normalModeAction(setting config.Setting, user *config.User, UserCache *hqkj
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取学习sessionId失败：", err.Error())
 			return
 		}
-		nowTime := float64(progress) * 0.01 * float64(node.VideoDuration)
+		nowTime := float64(progress) * 0.01 * float64(node.VideoDuration) //计算当前学习到的时间点
+		failTotal := 0                                                    //用于统计无效提交次数，如果超过3次则直接充值sessionId
 		time.Sleep(30 * time.Second)
 		for {
 			//progress += 3
 			nowTime += 30
-			submitResult, err := haiqikeji.HqkjSubmitStudyTimeAction(UserCache, node, sessionId, int(nowTime/float64(node.VideoDuration)*100))
+			//如果添加的进度大于视频长度那么就直接等于视频长度
+			if int(nowTime+30) > node.VideoDuration {
+				nowTime = float64(node.VideoDuration)
+			}
+			//计算当前视频进度
+			submitProgress := int(nowTime / float64(node.VideoDuration) * 100)
+			submitResult, err := haiqikeji.HqkjSubmitStudyTimeAction(UserCache, node, sessionId, submitProgress)
 			if err != nil {
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "提交学时失败：", err.Error())
 			}
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", nowTime/float64(node.VideoDuration)*100), "%")
-			if nowTime >= float64(node.VideoDuration) {
+
+			progress, err = haiqikeji.HqkjGetNodeProgressAction(UserCache, node) //拉取进度
+			if err != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取进度错误", err.Error())
+				return
+			}
+			//对比进度是否小于当前，如果是的话，说明提交失败，那么就要累加失败次数
+			if progress < submitProgress {
+				failTotal++
+				if failTotal >= 3 { //如果次数大于等于3次那么就要换sessionId了
+					failTotal = 0 //重置失败次数
+					sessionId, err = haiqikeji.HqkjStartStudyAction(UserCache, node)
+					if err != nil {
+						lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取学习sessionId失败：", err.Error())
+						break //如果获取新sessionId失败则直接退出不执行这个章节了
+					}
+				}
+				continue
+			}
+			//如果进度达标了那就直接退出
+			if progress >= 100 {
 				break
 			}
 			time.Sleep(30 * time.Second) //间隔为30s
