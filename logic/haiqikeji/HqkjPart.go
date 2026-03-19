@@ -136,6 +136,9 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *hqkjApi
 func normalModeAction(setting config.Setting, user *config.User, UserCache *hqkjApi.HqkjUserCache, course *haiqikeji.HqkjCourse, nodeList []haiqikeji.HqkjNode) {
 	// 提交学时
 	for _, node := range nodeList {
+		if node.TabVideo <= 0 { //过滤没有视频的
+			continue
+		}
 		progress, err := haiqikeji.HqkjGetNodeProgressAction(UserCache, node)
 		if err != nil {
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取进度错误")
