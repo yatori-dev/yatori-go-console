@@ -72,6 +72,7 @@ type CoursesCustom struct {
 type User struct {
 	AccountType   string        `json:"accountType" yaml:"accountType"`
 	URL           string        `json:"url"`
+	RemarkName    string        `json:"remarkName,omitempty" yaml:"remarkName,omitempty" mapstructure:"remarkName"` //可选备注名
 	Account       string        `json:"account"`
 	Password      string        `json:"password"`
 	IsProxy       int           `json:"isProxy" yaml:"isProxy"` //是否代理IP

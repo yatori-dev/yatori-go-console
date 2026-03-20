@@ -23,6 +23,7 @@ setting:
 users:
   - accountType: "YINGHUA" #平台类型，英华学堂：YINGHUA、仓辉：CANGHUI、海旗科技：HQKJ、学习公社：ENAEA、学习通：XUEXITONG、重庆工业学院：CQIE、码上研训：KETANGX、Welearn（随行课堂）：WELEARN、智慧职教：ICVE、青书学堂：QSXT
     url: "url" #对应平台的url链接,学习公社、CQIE、学习通可以不用填且可以直接把这一行去掉
+    remarkName: "" # 可选备注名，不填可以直接把这一行删掉，比如填“张三-学习通”
     account: "账号" #账号
     password: "密码" #密码，智慧职教推荐使用Cookie登录方式
     isProxy: 0 # 是否开启代理，0为关闭，1为开启
@@ -38,6 +39,7 @@ users:
 # 添加多个账号的时候像下面这样接着添加多个用户信息就行
   # - accountType: "YINGHUA"
   #   url: "url"
+  #   remarkName: ""
   #   account: "账号" 
   #   password: "密码"
   #   isProxy: 0
@@ -52,6 +54,7 @@ users:
   #     excludeCourses: []  
   # - accountType: "YINGHUA"
   #   url: "url"
+  #   remarkName: ""
   #   account: "账号" 
   #   password: "密码"
   #   isProxy: 0
