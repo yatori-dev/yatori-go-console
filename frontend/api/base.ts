@@ -2,8 +2,8 @@ import axios from 'axios'
 
 // 创建Axios实例
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/api', // 根据你的实际后端API地址配置
-  // baseURL: './api', // 根据你的实际后端API地址配置
+  // 使用相对路径，便于挂域名、反向代理和同源部署
+  baseURL: '/api',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
