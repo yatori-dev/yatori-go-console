@@ -43,6 +43,11 @@ func (UserApi) AccountCourseListController(c *gin.Context) {
 	service.AccountCourseListService(c)
 }
 
+// 获取账号日志
+func (UserApi) AccountLogsController(c *gin.Context) {
+	service.AccountLogsService(c)
+}
+
 // 登录账号
 func (UserApi) LoginAccountController(c *gin.Context) {
 	service.LoginUserService(c)
@@ -71,7 +76,7 @@ func (UserApi) StreamLog(c *gin.Context) {
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
 
-	file, err := os.Open(fmt.Sprintf(`./assets/logs/%s.log`, logID))
+	file, err := os.Open(fmt.Sprintf(`./assets/log/log%s.txt`, logID))
 	if err != nil {
 		c.String(500, "error open log file")
 		return

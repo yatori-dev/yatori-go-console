@@ -2,7 +2,6 @@ package activity
 
 import (
 	"fmt"
-	"log"
 	"math/rand"
 	"os"
 	"strconv"
@@ -51,10 +50,13 @@ func (activity *XXTActivity) Login() error {
 
 // 启动
 func (activity *XXTActivity) Start() error {
-	//TODO implement me
+	if activity.UserCache == nil {
+		if err := activity.Login(); err != nil {
+			return err
+		}
+	}
 	activity.IsRunning = true
-	activity.userBlock() //开刷
-	return nil
+	return activity.userBlock() //开刷
 }
 
 // 暂停
@@ -67,27 +69,35 @@ func (activity *XXTActivity) Stop() error {
 // 拉取课程列表
 func (user *XXTActivity) PullCourseList() ([]xuexitong.XueXiTCourse, error) {
 	if user.UserCache == nil { //如果为空则登录
-		user.Login()
+		if err := user.Login(); err != nil {
+			return nil, err
+		}
 	}
-	cache := user.UserCache.(*xuexitongApi.XueXiTUserCache)
+	cache, ok := user.UserCache.(*xuexitongApi.XueXiTUserCache)
+	if !ok || cache == nil {
+		return nil, fmt.Errorf("学习通用户缓存未初始化")
+	}
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
 	if err != nil {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Red, "拉取课程失败")
-		log.Fatal(err)
+		return nil, err
 	}
 	return courseList, nil
 }
 
 // 直接刷课
-func (activity *XXTActivity) userBlock() {
-	cache := activity.UserCache.(*xuexitongApi.XueXiTUserCache)
+func (activity *XXTActivity) userBlock() error {
+	cache, ok := activity.UserCache.(*xuexitongApi.XueXiTUserCache)
+	if !ok || cache == nil {
+		return fmt.Errorf("学习通用户缓存未初始化")
+	}
 	courseList, err := xuexitong.XueXiTPullCourseAction(cache)
 	if !activity.IsRunning { //打断
-		return
+		return nil
 	}
 	if err != nil {
 		lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Red, "拉取课程失败")
-		log.Fatal(err)
+		return err
 	}
 
 	var nodesLock sync.WaitGroup //视频锁
@@ -98,16 +108,17 @@ func (activity *XXTActivity) userBlock() {
 		activity.nodeListStudy(&activity.User, cache, &course)
 		nodesLock.Done()
 		if !activity.IsRunning { //打断
-			return
+			return nil
 		}
 	}
 	if !activity.IsRunning { //打断
-		return
+		return nil
 	}
 	nodesLock.Wait()
 	lg.Print(lg.INFO, "[", lg.Green, cache.Name, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 
+	return nil
 }
 
 func (activity *XXTActivity) nodeListStudy(user *config.User, userCache *xuexitongApi.XueXiTUserCache, courseItem *xuexitong.XueXiTCourse) {

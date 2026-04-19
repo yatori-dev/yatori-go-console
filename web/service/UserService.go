@@ -1,11 +1,13 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
+	"strings"
 	"yatori-go-console/config"
 	"yatori-go-console/dao"
+	"yatori-go-console/entity/dto"
 	"yatori-go-console/entity/pojo"
 	"yatori-go-console/entity/vo"
 	"yatori-go-console/global"
@@ -13,12 +15,29 @@ import (
 	"yatori-go-console/web/activity"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
+
+func AccountLogsService(c *gin.Context) {
+	uid := c.Param("uid")
+	data, err := getLocalConfigUserLogs(uid, 300)
+	if err != nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, vo.Response{
+		Code:    200,
+		Message: "拉取日志成功",
+		Data:    data,
+	})
+}
 
 // 拉取账号列表
 func UserListService(c *gin.Context) {
-	users, total, err := dao.QueryUsers(global.GlobalDB, 1, 10)
+	users, err := syncUsersFromConfigManager()
 	if err != nil {
 		c.JSON(http.StatusOK, vo.Response{
 			Code:    400,
@@ -46,7 +65,7 @@ func UserListService(c *gin.Context) {
 		Message: "拉取账号成功",
 		Data: gin.H{
 			"users": resUserList,
-			"total": total,
+			"total": len(resUserList),
 		},
 	})
 }
@@ -63,56 +82,59 @@ func AddUserService(c *gin.Context) {
 		})
 		return
 	}
-	//检测账号是否已存在
-	userPo := pojo.UserPO{
-		AccountType: req.AccountType,
-		Url:         req.Url,
-		Account:     req.Account,
-	}
-	user, _ := dao.QueryUser(global.GlobalDB, userPo)
-	if user != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  "该账号已存在",
-		})
-		return
-	}
-
-	uuidV7, _ := uuid.NewV7()
-	userPo.Uid = uuidV7.String()   //设置uuid值
-	userPo.Password = req.Password //设置密码
-	userConfig := config.User{
-		AccountType: userPo.AccountType,
-		URL:         userPo.Url,
-		Account:     userPo.Account,
-		Password:    userPo.Password,
-	}
-
-	userConfigJson, err2 := json.Marshal(userConfig)
-	if err2 != nil {
+	addedUserDTO, err := upsertLocalConfigUser(dto.ConfigManagerUser{
+		AccountType:  req.AccountType,
+		URL:          req.Url,
+		Account:      req.Account,
+		Password:     req.Password,
+		IsProxy:      0,
+		InformEmails: []string{},
+		CoursesCustom: config.CoursesCustom{
+			IncludeCourses:  []string{},
+			ExcludeCourses:  []string{},
+			CoursesSettings: []config.CoursesSettings{},
+		},
+	})
+	if err != nil {
 		c.JSON(http.StatusOK, vo.Response{
 			Code:    400,
-			Message: err2.Error(),
+			Message: err.Error(),
 		})
 		return
 	}
-	userPo.UserConfigJson = string(userConfigJson) //赋值Config配置
 
-	err := dao.InsertUser(global.GlobalDB, &userPo)
+	users, err := syncUsersFromConfigManager()
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"code": 400,
-			"msg":  err.Error(),
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: err.Error(),
 		})
 		return
 	}
-	//登录成功
-	c.JSON(200,
-		vo.Response{
-			Code:    200,
-			Message: "添加账号成功",
-			Data:    &userPo,
-		})
+
+	var addedUser *pojo.UserPO
+	for i := range users {
+		if users[i].Uid == addedUserDTO.Uid {
+			addedUser = &users[i]
+			break
+		}
+	}
+	if addedUser == nil {
+		addedUser, err = configManagerUserToPO(*addedUserDTO)
+		if err != nil {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    400,
+				Message: err.Error(),
+			})
+			return
+		}
+	}
+
+	c.JSON(200, vo.Response{
+		Code:    200,
+		Message: "添加账号成功",
+		Data:    addedUser,
+	})
 }
 
 // 删除账号
@@ -127,27 +149,42 @@ func DeleteUserService(c *gin.Context) {
 	}
 	//如果uid不为空则采用uid方式删除
 	if req.Uid != "" {
-		err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{Uid: req.Uid})
-		if err != nil {
+		if err := deleteLocalConfigUser(req.Uid, strings.TrimSpace(c.GetHeader("X-Admin-Pass"))); err != nil {
 			c.JSON(http.StatusOK, vo.Response{
 				Code:    400,
-				Message: "删除失败",
+				Message: err.Error(),
 			})
 			return
 		}
 	} else if req.AccountType != "" && req.Account != "" { //如果uid方式没有，则直接使用账号和账号类型方式联合查询删除
-		err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{
-			AccountType: req.AccountType,
-			Url:         req.Url,
-			Account:     req.Account,
-		})
+		syncedUsers, err := syncUsersFromConfigManager()
 		if err != nil {
 			c.JSON(http.StatusOK, vo.Response{
 				Code:    400,
-				Message: "删除失败",
+				Message: err.Error(),
 			})
 			return
 		}
+		for _, user := range syncedUsers {
+			if user.AccountType == req.AccountType && user.Url == req.Url && user.Account == req.Account {
+				if err := deleteLocalConfigUser(user.Uid, strings.TrimSpace(c.GetHeader("X-Admin-Pass"))); err != nil {
+					c.JSON(http.StatusOK, vo.Response{
+						Code:    400,
+						Message: err.Error(),
+					})
+					return
+				}
+				break
+			}
+		}
+	}
+
+	if _, err := syncUsersFromConfigManager(); err != nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
 	}
 
 	c.JSON(200,
@@ -193,16 +230,17 @@ func AccountLoginCheckService(c *gin.Context) {
 // 获取账号配置信息
 func GetAccountInformService(c *gin.Context) {
 	uid := c.Param("uid")
-	//检测账号是否已存在
-	user, _ := dao.QueryUser(global.GlobalDB, pojo.UserPO{
-		Uid: uid,
-	})
-	if user == nil {
+	user, err := getLocalConfigUserByUID(uid)
+	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"code": 400,
-			"msg":  "该账号不存在",
+			"msg":  err.Error(),
 		})
 		return
+	}
+	userPO, err := configManagerUserToPO(*user)
+	if err == nil {
+		_ = dao.UpsertUser(global.GlobalDB, userPO)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"code": 200,
@@ -234,7 +272,7 @@ func LoginUserService(c *gin.Context) {
 
 // 更新账号信息
 func UpdateUserService(c *gin.Context) {
-	var req pojo.UserPO
+	var req dto.ConfigManagerUser
 
 	// 绑定 JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -246,9 +284,8 @@ func UpdateUserService(c *gin.Context) {
 		})
 		return
 	}
-
 	// Uid 必须存在
-	if req.Uid == "" {
+	if strings.TrimSpace(req.Uid) == "" {
 		c.JSON(http.StatusOK, vo.Response{
 			Code:    400,
 			Message: "UID 不能为空",
@@ -256,34 +293,78 @@ func UpdateUserService(c *gin.Context) {
 		return
 	}
 
-	// 将结构体转为 map 并过滤空字段
-	updateMap := make(map[string]interface{})
-
-	// 手动挑选可修改字段（最安全方式）
-	if req.AccountType != "" {
-		updateMap["account_type"] = req.AccountType
+	user, err := getLocalConfigUserByUID(req.Uid)
+	if err != nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: err.Error(),
+		})
+		return
 	}
-	if req.Url != "" {
-		updateMap["url"] = req.Url
+	changed := false
+	if req.AccountType != "" {
+		user.AccountType = req.AccountType
+		changed = true
+	}
+	if req.URL != "" {
+		user.URL = req.URL
+		changed = true
 	}
 	if req.Account != "" {
-		updateMap["account"] = req.Account
+		user.Account = req.Account
+		changed = true
 	}
 	if req.Password != "" {
-		updateMap["password"] = req.Password
+		user.Password = req.Password
+		changed = true
+	}
+	if req.RemarkName != user.RemarkName {
+		user.RemarkName = req.RemarkName
+		changed = true
+	}
+	if req.InformEmails != nil {
+		user.InformEmails = req.InformEmails
+		changed = true
+	}
+	if !reflect.DeepEqual(req.CoursesCustom, config.CoursesCustom{}) {
+		user.CoursesCustom = req.CoursesCustom
+		changed = true
+	}
+	if req.IsProxy != user.IsProxy {
+		user.IsProxy = req.IsProxy
+		changed = true
 	}
 
-	// 空字段检查
-	if len(updateMap) == 0 {
-		c.JSON(200, vo.Response{
+	if !changed {
+		c.JSON(http.StatusOK, vo.Response{
 			Code:    400,
 			Message: "没有可更新的字段",
 		})
 		return
 	}
 
-	// 调用 DAO 更新
-	if err := dao.UpdateUser(global.GlobalDB, req.Uid, updateMap); err != nil {
+	if editPass := strings.TrimSpace(c.GetHeader("X-Edit-Pass")); editPass != "" {
+		if !verifyEditPassword(*user, editPass) {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    401,
+				Message: "权限验证失败",
+			})
+			return
+		}
+	}
+
+	if _, err := updateLocalConfigUser(req.Uid, func(localUser *dto.ConfigManagerUser) error {
+		*localUser = *user
+		return nil
+	}); err != nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    500,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	if _, err := syncUsersFromConfigManager(); err != nil {
 		c.JSON(http.StatusOK, vo.Response{
 			Code:    500,
 			Message: err.Error(),
@@ -361,12 +442,22 @@ func StartBrushService(c *gin.Context) {
 		return
 	}
 	userActivity := global.GetUserActivity(*user)
-	if userActivity != nil {
-		//userActivity.IsRunning = false
+	if userActivity == nil {
+		createActivity := activity.BuildUserActivity(*user)
+		if createActivity == nil {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    400,
+				Message: "当前账号类型暂不支持启动",
+			})
+			return
+		}
+		userActivity = &createActivity
+		global.PutUserActivity(*user, &createActivity)
 	}
 	go func() {
-		// 调用Start方法
-		(*userActivity).Start()
+		if err := (*userActivity).Start(); err != nil {
+			fmt.Println("start brush failed:", err)
+		}
 	}()
 
 	c.JSON(200, gin.H{
