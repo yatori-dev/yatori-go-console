@@ -11,6 +11,7 @@ ip.txt
 /*.h
 /*.so
 /yatori.db
+/web/service/yatori.db
 /deleteTag.bat
 /.claude/
 .vscode
