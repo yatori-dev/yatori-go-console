@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Tag name for the release'
         required: true
-        default: 'v2.6.2-Beta.8'
+        default: 'v2.6.2-Beta.9'
 
 permissions:
   contents: write
@@ -22,8 +22,7 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复学习通部分考试报APP版本过低问题
-    - [‍🔧] 修复学习通部分课程信息拉取失败空指针问题
+    - [‍🔧] 修复海旗科技无法正常使用问题
     
     
     学习通用户注意：
