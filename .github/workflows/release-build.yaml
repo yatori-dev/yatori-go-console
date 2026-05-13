@@ -22,55 +22,24 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复学习通部分考试报APP版本过低问题
-    - [‍🔧] 修复学习通部分课程信息拉取失败空指针问题
-
+    - [‍🔧] 修复海旗科技无法正常使用问题
+    
     
     学习通用户注意：
         如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！（多任务点模式会失效）
         每天学习累计学时不要太久，超过1200分钟可能会打回学习进度（尤其是多课程或多任务点模式），请自行把控好。因为太离谱了。
 
 jobs:
-  build-frontend:
-    name: Build Frontend
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 8
-
-      - name: Install dependencies
-        run: cd frontend && pnpm install
-
-      - name: Build frontend
-        run: cd frontend && pnpm build
-
-      - name: Upload frontend artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-dist
-          path: frontend/out
-
   build:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
-    needs: build-frontend
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             arch: amd64
             goos: linux
-          - os: ubuntu-latest
+          - os: ubuntu-22.04
             arch: arm64
             goos: linux
           - os: windows-latest
@@ -92,12 +61,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Download frontend artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: frontend-dist
-          path: assets/web
 
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux' && matrix.arch=='amd64'
@@ -183,7 +146,6 @@ jobs:
       - name: Create release tar
         if: runner.os=='Linux'
         run: | # 打包发布版本压缩包
-          cp -r assets ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/assets
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           cp command/配置文件生成器.html ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
@@ -195,7 +157,6 @@ jobs:
       - name: Create Release zip
         if: runner.os=='Windows'
         run: |
-          xcopy assets ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\assets /e /i /h
           copy command\config.yaml ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           copy command\start.bat ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
@@ -209,7 +170,6 @@ jobs:
       - name: Create macOS Release tar
         if: matrix.goos == 'darwin'
         run: |
-          cp -r assets ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/assets
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cp command/配置文件生成器.html ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cd ${{ env.RELEASE_DIR }}
