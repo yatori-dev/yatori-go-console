@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/spf13/viper"
 	"github.com/yatori-dev/yatori-go-core/models/ctype"
@@ -80,6 +81,41 @@ type User struct {
 	CoursesCustom CoursesCustom `json:"coursesCustom" yaml:"coursesCustom"`
 }
 
+var (
+	remarkNameLock sync.RWMutex
+	remarkNames    = map[string]string{}
+)
+
+func DisplayAccount(account string) string {
+	remarkNameLock.RLock()
+	defer remarkNameLock.RUnlock()
+	if remarkName, ok := remarkNames[account]; ok {
+		return remarkName
+	}
+	return account
+}
+
+func registerRemarkNames(config *JSONDataForConfig) {
+	remarkNameLock.Lock()
+	defer remarkNameLock.Unlock()
+	remarkNames = map[string]string{}
+	ambiguousAccounts := map[string]struct{}{}
+	for _, user := range config.Users {
+		remarkName := strings.TrimSpace(user.RemarkName)
+		if user.Account != "" && remarkName != "" {
+			if existingRemarkName, ok := remarkNames[user.Account]; ok && existingRemarkName != remarkName {
+				delete(remarkNames, user.Account)
+				ambiguousAccounts[user.Account] = struct{}{}
+				continue
+			}
+			if _, ok := ambiguousAccounts[user.Account]; ok {
+				continue
+			}
+			remarkNames[user.Account] = remarkName
+		}
+	}
+}
+
 // 读取json配置文件
 func ReadJsonConfig(filePath string) JSONDataForConfig {
 	var configJson JSONDataForConfig
@@ -91,6 +127,7 @@ func ReadJsonConfig(filePath string) JSONDataForConfig {
 	if err != nil {
 		log.Fatal(err)
 	}
+	registerRemarkNames(&configJson)
 	return configJson
 }
 
@@ -129,6 +166,7 @@ func ReadConfig(filePath string) JSONDataForConfig {
 	}
 	err = viper.Unmarshal(&configJson)
 	defaultValue(&configJson) //设置默认值
+	registerRemarkNames(&configJson)
 
 	if err != nil {
 		log2.Print(log2.INFO, log2.BoldRed, "配置文件读取失败，请检查配置文件填写是否正确")
