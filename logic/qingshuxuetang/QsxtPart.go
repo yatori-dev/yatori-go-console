@@ -48,10 +48,10 @@ func UserLoginOperation(users []config.User) []*qsxt.QsxtUserCache {
 			cache := &qsxt.QsxtUserCache{Account: user.Account, Password: user.Password}
 			_, err := action.QsxtLoginAction(cache) // 登录
 			if err != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.White, "] ", lg.Red, err.Error())
 				log.Fatal(err) //登录失败则直接退出
 			}
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Green, "登录成功")
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "] ", lg.Green, "登录成功")
 			UserCaches = append(UserCaches, cache)
 		}
 	}
@@ -75,7 +75,7 @@ func userBlock(setting config.Setting, user *config.User, cache *qsxt.QsxtUserCa
 	}
 	videosLock.Wait() //等待课程刷完
 
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, global.AccountTypeStr[user.AccountType]))
@@ -103,7 +103,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *qsxt.Qs
 		return
 	}
 	//执行刷课---------------------------------
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "]", "【", course.CourseName, "】", lg.Purple, "正在学习该课程")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(userCache.Account), lg.Default, "]", "【", course.CourseName, "】", lg.Purple, "正在学习该课程")
 	//nodeList := ketangx.PullNodeListAction(userCache, course) //拉取对应课程的视频列表
 	//分数不够且视频模式是开启的情况下才进行学习
 	if user.CoursesCustom.VideoModel != 0 {
@@ -158,7 +158,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *qsxt.Qs
 			nodeWorkAction(setting, user, userCache, course, &work)
 		}
 	}
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "]", "【"+course.CourseName+"】", lg.Green, "课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(userCache.Account), lg.Default, "]", "【"+course.CourseName+"】", lg.Green, "课程学习完毕")
 
 }
 
@@ -181,19 +181,19 @@ func nodeSubmitTimeAction(user *config.User, cache *qsxt.QsxtUserCache, course *
 
 	startId, err2 := node.StartStudyTimeAction(cache)
 	if err2 != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.BoldRed, "开始学习接口异常：", err2.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.BoldRed, "开始学习接口异常：", err2.Error())
 	}
 
 	studyTime := 0                 //当前累计学习了多久
 	maxTime := endTime - totalTime //最大学习多长时间
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.Green, "正在开始学习,进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), ",服务器返回信息: ", startId)
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.Green, "正在开始学习,进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), ",服务器返回信息: ", startId)
 	for {
 		time.Sleep(60 * time.Second)
 		submitResult, err3 := node.SubmitStudyTimeAction(cache, startId, false)
 		if err3 != nil {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.BoldRed, "学习异常：", err3.Error())
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.BoldRed, "学习异常：", err3.Error())
 		}
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.Green, "学时提交成功,进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), ",服务器返回信息: ", submitResult)
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.Green, "学时提交成功,进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), ",服务器返回信息: ", submitResult)
 		studyTime += 60
 		if studyTime >= maxTime {
 			break
@@ -201,10 +201,10 @@ func nodeSubmitTimeAction(user *config.User, cache *qsxt.QsxtUserCache, course *
 	}
 	submitResult, err3 := node.SubmitStudyTimeAction(cache, startId, true)
 	if err3 != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.BoldRed, "结束学习接口异常：", err3.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.BoldRed, "结束学习接口异常：", err3.Error())
 	}
 	action.UpdateCourseScore(cache, course) //看完一个视频就更新一次分数
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.Green, "学习完毕,进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), ",服务器返回信息: ", submitResult)
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.NodeName+"】", lg.Green, "学习完毕,进度: ", fmt.Sprintf("%d/%d", studyTime+totalTime, endTime), ",服务器返回信息: ", submitResult)
 }
 
 // 作业
@@ -212,7 +212,7 @@ func nodeWorkAction(setting config.Setting, user *config.User, cache *qsxt.QsxtU
 	if work.AnswerStatus == 2 { //如果答过了则直接退出
 		return
 	}
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+work.Title+"】", lg.Yellow, "正在自动完成作业... ")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+work.Title+"】", lg.Yellow, "正在自动完成作业... ")
 	submitStatus := false
 	if user.CoursesCustom.ExamAutoSubmit == 0 {
 		submitStatus = false
@@ -221,10 +221,10 @@ func nodeWorkAction(setting config.Setting, user *config.User, cache *qsxt.QsxtU
 	}
 	submitResult, err3 := action.WriteWorkAction(cache, *work, submitStatus)
 	if err3 != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+work.Title+"】", lg.BoldRed, "作业提交异常：", err3.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+work.Title+"】", lg.BoldRed, "作业提交异常：", err3.Error())
 	}
 	action.UpdateCourseScore(cache, course) //答完一个作业就更新一次分数
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+work.Title+"】", lg.Green, "作业已自动完成,服务器返回信息: ", submitResult)
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+work.Title+"】", lg.Green, "作业已自动完成,服务器返回信息: ", submitResult)
 }
 
 // 资料累计学时
@@ -232,11 +232,11 @@ func materialSubmitTimeAction(user *config.User, cache *qsxt.QsxtUserCache, cour
 
 	startId, err2 := node.StartStudyTimeAction(cache)
 	if err2 != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.BoldRed, "资料文件开始学习接口异常：", err2.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.BoldRed, "资料文件开始学习接口异常：", err2.Error())
 	}
 
 	studyTime := 0 //当前累计学习了多久
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.Green, "正在开始学习资料文件,学习时长: ", fmt.Sprintf("%d", studyTime), ",服务器返回信息: ", startId)
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.Green, "正在开始学习资料文件,学习时长: ", fmt.Sprintf("%d", studyTime), ",服务器返回信息: ", startId)
 	for {
 		//如果分数以及满了则直接退出
 		if course.CourseMaterialsLearnGainCore >= course.CourseMaterialsLearnTotalCore {
@@ -245,16 +245,16 @@ func materialSubmitTimeAction(user *config.User, cache *qsxt.QsxtUserCache, cour
 		time.Sleep(60 * time.Second)
 		submitResult, err3 := node.SubmitStudyTimeAction(cache, startId, false)
 		if err3 != nil {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.BoldRed, "资料文件学习异常：", err3.Error())
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.BoldRed, "资料文件学习异常：", err3.Error())
 		}
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.Green, "资料文件学时提交成功,学习时长: ", fmt.Sprintf("%d", studyTime), ",服务器返回信息: ", submitResult)
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.Green, "资料文件学时提交成功,学习时长: ", fmt.Sprintf("%d", studyTime), ",服务器返回信息: ", submitResult)
 		studyTime += 60
 		action.UpdateCourseScore(cache, course) //看完一个视频就更新一次分数
 	}
 	submitResult, err3 := node.SubmitStudyTimeAction(cache, startId, true)
 	if err3 != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.BoldRed, "结束资料文件学习接口异常：", err3.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.BoldRed, "结束资料文件学习接口异常：", err3.Error())
 	}
 
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.Green, "资料文件学习完毕,学习时长: ", fmt.Sprintf("%d", studyTime), ",服务器返回信息: ", submitResult)
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "]", lg.Default, "【"+course.CourseName+"】", "【"+node.Name+"】", lg.Green, "资料文件学习完毕,学习时长: ", fmt.Sprintf("%d", studyTime), ",服务器返回信息: ", submitResult)
 }

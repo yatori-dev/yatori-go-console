@@ -48,7 +48,7 @@ func UserLoginOperation(users []config.User) []*cqieApi.CqieUserCache {
 			cache := &cqieApi.CqieUserCache{Account: user.Account, Password: user.Password}
 			err := cqie.CqieLoginAction(cache) // 登录
 			if err != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.White, "] ", lg.Red, err.Error())
 				log.Fatal(err) //登录失败则直接退出
 			}
 			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "["+cache.Account+"] "+" 登录成功")
@@ -74,7 +74,7 @@ func userBlock(setting config.Setting, user *config.User, cache *cqieApi.CqieUse
 	}
 	videosLock.Wait() //等待课程刷完
 
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, global.AccountTypeStr[user.AccountType]))
@@ -101,7 +101,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *cqieApi
 	//执行刷课---------------------------------
 	nodeList, _ := cqie.PullCourseVideoListAndProgress(userCache, course) //拉取对应课程的视频列表
 	//失效重登检测
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.CourseName+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(userCache.Account), lg.Default, "] ", "正在学习课程：", lg.Yellow, "【"+course.CourseName+"】 ")
 	// 提交学时
 	for _, node := range nodeList {
 		//视频处理逻辑
@@ -114,7 +114,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *cqieApi
 			break
 		}
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.CourseName+"】 ", "学习完毕")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 1, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(userCache.Account), lg.Default, "] ", lg.Green, "课程", "【"+course.CourseName+"】 ", "学习完毕")
 
 }
 
@@ -124,7 +124,7 @@ func videoAction(setting config.Setting, user *config.User, UserCache *cqieApi.C
 		return
 	}
 
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, "【"+node.VideoName+"】 ")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", lg.Yellow, "正在学习视频：", lg.Default, "【"+node.VideoName+"】 ")
 	nowTime := time.Now()
 	startPos := node.StudyTime
 	stopPos := node.StudyTime
@@ -145,18 +145,18 @@ func videoAction(setting config.Setting, user *config.User, UserCache *cqieApi.C
 		}
 		err := cqie.SubmitStudyTimeAction(UserCache, &node, nowTime, startPos, stopPos, maxPos)
 		if err != nil {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "提交学时异常：", err.Error())
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "提交学时异常：", err.Error())
 		}
-		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", "【"+node.VideoName+"】  >>> ", "提交状态：", "成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float32(node.StudyTime)/float32(node.TimeLength)), "%")
+		modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", "【"+node.VideoName+"】  >>> ", "提交状态：", "成功", lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float32(node.StudyTime)/float32(node.TimeLength)), "%")
 		startPos = startPos + 3
 		stopPos = stopPos + 3
 		time.Sleep(3 * time.Second)
 	}
 	err = cqie.SaveVideoStudyTimeAction(UserCache, &node, startPos, stopPos) //学完之后保存学习点
 	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "保存学习点异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "保存学习点异常：", err.Error())
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "视频：", lg.Default, "【"+node.VideoName+"】 ", lg.Green, "学习完毕")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", lg.Yellow, "视频：", lg.Default, "【"+node.VideoName+"】 ", lg.Green, "学习完毕")
 }
 
 // videoAction 刷视频逻辑抽离(秒刷版本)
@@ -174,11 +174,11 @@ func videoActionSecondBrush(setting config.Setting, user *config.User, UserCache
 	}
 	err1 := cqie.SubmitStudyTimeAction(UserCache, &node, nowTime, startPos, stopPos, maxPos)
 	if err1 != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "提交学时异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "提交学时异常：", err.Error())
 	}
 	err = cqie.SaveVideoStudyTimeAction(UserCache, &node, startPos, stopPos) //学完之后保存学习点
 	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "保存学习点异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", "【"+node.VideoName+"】", lg.BoldRed, "保存学习点异常：", err.Error())
 	}
-	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Yellow, "视频：", lg.Default, "【"+node.VideoName+"】 ", lg.Green, "学习完毕")
+	modelLog.ModelPrint(setting.BasicSetting.LogModel == 0, lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", lg.Yellow, "视频：", lg.Default, "【"+node.VideoName+"】 ", lg.Green, "学习完毕")
 }
