@@ -55,6 +55,58 @@ export const getAccounts = async (): Promise<GetAccountsResponse> => {
   }
 }
 
+export interface AccountDetailResponse {
+  code: number
+  msg: string
+  data?: {
+    user: {
+      uid: string
+      accountType: string
+      url?: string
+      account: string
+      password: string
+      isProxy?: number
+      informEmails?: string[]
+      coursesCustom?: Record<string, any>
+      userConfigJson?: string
+      isRunning?: boolean
+      remarkName?: string
+    }
+  }
+}
+
+export const getAccountDetail = async (uid: string): Promise<AccountDetailResponse> => {
+  try {
+    return await apiClient.get(`/v1/getAccountInformForUid/${uid}`) as AccountDetailResponse
+  } catch (error: any) {
+    return {
+      code: 500,
+      msg: error.response?.data?.msg || '获取账号详情失败'
+    }
+  }
+}
+
+export interface AccountLogsResponse {
+  code: number
+  message: string
+  data?: {
+    success: boolean
+    uid: string
+    logs: string
+  }
+}
+
+export const getAccountLogs = async (uid: string): Promise<AccountLogsResponse> => {
+  try {
+    return await apiClient.get(`/v1/getAccountLogs/${uid}`) as AccountLogsResponse
+  } catch (error: any) {
+    return {
+      code: 500,
+      message: error.response?.data?.message || '获取账号日志失败'
+    }
+  }
+}
+
 // 删除账号的API返回结构
 export interface DeleteAccountsResponse {
   code: number
@@ -74,7 +126,34 @@ export const deleteAccountForUid = async (uid: string): Promise<DeleteAccountsRe
   }
 }
 
-// 更新账号配置
+export interface UpdateAccountParams {
+  uid: string
+  accountType: string
+  url?: string
+  account: string
+  password: string
+  remarkName?: string
+  isProxy?: number
+  informEmails?: string[]
+  coursesCustom?: Record<string, any>
+}
+
+export interface UpdateAccountResponse {
+  code: number
+  message?: string
+  msg?: string
+}
+
+export const updateAccount = async (params: UpdateAccountParams): Promise<UpdateAccountResponse> => {
+  try {
+    return await apiClient.post('/v1/updateAccount', params) as UpdateAccountResponse
+  } catch (error: any) {
+    return {
+      code: 500,
+      message: error.response?.data?.message || error.response?.data?.msg || '更新账号失败'
+    }
+  }
+}
 
 
 export interface StartBrushForUidResponse {
@@ -85,7 +164,7 @@ export interface StartBrushForUidResponse {
 export const startBrushForUid = async (uid: string): Promise<StartBrushForUidResponse> => {
     try {
         // 统一使用类型断言保持一致性
-        return await apiClient.post(`/v1/startBrush/${uid}`) as StartBrushForUidResponse;
+        return await apiClient.get(`/v1/startBrush/${uid}`) as StartBrushForUidResponse;
     } catch (error: any) {
         console.error('Error in deleteAccount:', error)
         return {
@@ -102,7 +181,7 @@ export interface StopBrushForUidResponse {
 export const stopBrushForUid = async (uid: string): Promise<StopBrushForUidResponse> => {
     try {
         // 统一使用类型断言保持一致性
-        return await apiClient.post(`/v1/stopBrush/${uid}`) as StopBrushForUidResponse;
+        return await apiClient.get(`/v1/stopBrush/${uid}`) as StopBrushForUidResponse;
     } catch (error: any) {
         console.error('Error in deleteAccount:', error)
         return {

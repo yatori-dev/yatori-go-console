@@ -11,6 +11,7 @@ import (
 	"strings"
 	"yatori-go-console/dao"
 	"yatori-go-console/global"
+	"yatori-go-console/web/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,6 +24,7 @@ func ServiceInit() {
 		panic(err)
 	}
 	global.GlobalDB = dbInit
+	service.StartAutoExecutionScheduler()
 
 	// 初始化服务器
 	initServer := serverInit()

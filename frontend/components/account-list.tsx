@@ -82,36 +82,35 @@ export function AccountList() {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
     const [loading, setLoading] = useState(true)
 
+    const fetchAccounts = async () => {
+        setLoading(true)
+        try {
+            const response = await getAccounts()
+            if (response.code === 200) {
+                const formattedAccounts: Account[] = response.data.users.map((user) => ({
+                    uid: user.uid,
+                    accountType: user.accountType,
+                    url: user.url,
+                    account: user.account,
+                    password: user.password,
+                    isRunning: user.isRunning,
+                    userConfigJson: user.userConfigJson,
+                    status: "active",
+                    courseCount: 0,
+                }))
+                setAccounts(formattedAccounts)
+            } else {
+                console.error(response.message)
+            }
+        } catch (error) {
+            console.error("Failed to fetch accounts:", error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
     // 获取账号列表数据
     useEffect(() => {
-        const fetchAccounts = async () => {
-            setLoading(true)
-            try {
-                const response = await getAccounts()
-                if (response.code === 200) {
-                    // 将API返回的数据转换为组件需要的Account类型
-                    const formattedAccounts: Account[] = response.data.users.map((user, index) => ({
-                        uid: user.uid, // 使用索引作为临时ID
-                        accountType: user.accountType,
-                        url: user.url,
-                        account: user.account,
-                        password: user.password,
-                        isRunning: user.isRunning,
-                        userConfigJson: user.userConfigJson,
-                        status: "active", // 默认状态为active
-                        courseCount: 0, // 默认课程数量为0
-                    }))
-                    setAccounts(formattedAccounts)
-                } else {
-                    console.error(response.message)
-                }
-            } catch (error) {
-                console.error("Failed to fetch accounts:", error)
-            } finally {
-                setLoading(false)
-            }
-        }
-
         fetchAccounts()
     }, [])
 
@@ -128,7 +127,7 @@ export function AccountList() {
             // 调用API删除账号
             const response = await apiDeleteAccountForUid(uid)
             if (response.code === 200) {
-                setAccounts(accounts.filter((acc) => acc.uid !== uid))
+                await fetchAccounts()
             } else {
                 // API删除失败
                 console.error("删除失败:", response.message)
@@ -151,16 +150,13 @@ export function AccountList() {
         }
     }
 
-    const handleAddAccount = (account: Account) => {
-        const newAccount = {
-            ...account
-        }
-        setAccounts([...accounts, newAccount])
+    const handleAddAccount = async (_account: Account) => {
+        await fetchAccounts()
     }
 
     if (selectedAccount) {
         return (
-            <AccountDetail account={selectedAccount} onBack={handleBack}/>
+            <AccountDetail account={selectedAccount} onBack={handleBack} onUpdated={fetchAccounts}/>
         )
     }
 

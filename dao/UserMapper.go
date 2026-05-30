@@ -112,3 +112,42 @@ func UpdateUser(db *gorm.DB, uid string, updateData map[string]interface{}) erro
 
 	return nil
 }
+
+func UpsertUser(db *gorm.DB, user *pojo.UserPO) error {
+	if user == nil || user.Uid == "" {
+		return errors.New("用户信息无效")
+	}
+
+	existing, err := QueryUser(db, pojo.UserPO{Uid: user.Uid})
+	if err != nil && err.Error() != "用户不存在" {
+		return err
+	}
+
+	if existing == nil {
+		return InsertUser(db, user)
+	}
+
+	updateData := map[string]interface{}{
+		"account_type":     user.AccountType,
+		"url":              user.Url,
+		"account":          user.Account,
+		"password":         user.Password,
+		"user_config_json": user.UserConfigJson,
+	}
+	return UpdateUser(db, user.Uid, updateData)
+}
+
+func DeleteUsersNotInUIDs(db *gorm.DB, uids []string) error {
+	query := db.Model(&pojo.UserPO{})
+	if len(uids) == 0 {
+		if err := query.Delete(&pojo.UserPO{}).Error; err != nil {
+			return errors.New("删除用户失败: " + err.Error())
+		}
+		return nil
+	}
+
+	if err := query.Where("uid NOT IN ?", uids).Delete(&pojo.UserPO{}).Error; err != nil {
+		return errors.New("删除用户失败: " + err.Error())
+	}
+	return nil
+}

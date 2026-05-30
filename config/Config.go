@@ -33,6 +33,7 @@ type BasicSetting struct {
 	LogLevel       string `json:"logLevel,omitempty" yaml:"logLevel"`                         //日志等级，默认INFO，DEBUG为找BUG调式用的，日志内容较详细，默认为INFO
 	LogModel       int    `json:"logModel" yaml:"logModel"`                                   //日志模式，0代表以视频提交学时基准打印日志，1代表以一个课程为基准打印信息，默认为0
 	WebModel       int    `json:"webModel" yaml:"webModel"`
+	AdminPassword  string `json:"adminPassword,omitempty" yaml:"adminPassword"`
 }
 type AiSetting struct {
 	AiType ctype.AiType `json:"aiType" yaml:"aiType"`
@@ -57,18 +58,20 @@ type CoursesSettings struct {
 	ExcludeExams []string `json:"excludeExams" yaml:"excludeExams"`
 }
 type CoursesCustom struct {
-	StudyTime       string            `json:"studyTime" yaml:"studyTime"`             //WeLearn设置刷学时的时候范围
-	CxNode          *int              `json:"cxNode" yaml:"cxNode"`                   //学习通多任务点模式下设置同时任务点数量
-	CxChapterTestSw *int              `json:"cxChapterTestSw" yaml:"cxChapterTestSw"` //学习通是否开启章测
-	CxWorkSw        *int              `json:"cxWorkSw" yaml:"cxWorkSw"`               //学习通是否开启作业
-	CxExamSw        *int              `json:"cxExamSw" yaml:"cxExamSw"`               //学习通是否开启考试
-	ShuffleSw       int               `json:"shuffleSw" yaml:"shuffleSw"`             //是否打乱顺序学习，1为打乱顺序，0为不打乱
-	VideoModel      int               `json:"videoModel" yaml:"videoModel"`           //观看视频模式
-	AutoExam        int               `json:"autoExam" yaml:"autoExam"`               //是否自动考试
-	ExamAutoSubmit  int               `json:"examAutoSubmit" yaml:"examAutoSubmit"`   //是否自动提交试卷
-	ExcludeCourses  []string          `json:"excludeCourses" yaml:"excludeCourses"`
-	IncludeCourses  []string          `json:"includeCourses" yaml:"includeCourses"`
-	CoursesSettings []CoursesSettings `json:"coursesSettings" yaml:"coursesSettings"`
+	StudyTime        string            `json:"studyTime" yaml:"studyTime"`               //WeLearn设置刷学时的时候范围
+	AutoRunStartTime string            `json:"autoRunStartTime" yaml:"autoRunStartTime"` // 每天自动执行开始时间，格式 HH:MM
+	AutoRunEndTime   string            `json:"autoRunEndTime" yaml:"autoRunEndTime"`     // 每天自动执行结束时间，格式 HH:MM
+	CxNode           *int              `json:"cxNode" yaml:"cxNode"`                     //学习通多任务点模式下设置同时任务点数量
+	CxChapterTestSw  *int              `json:"cxChapterTestSw" yaml:"cxChapterTestSw"`   //学习通是否开启章测
+	CxWorkSw         *int              `json:"cxWorkSw" yaml:"cxWorkSw"`                 //学习通是否开启作业
+	CxExamSw         *int              `json:"cxExamSw" yaml:"cxExamSw"`                 //学习通是否开启考试
+	ShuffleSw        int               `json:"shuffleSw" yaml:"shuffleSw"`               //是否打乱顺序学习，1为打乱顺序，0为不打乱
+	VideoModel       int               `json:"videoModel" yaml:"videoModel"`             //观看视频模式
+	AutoExam         int               `json:"autoExam" yaml:"autoExam"`                 //是否自动考试
+	ExamAutoSubmit   int               `json:"examAutoSubmit" yaml:"examAutoSubmit"`     //是否自动提交试卷
+	ExcludeCourses   []string          `json:"excludeCourses" yaml:"excludeCourses"`
+	IncludeCourses   []string          `json:"includeCourses" yaml:"includeCourses"`
+	CoursesSettings  []CoursesSettings `json:"coursesSettings" yaml:"coursesSettings"`
 }
 type User struct {
 	AccountType   string        `json:"accountType" yaml:"accountType"`
