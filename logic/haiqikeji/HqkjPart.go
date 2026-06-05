@@ -130,6 +130,9 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *hqkjApi
 		break
 	}
 
+	//===== AI 自动答题接入（作业 + 考试）：不改动上方任何视频刷课逻辑，仅在其后追加 =====
+	runAutoAnswer(setting, user, userCache, course, nodeList)
+
 	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(userCache.Account), lg.Default, "] ", lg.Green, "课程", "【"+course.Name+"】 ", "学习完毕")
 
 }
