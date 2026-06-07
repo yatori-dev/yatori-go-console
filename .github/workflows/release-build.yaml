@@ -13,25 +13,55 @@ on:
 
 permissions:
   contents: write
-#  - [👏]
-#  - [‍🔧]
-#  - [☠️]
+
 env:
   PROJECT_NAME: ${{ github.event.repository.name }}
   BUILD_DATE: ${{ github.run_id }}
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍🔧] 修复海旗科技无法正常使用问题
-    
+    - [👏] 优化学习通题目截取，提高答题正确率
+
     
     学习通用户注意：
         如果学习通课程中有前置任务点完成才能解锁后续任务的不能使用多任务点模式！！！（多任务点模式会失效）
         每天学习累计学时不要太久，超过1200分钟可能会打回学习进度（尤其是多课程或多任务点模式），请自行把控好。因为太离谱了。
+    
+    注：智慧职教刚上线，可能并不稳定，若有bug可发送issue或者加群反馈。（智慧职教仅支持Windows系统）
 
 jobs:
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: cd frontend && pnpm install
+
+      - name: Build frontend
+        run: cd frontend && pnpm build
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/out
+
   build:
     name: Build (${{ matrix.os }}-${{ matrix.arch }})
+    needs: build-frontend
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -62,6 +92,12 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: assets/web
+
       - name: Install dependencies (Linux)
         if: runner.os == 'Linux' && matrix.arch=='amd64'
         run: |
@@ -73,7 +109,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
-      
 
       # Set up Go
       - name: Set up Go
@@ -117,35 +152,47 @@ jobs:
       - name: Build Linux
         if: runner.os=='Linux' && matrix.arch=='amd64'
         run: |
-          CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
-            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+          go build -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+        env:
+          CGO_ENABLED: 1
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
 
       # Build Linux
       - name: Build Linux
         if: runner.os=='Linux' && matrix.arch=='arm64'
         run: |
-          CC=aarch64-linux-gnu-gcc CGO_ENABLED=1 GOOS=linux GOARCH=${{matrix.arch}} go build \
-            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+          go build -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/${{ env.PROJECT_NAME }}
+        env:
+          CC: aarch64-linux-gnu-gcc
+          CGO_ENABLED: 1
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
 
       # Build Windows
       - name: Build Windows
         if: runner.os == 'Windows'
         run: |
-          set CGO_ENABLED=1
-          set GOOS=windows 
-          set GOARCH=${{matrix.arch}} 
           go build -o ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\${{ env.PROJECT_NAME }}.exe
+        env:
+          CGO_ENABLED: 1
+          GOOS: windows
+          GOARCH: ${{ matrix.arch }}
 
       # 🧱 构建 Macos
       - name: Build macOS
         if: matrix.goos == 'darwin'
         run: |
-          CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} go build \
-            -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
+          go build -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
+        env:
+          CGO_ENABLED: 1
+          GOOS: darwin
+          GOARCH: ${{ matrix.arch }}
 
       - name: Create release tar
         if: runner.os=='Linux'
         run: | # 打包发布版本压缩包
+          cp -r assets ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/assets
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           cp command/配置文件生成器.html ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           cd ${{ env.RELEASE_DIR }}
@@ -157,6 +204,7 @@ jobs:
       - name: Create Release zip
         if: runner.os=='Windows'
         run: |
+          xcopy assets ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\assets /e /i /h
           copy command\config.yaml ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           copy command\start.bat ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           copy command\双击start.bat启动程序 ${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
@@ -170,6 +218,7 @@ jobs:
       - name: Create macOS Release tar
         if: matrix.goos == 'darwin'
         run: |
+          cp -r assets ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/assets
           cp command/config.yaml ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cp command/配置文件生成器.html ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release
           cd ${{ env.RELEASE_DIR }}
@@ -185,7 +234,7 @@ jobs:
           path: ${{ env.RELEASE_DIR }}/*
 
   # =========================================================
-  # 🚀 Release Job（只跑一次，解决 finalize 炸雷）
+  # 🚀 Release Job（只跑一次，避免 finalize 炸雷）
   # =========================================================
   release:
     name: Create GitHub Release
@@ -210,4 +259,6 @@ jobs:
           body: ${{ env.RELEASE_NOTICES }}
           draft: false
           prerelease: false
-          files: ${{ env.RELEASE_DIR }}/**/*  # 文件发布目录
+          files: |
+            release/**/*.tar.gz
+            release/**/*.zip

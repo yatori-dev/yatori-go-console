@@ -14,6 +14,7 @@ func (router Group) ApiV1Router() {
 	router.POST("/v1/accountLoginCheck", userApi.AccountLoginCheckController)         //账号登录检测，用于检测账号密码是否正确
 	router.GET("/v1/getAccountInformForUid/:uid", userApi.GetAccountInformController) //拉取配置数据
 	router.GET("/v1/getAccountCourseList/:uid", userApi.AccountCourseListController)  //获取课程列表
+	router.GET("/v1/getAccountLogs/:uid", userApi.AccountLogsController)              //获取账号日志
 	router.GET("/v1/startBrush/:uid", userApi.StartBrushController)                   //启动刷课
 	router.GET("/v1/stopBrush/:uid", userApi.StopBrushController)                     //停止刷课
 
