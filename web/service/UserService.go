@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -541,15 +542,39 @@ func TestAiConfigService(c *gin.Context) {
 		return
 	}
 	fullUrl := req.BaseUrl + resolveEndpoint(req.Endpoint, req.CustomEp)
+
+	// 使用json.Marshal构建请求体，避免JSON注入
+	testBodyStruct := map[string]interface{}{
+		"model": req.Model,
+		"messages": []map[string]string{
+			{"role": "user", "content": "hi"},
+		},
+	}
+	testBodyBytes, err := json.Marshal(testBodyStruct)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "构建请求体失败: " + err.Error()})
+		return
+	}
+
+	req2, err := http.NewRequest("POST", fullUrl, bytes.NewReader(testBodyBytes))
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求构建失败: " + err.Error()})
+		return
+	}
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "Bearer "+req.ApiKey)
 	client := &http.Client{Timeout: 10 * time.Second}
-	testBody := `{"model":"` + req.Model + `","messages":[{"role":"user","content":"hi"}]}`
-	resp, err := client.Post(fullUrl, "application/json", strings.NewReader(testBody))
+	resp, err := client.Do(req2)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "连接失败: " + err.Error()})
 		return
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "读取响应失败: " + err.Error()})
+		return
+	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		c.JSON(http.StatusOK, gin.H{"success": true, "message": "HTTP " + fmt.Sprintf("%d", resp.StatusCode)})
 	} else {

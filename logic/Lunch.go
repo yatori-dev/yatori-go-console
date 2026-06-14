@@ -141,8 +141,14 @@ func Lunch() {
 
 		// 保存基础配置
 		data, err := yaml.Marshal(&configJson)
-		if err == nil {
-			_ = os.WriteFile("./config.yaml", data, 0644)
+		if err != nil {
+			lg.Print(lg.INFO, lg.Red, "配置序列化失败: ", err.Error())
+		} else {
+			if err := os.WriteFile("./config.yaml", data, 0644); err != nil {
+				lg.Print(lg.INFO, lg.Red, "配置文件保存失败: ", err.Error())
+			} else {
+				lg.Print(lg.INFO, lg.Green, "配置文件已保存")
+			}
 		}
 	}
 
@@ -290,11 +296,11 @@ func checkProxyIp() {
 			continue
 		}
 		lg.Print(lg.INFO, " ["+v+"] ", lg.Green, "检测通过，状态：", state)
-		utils2.IPProxyPool = append(utils2.IPProxyPool, v) //添加到IP代理池里面
+		utils2.AddProxy(v) // 使用线程安全的方法添加到IP代理池
 	}
 	lg.Print(lg.INFO, lg.BoldGreen, "IP检查完毕")
 	//若无可用IP代理则直接退出
-	if len(utils2.IPProxyPool) == 0 {
+	if utils2.GetProxyCount() == 0 {
 		lg.Print(lg.INFO, lg.BoldRed, "无可用IP代理池，已关闭IP代理功能")
 	}
 }

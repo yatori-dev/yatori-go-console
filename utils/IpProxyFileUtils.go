@@ -7,11 +7,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
 	time2 "time"
 )
 
-var IPProxyPool []string //全局Ip代理池子
-var IsProxyFlag bool     //是否开启了IP代理
+var (
+	IPProxyPool []string     // 全局Ip代理池子
+	IsProxyFlag bool         // 是否开启了IP代理
+	proxyMutex  sync.RWMutex // 保护IPProxyPool的并发访问
+)
 
 // IpFilesReader IP代理池文件读取
 func IpFilesReader(path string) ([]string, error) {
@@ -79,5 +83,24 @@ func CheckProxyIp(proxyIP string) (bool /*是否通过测试*/, string /*响应�
 
 // 随机获取代理
 func RandProxyStr() string {
+	proxyMutex.RLock()
+	defer proxyMutex.RUnlock()
+	if len(IPProxyPool) == 0 {
+		return ""
+	}
 	return IPProxyPool[rand.Intn(len(IPProxyPool))]
+}
+
+// AddProxy 线程安全地添加代理到池中
+func AddProxy(proxy string) {
+	proxyMutex.Lock()
+	defer proxyMutex.Unlock()
+	IPProxyPool = append(IPProxyPool, proxy)
+}
+
+// GetProxyCount 线程安全地获取代理池大小
+func GetProxyCount() int {
+	proxyMutex.RLock()
+	defer proxyMutex.RUnlock()
+	return len(IPProxyPool)
 }

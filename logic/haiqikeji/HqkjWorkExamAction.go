@@ -177,8 +177,13 @@ func answerQuiz(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 			subResult, err = workAnswerApi(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, t.WrId, t.WaId, strconv.Itoa(t.TypeInt), answers)
 		} else { // 考试走 console 全字段 examAnswerApi（核心库 AnswerApi 只发 recordId、缺 wrId/waId）
 			if examDryRun { // 【考试 dry-run】只打印将提交的 payload，绝不真正提交；有开放考试核对无误后把 examDryRun 改为 false 放开
+				payload, err := examAnswerPayload(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, t.WrId, t.WaId, strconv.Itoa(t.TypeInt), answers)
+				if err != nil {
+					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.BoldRed, "构建payload失败：", err.Error())
+					continue
+				}
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ",
-					lg.Yellow, "【考试DRY-RUN·未提交】", examAnswerPayload(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, t.WrId, t.WaId, strconv.Itoa(t.TypeInt), answers))
+					lg.Yellow, "【考试DRY-RUN·未提交】", payload)
 				continue
 			}
 			subResult, err = examAnswerApi(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, t.WrId, t.WaId, strconv.Itoa(t.TypeInt), answers)
@@ -206,9 +211,14 @@ func aiAnswerTopic(setting config.Setting, account string, t hqkjTopic) []string
 	aiAnswer, err := aiq.AggregationAIApi(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, aiq.BuildAiQuestionMessage(t.Question), setting.AiSetting.APIKEY)
 	if err != nil {
 		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr["HQKJ"]), "[", lg.Green, config.DisplayAccount(account), lg.Default, "] ", lg.BoldRed, "AI回答异常：", err.Error())
+		// AI失败时返回空答案，让兜底逻辑处理
+		return []string{}
 	}
 	var contents []string
-	_ = json.Unmarshal([]byte(aiAnswer), &contents)
+	if err := json.Unmarshal([]byte(aiAnswer), &contents); err != nil {
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr["HQKJ"]), "[", lg.Green, config.DisplayAccount(account), lg.Default, "] ", lg.BoldRed, "AI响应解析失败：", err.Error())
+		return []string{}
+	}
 
 	qt := qtype.Index(t.Question.Type)
 	var answers []string
@@ -539,7 +549,7 @@ func pullConsultApi(cache *hqkjApi.HqkjUserCache, kind, recordId, courseId strin
 // workAnswerApi 提交作业答案。核心库只有考试版 yee_exam_answer_add，这里按对称范式实现作业版
 // yee_work_answer_add；payload 在考试版基础上把 examId 换 workId，并补上 consult 拿到的 wrId/waId。
 func workAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, workId, topicId, recordId, wrId, waId, qType string, answers []string) (string, error) {
-	// recordId 与 wrId 是同一“作答记录id”在 workTopics/workResult 两种返回里的不同字段名，互补取非空值
+	// recordId 与 wrId 是同一"作答记录id"在 workTopics/workResult 两种返回里的不同字段名，互补取非空值
 	if recordId == "" {
 		recordId = wrId
 	}
@@ -555,8 +565,11 @@ func workAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, workId, topicId, reco
 	if waId == "" {
 		waId = "0"
 	}
-	answersData, _ := json.Marshal(answers)
-	// 三次实测铁律：payload 必须带 recordId（缺则服务端“系统异常”），其值=wrId；并保留 wrId/waId 给全字段最大化成功率。
+	answersData, err := json.Marshal(answers)
+	if err != nil {
+		return "", fmt.Errorf("答案序列化失败: %w", err)
+	}
+	// 三次实测铁律：payload 必须带 recordId（缺则服务端"系统异常"），其值=wrId；并保留 wrId/waId 给全字段最大化成功率。
 	payload := `{"schoolId":` + cache.SchoolId + `,"courseId":` + courseId + `,"userId":` + cache.UserId +
 		`,"workId":` + workId + `,"recordId":` + recordId + `,"wrId":` + wrId + `,"waId":` + waId +
 		`,"topicId":` + topicId + `,"answer":` + string(answersData) + `,"type":` + qType + `}`
@@ -594,7 +607,7 @@ const examDryRun = true
 
 // examAnswerPayload 构造考试提交 payload。与已实测打通的作业 workAnswerApi 对称（仅 workId→examId、接口路径不同）：
 // 考试 consult 返回 workResult 同样给 wrId/waId、无 recordId，故 recordId↔wrId 互补取非空值、并带全字段。
-func examAnswerPayload(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, recordId, wrId, waId, qType string, answers []string) string {
+func examAnswerPayload(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, recordId, wrId, waId, qType string, answers []string) (string, error) {
 	if recordId == "" {
 		recordId = wrId
 	}
@@ -610,16 +623,22 @@ func examAnswerPayload(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, 
 	if waId == "" {
 		waId = "0"
 	}
-	answersData, _ := json.Marshal(answers)
+	answersData, err := json.Marshal(answers)
+	if err != nil {
+		return "", fmt.Errorf("答案序列化失败: %w", err)
+	}
 	return `{"schoolId":` + cache.SchoolId + `,"courseId":` + courseId + `,"userId":` + cache.UserId +
 		`,"examId":` + examId + `,"recordId":` + recordId + `,"wrId":` + wrId + `,"waId":` + waId +
-		`,"topicId":` + topicId + `,"answer":` + string(answersData) + `,"type":` + qType + `}`
+		`,"topicId":` + topicId + `,"answer":` + string(answersData) + `,"type":` + qType + `}`, nil
 }
 
 // examAnswerApi 提交考试答案（yee_exam_answer_add）。核心库 AnswerApi 只发 recordId、缺 wrId/waId，
 // 这里仿已验证的作业版 workAnswerApi 带全字段，复用 cache 会话与代理设置。
 func examAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, recordId, wrId, waId, qType string, answers []string) (string, error) {
-	payload := examAnswerPayload(cache, courseId, examId, topicId, recordId, wrId, waId, qType, answers)
+	payload, err := examAnswerPayload(cache, courseId, examId, topicId, recordId, wrId, waId, qType, answers)
+	if err != nil {
+		return "", err
+	}
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	if cache.IpProxySW { // 复用账号的 IP 代理设置
 		tr.Proxy = func(req *http.Request) (*url.URL, error) {
