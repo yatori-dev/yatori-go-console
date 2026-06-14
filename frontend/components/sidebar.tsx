@@ -1,28 +1,32 @@
 "use client"
 
 import { useState } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Users, FileQuestion, ChevronLeft, ChevronRight, Menu, X } from "lucide-react"
 
-export function Sidebar() {
+export type SidebarTab = "accounts" | "questions"
+
+interface SidebarProps {
+  activeTab: SidebarTab
+  onTabChange: (tab: SidebarTab) => void
+}
+
+const navItems: { id: SidebarTab; label: string; icon: typeof Users }[] = [
+  {
+    id: "accounts",
+    label: "账号管理",
+    icon: Users,
+  },
+  {
+    id: "questions",
+    label: "答题管理",
+    icon: FileQuestion,
+  },
+]
+
+export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const pathname = usePathname()
-
-  const navItems = [
-    {
-      href: "/accounts",
-      label: "账号管理",
-      icon: Users,
-    },
-    {
-      href: "/questions",
-      label: "答题管理",
-      icon: FileQuestion,
-    },
-  ]
 
   const handleMobileNavClick = () => {
     setMobileMenuOpen(false)
@@ -92,19 +96,22 @@ export function Sidebar() {
           </div>
         )}
 
-        {/* 导航菜单 */}
+        {/* 导航菜单 - 改成纯 client state 切换，不走路由 */}
         <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon
-            const isActive = pathname === item.href
+            const isActive = activeTab === item.id
 
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleMobileNavClick}
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  onTabChange(item.id)
+                  handleMobileNavClick()
+                }}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
+                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
                   "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                   isActive
                     ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
@@ -118,7 +125,7 @@ export function Sidebar() {
                 >
                   {item.label}
                 </span>
-              </Link>
+              </button>
             )
           })}
         </nav>

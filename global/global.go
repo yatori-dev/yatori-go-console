@@ -1,6 +1,7 @@
 package global
 
 import (
+	"sync"
 	"yatori-go-console/entity/pojo"
 	"yatori-go-console/web/activity"
 
@@ -23,14 +24,21 @@ var AccountTypeStr = map[string]string{
 }
 
 // key的值为uuid
-var UserActivityMap = make(map[string]*activity.Activity) //
+var (
+	UserActivityMap = make(map[string]*activity.Activity)
+	userActivityMu  sync.RWMutex
+)
 
 // 获取UserActivity
 func GetUserActivity(user pojo.UserPO) *activity.Activity {
+	userActivityMu.RLock()
+	defer userActivityMu.RUnlock()
 	return UserActivityMap[user.Uid]
 }
 
 // 添加UserActivity
 func PutUserActivity(user pojo.UserPO, activity *activity.Activity) {
+	userActivityMu.Lock()
+	defer userActivityMu.Unlock()
 	UserActivityMap[user.Uid] = activity
 }

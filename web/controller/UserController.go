@@ -3,6 +3,7 @@ package controller
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"time"
 	"yatori-go-console/web/service"
@@ -43,6 +44,11 @@ func (UserApi) AccountCourseListController(c *gin.Context) {
 	service.AccountCourseListService(c)
 }
 
+// 获取账号日志
+func (UserApi) AccountLogsController(c *gin.Context) {
+	service.AccountLogsService(c)
+}
+
 // 登录账号
 func (UserApi) LoginAccountController(c *gin.Context) {
 	service.LoginUserService(c)
@@ -51,6 +57,21 @@ func (UserApi) LoginAccountController(c *gin.Context) {
 // 更新账号信息
 func (UserApi) UpdateAccountController(c *gin.Context) {
 	service.UpdateUserService(c)
+}
+
+// 保存AI配置
+func (UserApi) SaveAiConfigController(c *gin.Context) {
+	service.SaveAiConfigService(c)
+}
+
+// 测试AI配置
+func (UserApi) TestAiConfigController(c *gin.Context) {
+	service.TestAiConfigService(c)
+}
+
+// 加载AI配置
+func (UserApi) GetAiConfigController(c *gin.Context) {
+	service.GetAiConfigService(c)
 }
 
 // 启动刷课接口
@@ -71,7 +92,7 @@ func (UserApi) StreamLog(c *gin.Context) {
 	c.Writer.Header().Set("Cache-Control", "no-cache")
 	c.Writer.Header().Set("Connection", "keep-alive")
 
-	file, err := os.Open(fmt.Sprintf(`./assets/logs/%s.log`, logID))
+	file, err := os.Open(fmt.Sprintf(`./assets/log/log%s.txt`, logID))
 	if err != nil {
 		c.String(500, "error open log file")
 		return
@@ -80,16 +101,27 @@ func (UserApi) StreamLog(c *gin.Context) {
 
 	reader := bufio.NewReader(file)
 
-	// 循环不断推送
+	// 循环不断推送，监听客户端断开
 	for {
+		select {
+		case <-c.Request.Context().Done():
+			return // 客户端断开连接，退出
+		default:
+		}
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			time.Sleep(500 * time.Millisecond)
-			continue
+			if err == io.EOF {
+				time.Sleep(500 * time.Millisecond)
+				continue
+			}
+			return // 其他文件读取错误，退出
 		}
 
 		// SSE 协议格式
-		c.Writer.Write([]byte("data: " + line + "\n\n"))
+		_, writeErr := c.Writer.Write([]byte("data: " + line + "\n\n"))
+		if writeErr != nil {
+			return // 写入失败（客户端断开），退出
+		}
 		c.Writer.Flush()
 	}
 }

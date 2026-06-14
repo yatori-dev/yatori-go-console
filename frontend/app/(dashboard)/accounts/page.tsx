@@ -1,18 +1,5 @@
-import { AccountList } from "@/components/account-list"
-
+// 此文件用于让 Next.js 把 /accounts 编译为独立 HTML 路由。
+// 实际内容由 app/(dashboard)/layout.tsx 的 client-side state 切换渲染。
 export default function AccountsPage() {
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card sticky top-0 z-10">
-        <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-foreground">账号管理</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">管理和查看所有学习账号</p>
-        </div>
-      </header>
-
-      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
-        <AccountList />
-      </div>
-    </div>
-  )
+  return null
 }

@@ -107,6 +107,45 @@ func Lunch() {
 	}
 	//读取配置文件
 	configJson := config.ReadConfig("./config.yaml")
+
+	// 检查是否为默认配置
+	isDefault := false
+	for _, u := range configJson.Users {
+		if u.Account == "账号" || u.Account == "你的账号" {
+			isDefault = true
+			break
+		}
+	}
+
+	if isDefault {
+		lg.Print(lg.INFO, lg.Yellow, "检测到当前使用的是默认配置文件，为了程序能正常运行，请先进行基础配置：")
+		webModel := config.GetUserInput("是否开启 Web 模式 (0-关闭, 1-开启): ")
+		if webModel == "1" {
+			configJson.Setting.BasicSetting.WebModel = 1
+
+			// 自动清理占位账号，防止校验报错
+			newUsers := []config.User{}
+			for _, u := range configJson.Users {
+				if u.Account != "账号" && u.Account != "你的账号" && u.Account != "你的手机号" {
+					newUsers = append(newUsers, u)
+				}
+			}
+			configJson.Users = newUsers
+
+			lg.Print(lg.INFO, lg.Green, "基础配置已更新，Web 模式已开启。")
+			lg.Print(lg.INFO, lg.Green, "启动后请访问 http://localhost:8080/web 进行账号配置")
+		} else {
+			configJson.Setting.BasicSetting.WebModel = 0
+			lg.Print(lg.INFO, lg.Cyan, "已选择命令行模式，请稍后根据报错提示手动修改 config.yaml 中的账号信息")
+		}
+
+		// 保存基础配置
+		data, err := yaml.Marshal(&configJson)
+		if err == nil {
+			_ = os.WriteFile("./config.yaml", data, 0644)
+		}
+	}
+
 	//初始化日志配置
 	lg.LogInit(lg.StringToLOGLEVEL(configJson.Setting.BasicSetting.LogLevel), configJson.Setting.BasicSetting.LogOutFileSw == 1, configJson.Setting.BasicSetting.ColorLog, "./assets/log")
 	//配置文件检查模块
@@ -206,8 +245,11 @@ func brushBlock(configData *config.JSONDataForConfig) {
 // configJsonCheck 配置文件检测检验
 func configJsonCheck(configData *config.JSONDataForConfig) {
 	if len(configData.Users) == 0 {
+		if configData.Setting.BasicSetting.WebModel == 1 {
+			return
+		}
 		lg.Print(lg.INFO, lg.BoldRed, "请先在config文件中配置好相应账号")
-		os.Exit(0)
+		os.Exit(1)
 	}
 
 	//防止用户填完整url
@@ -215,8 +257,8 @@ func configJsonCheck(configData *config.JSONDataForConfig) {
 
 		if v.AccountType == "YINGHUA" || v.AccountType == "HQKJ" {
 			if !strings.HasPrefix(v.URL, "http") {
-				lg.Print(lg.INFO, lg.BoldRed, "账号", v.Account, "未配置正确url，请先在config文件中配置好相应账号信息")
-				os.Exit(0)
+				lg.Print(lg.INFO, lg.BoldRed, "账号", v.Account, "未配置正确url，已跳过该账号")
+				continue
 			}
 			split := strings.Split(v.URL, "/")
 			(*configData).Users[i].URL = split[0] + "/" + split[1] + "/" + split[2]
@@ -238,8 +280,8 @@ func checkProxyIp() {
 	lg.Print(lg.INFO, lg.Yellow, "正在检查IP池IP可用性...")
 	reader, err := utils2.IpFilesReader("./ip.txt")
 	if err != nil {
-		lg.Print(lg.INFO, lg.BoldRed, "IP代理池文件ip.txt读取失败，请确认文件格式或者内容是否正确")
-		os.Exit(0)
+		lg.Print(lg.INFO, lg.BoldRed, "IP代理池文件ip.txt读取失败，已关闭IP代理功能")
+		return
 	}
 	for _, v := range reader {
 		_, state, err := utils2.CheckProxyIp(v)
@@ -253,7 +295,6 @@ func checkProxyIp() {
 	lg.Print(lg.INFO, lg.BoldGreen, "IP检查完毕")
 	//若无可用IP代理则直接退出
 	if len(utils2.IPProxyPool) == 0 {
-		lg.Print(lg.INFO, lg.BoldRed, "无可用IP代理池，若要继续使用请先检查IP代理池文件内的IP可用性，或者在配置文件关闭IP代理功能")
-		os.Exit(0)
+		lg.Print(lg.INFO, lg.BoldRed, "无可用IP代理池，已关闭IP代理功能")
 	}
 }

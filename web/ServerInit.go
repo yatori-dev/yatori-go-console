@@ -23,7 +23,6 @@ func ServiceInit() {
 		panic(err)
 	}
 	global.GlobalDB = dbInit
-
 	// 初始化服务器
 	initServer := serverInit()
 	initServer.Run(":8080")
@@ -48,12 +47,36 @@ func serverInit() *gin.Engine {
 	})
 	Group{apiGroup}.ApiV1Router()
 
-	// 2️⃣ 单一路由处理 - 避免冲突
+	// 2️⃣ 前端静态资源 + 页面路由：用 NoRoute 处理（避免与 /api 段冲突）
+	// - apiGroup 已注册 /api/* 路由，会优先匹配
+	// - 其他 GET 路径走 NoRoute，返回静态资源 / page.html / index.html
+	// - /web/*filepath 兼容老路径，重定向到根
 	router.GET("/web/*filepath", func(c *gin.Context) {
 		filepathParam := c.Param("filepath")
+		c.Redirect(301, filepathParam)
+	})
 
-		// 如果是根路径，返回 index.html
-		if filepathParam == "/" || filepathParam == "" {
+	// 3️⃣ 处理其他未匹配的路由（SPA fallback）
+	router.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+
+		// API 请求返回 404
+		if strings.HasPrefix(path, "/api") {
+			c.JSON(404, gin.H{
+				"error": "API endpoint not found",
+				"path":  path,
+			})
+			return
+		}
+
+		// 非 GET 请求（如 POST/PUT 到前端路径）返回 405
+		if c.Request.Method != "GET" && c.Request.Method != "HEAD" {
+			c.JSON(405, gin.H{"error": "Method not allowed"})
+			return
+		}
+
+		// 根路径返回 index.html
+		if path == "/" || path == "" {
 			indexPath := "./assets/web/index.html"
 			if _, err := os.Stat(indexPath); err == nil {
 				c.Header("Content-Type", "text/html; charset=utf-8")
@@ -64,24 +87,37 @@ func serverInit() *gin.Engine {
 			return
 		}
 
-		// 检查是否是静态资源（通过扩展名判断）
-		ext := filepath.Ext(filepathParam)
+		// 静态资源（通过扩展名判断）
+		ext := filepath.Ext(path)
 		if ext != "" && ext != ".html" {
-			// 尝试查找静态文件
-			staticPath := filepath.Join("./assets/web", filepathParam[1:]) // 去掉开头的 "/"
+			staticPath := filepath.Join("./assets/web", path[1:]) // 去掉开头的 "/"
 			if _, err := os.Stat(staticPath); err == nil {
+				// 对 JS 文件设置无缓存头，防止浏览器缓存旧 chunk
+				if ext == ".js" {
+					c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+					c.Header("Pragma", "no-cache")
+					c.Header("Expires", "0")
+				}
 				c.File(staticPath)
 				return
 			}
-			// 如果静态文件不存在，返回 404
 			c.JSON(404, gin.H{
 				"error": "Static resource not found",
-				"path":  filepathParam,
+				"path":  path,
 			})
 			return
 		}
 
-		// 对于路由请求，返回 index.html 以启用前端路由
+		// 路由请求：尝试 page.html，否则 fallback 到 index.html（SPA）
+		cleanPath := strings.TrimRight(path, "/")
+		pagePath := "./assets/web" + cleanPath + ".html"
+		if _, err := os.Stat(pagePath); err == nil {
+			c.Header("Content-Type", "text/html; charset=utf-8")
+			c.File(pagePath)
+			return
+		}
+
+		// 不存在的 page：fallback 到 index.html 让前端路由处理
 		indexPath := "./assets/web/index.html"
 		if _, err := os.Stat(indexPath); os.IsNotExist(err) {
 			c.JSON(500, gin.H{"error": "Main index.html file not found"})
@@ -92,48 +128,21 @@ func serverInit() *gin.Engine {
 		c.File(indexPath)
 	})
 
-	// 3️⃣ 处理其他未匹配的路由
-	router.NoRoute(func(c *gin.Context) {
-		path := c.Request.URL.Path
-
-		// 如果是 API 请求，返回 API 404
-		if strings.HasPrefix(path, "/api") {
-			c.JSON(404, gin.H{
-				"error": "API endpoint not found",
-				"path":  path,
-			})
-			return
-		}
-
-		// 如果是 /web 路径，但上面的路由没有匹配，返回 index.html
-		if strings.HasPrefix(path, "/web") {
-			indexPath := "./assets/web/index.html"
-			if _, err := os.Stat(indexPath); err == nil {
-				c.Header("Content-Type", "text/html; charset=utf-8")
-				c.File(indexPath)
-			} else {
-				c.JSON(404, gin.H{"error": "Frontend app not found"})
-			}
-			return
-		}
-
-		// 其他路径返回 404
-		c.JSON(404, gin.H{
-			"error": "Page not found",
-			"path":  path,
-		})
-	})
-
 	return router
 }
 
 // Cors 跨域中间件
 func Cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
+		origin := c.Request.Header.Get("Origin")
+		if origin != "" {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+		} else {
+			c.Header("Access-Control-Allow-Origin", "*")
+		}
 		c.Header("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
-		c.Header("Access-Control-Allow-Credentials", "true")
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)

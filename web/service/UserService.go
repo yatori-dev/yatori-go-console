@@ -3,7 +3,12 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"yatori-go-console/config"
 	"yatori-go-console/dao"
 	"yatori-go-console/entity/pojo"
@@ -14,6 +19,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gopkg.in/yaml.v3"
 )
 
 // 拉取账号列表
@@ -404,4 +410,149 @@ func StopBrushService(c *gin.Context) {
 		Code:    200,
 		Message: "停止成功",
 	})
+}
+
+
+// 获取账号日志 (精简版，待 upstream 合入 local_config 后替换)
+func AccountLogsService(c *gin.Context) {
+	uid := c.Param("uid")
+	user, _ := dao.QueryUser(global.GlobalDB, pojo.UserPO{Uid: uid})
+	if user == nil {
+		c.JSON(http.StatusOK, vo.Response{Code: 400, Message: "该账号不存在"})
+		return
+	}
+	c.JSON(http.StatusOK, vo.Response{Code: 200, Message: "拉取日志成功", Data: []any{}})
+}
+
+func decomposeAiUrl(fullUrl string) (string, string) {
+	if fullUrl == "" { return "", "chat" }
+	if strings.HasSuffix(fullUrl, "/v1/responses") {
+		return strings.TrimSuffix(fullUrl, "/v1/responses"), "responses"
+	}
+	if strings.HasSuffix(fullUrl, "/v1/chat/completions") {
+		return strings.TrimSuffix(fullUrl, "/v1/chat/completions"), "chat"
+	}
+	idx := strings.LastIndex(fullUrl, "/")
+	if idx > 8 { return fullUrl[:idx], "custom:" + fullUrl[idx+1:] }
+	return fullUrl, "custom"
+}
+
+func resolveEndpoint(endpoint, customEp string) string {
+	switch endpoint {
+	case "responses": return "/v1/responses"
+	case "chat": return "/v1/chat/completions"
+	case "custom":
+		if customEp != "" { return "/" + customEp }
+		return "/v1/chat/completions"
+	default: return "/v1/chat/completions"
+	}
+}
+
+func GetAiConfigService(c *gin.Context) {
+	configPath := "./config.yaml"
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "读取配置文件失败: " + err.Error()})
+		return
+	}
+	raw := make(map[string]any)
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "解析配置文件失败: " + err.Error()})
+		return
+	}
+	aiSetting := map[string]any{"provider": "", "model": "", "apiKey": "", "baseUrl": "", "endpoint": "chat", "aiUrl": ""}
+	if setting, ok := raw["setting"].(map[string]any); ok {
+		if a, ok := setting["aiSetting"].(map[string]any); ok {
+			if v, ok := a["aiType"].(string); ok { aiSetting["provider"] = v }
+			if v, ok := a["model"].(string); ok { aiSetting["model"] = v }
+			if v, ok := a["API_KEY"].(string); ok { aiSetting["apiKey"] = v }
+			if v, ok := a["aiUrl"].(string); ok {
+				aiSetting["aiUrl"] = v
+				aiSetting["baseUrl"], aiSetting["endpoint"] = decomposeAiUrl(v)
+			}
+		}
+	}
+	externalBankUrl := ""
+	if setting, ok := raw["setting"].(map[string]any); ok {
+		if q, ok := setting["apiQueSetting"].(map[string]any); ok {
+			if v, ok := q["url"].(string); ok { externalBankUrl = v }
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "aiSetting": aiSetting, "externalBankUrl": externalBankUrl})
+}
+
+func SaveAiConfigService(c *gin.Context) {
+	var req struct {
+		Provider  string `json:"provider"`
+		Model     string `json:"model"`
+		ApiKey    string `json:"apiKey"`
+		BaseUrl   string `json:"baseUrl"`
+		Endpoint  string `json:"endpoint"`
+		CustomEp  string `json:"customEndpoint"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "请求参数错误: " + err.Error()})
+		return
+	}
+	fullUrl := req.BaseUrl + resolveEndpoint(req.Endpoint, req.CustomEp)
+	configPath := "./config.yaml"
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "读取配置文件失败: " + err.Error()})
+		return
+	}
+	raw := make(map[string]any)
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "解析配置文件失败: " + err.Error()})
+		return
+	}
+	setting, _ := raw["setting"].(map[string]any)
+	if setting == nil { setting = make(map[string]any); raw["setting"] = setting }
+	aiSetting, _ := setting["aiSetting"].(map[string]any)
+	if aiSetting == nil { aiSetting = make(map[string]any) }
+	aiSetting["aiType"] = req.Provider
+	aiSetting["model"] = req.Model
+	aiSetting["API_KEY"] = req.ApiKey
+	if fullUrl != "" { aiSetting["aiUrl"] = fullUrl }
+	setting["aiSetting"] = aiSetting
+	out, err := yaml.Marshal(raw)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "序列化配置失败: " + err.Error()})
+		return
+	}
+	if err := os.WriteFile(configPath, out, 0644); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "写入配置文件失败: " + err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func TestAiConfigService(c *gin.Context) {
+	var req struct {
+		Provider  string `json:"provider"`
+		Model     string `json:"model"`
+		ApiKey    string `json:"apiKey"`
+		BaseUrl   string `json:"baseUrl"`
+		Endpoint  string `json:"endpoint"`
+		CustomEp  string `json:"customEndpoint"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "请求参数错误: " + err.Error()})
+		return
+	}
+	fullUrl := req.BaseUrl + resolveEndpoint(req.Endpoint, req.CustomEp)
+	client := &http.Client{Timeout: 10 * time.Second}
+	testBody := `{"model":"` + req.Model + `","messages":[{"role":"user","content":"hi"}]}`
+	resp, err := client.Post(fullUrl, "application/json", strings.NewReader(testBody))
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "连接失败: " + err.Error()})
+		return
+	}
+	defer resp.Body.Close()
+	io.ReadAll(resp.Body)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		c.JSON(http.StatusOK, gin.H{"success": true, "status": resp.StatusCode})
+	} else {
+		c.JSON(http.StatusOK, gin.H{"success": false, "error": "响应状态: " + fmt.Sprintf("%d", resp.StatusCode)})
+	}
 }
