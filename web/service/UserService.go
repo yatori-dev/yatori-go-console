@@ -491,19 +491,19 @@ func SaveAiConfigService(c *gin.Context) {
 		CustomEp  string `json:"customEndpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "请求参数错误: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
 		return
 	}
 	fullUrl := req.BaseUrl + resolveEndpoint(req.Endpoint, req.CustomEp)
 	configPath := "./config.yaml"
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "读取配置文件失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "读取配置文件失败: " + err.Error()})
 		return
 	}
 	raw := make(map[string]any)
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "解析配置文件失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "解析配置文件失败: " + err.Error()})
 		return
 	}
 	setting, _ := raw["setting"].(map[string]any)
@@ -517,11 +517,11 @@ func SaveAiConfigService(c *gin.Context) {
 	setting["aiSetting"] = aiSetting
 	out, err := yaml.Marshal(raw)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "序列化配置失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "序列化配置失败: " + err.Error()})
 		return
 	}
 	if err := os.WriteFile(configPath, out, 0644); err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "写入配置文件失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "写入配置文件失败: " + err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true})
@@ -537,7 +537,7 @@ func TestAiConfigService(c *gin.Context) {
 		CustomEp  string `json:"customEndpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "请求参数错误: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
 		return
 	}
 	fullUrl := req.BaseUrl + resolveEndpoint(req.Endpoint, req.CustomEp)
@@ -545,14 +545,14 @@ func TestAiConfigService(c *gin.Context) {
 	testBody := `{"model":"` + req.Model + `","messages":[{"role":"user","content":"hi"}]}`
 	resp, err := client.Post(fullUrl, "application/json", strings.NewReader(testBody))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "连接失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "连接失败: " + err.Error()})
 		return
 	}
 	defer resp.Body.Close()
-	io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		c.JSON(http.StatusOK, gin.H{"success": true, "status": resp.StatusCode})
+		c.JSON(http.StatusOK, gin.H{"success": true, "message": "HTTP " + fmt.Sprintf("%d", resp.StatusCode)})
 	} else {
-		c.JSON(http.StatusOK, gin.H{"success": false, "error": "响应状态: " + fmt.Sprintf("%d", resp.StatusCode)})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "HTTP " + fmt.Sprintf("%d", resp.StatusCode) + ": " + string(body)})
 	}
 }
