@@ -51,7 +51,7 @@ func UserLoginOperation(users []config.User) []*hqkjApi.HqkjUserCache {
 			cache := &hqkjApi.HqkjUserCache{PreUrl: user.URL, Account: user.Account, Password: user.Password}
 			err := haiqikeji.HqkjLoginAction(cache) // 登录
 			if err != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.White, "] ", lg.Red, err.Error())
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.White, "] ", lg.Red, err.Error())
 				log.Fatal(err) //登录失败则直接退出
 			}
 			UserCaches = append(UserCaches, cache)
@@ -84,7 +84,7 @@ func userBlock(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUse
 	}
 	coursesLock.Wait() //等待课程刷完
 
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(cache.Account), lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, cache.Account, lg.Default, "] ", lg.Purple, "所有待学习课程学习完毕")
 	//如果开启了邮箱通知
 	if setting.EmailInform.Sw == 1 && len(user.InformEmails) > 0 {
 		utils2.SendMail(setting.EmailInform.SMTPHost, setting.EmailInform.SMTPPort, setting.EmailInform.UserName, setting.EmailInform.Password, user.InformEmails, fmt.Sprintf("账号：[%s]</br>平台：[%s]</br>通知：所有课程已执行完毕", user.Account, global.AccountTypeStr[user.AccountType]))
@@ -109,7 +109,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *hqkjApi
 		return
 	}
 	if course.StartDate.After(time.Now()) || course.EndDate.Before(time.Now()) { //过滤掉过时课程
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", course.Name, "】 >>> ", lg.Default, " ", "该课程的起止时间为：", lg.Red, fmt.Sprintf("[%s ~ %s] ", course.StartDate.Format("2006-01-02"), course.EndDate.Format("2006-01-02")), lg.Yellow, "因未在开课时间内，已跳过该课程")
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】 >>> ", lg.Default, " ", "该课程的起止时间为：", lg.Red, fmt.Sprintf("[%s ~ %s] ", course.StartDate.Format("2006-01-02"), course.EndDate.Format("2006-01-02")), lg.Yellow, "因未在开课时间内，已跳过该课程")
 		return
 	}
 	//执行刷课---------------------------------
@@ -119,7 +119,7 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *hqkjApi
 		return
 	}
 	//nodeList := ketangx.PullNodeListAction(userCache, course) //拉取对应课程的视频列表
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(userCache.Account), lg.Default, "] ", "正在学习课程：", lg.Yellow, " 【"+course.Name+"】 ")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", "正在学习课程：", lg.Yellow, " 【"+course.Name+"】 ")
 	//视频处理逻辑
 	switch user.CoursesCustom.VideoModel {
 	case 1:
@@ -130,7 +130,10 @@ func nodeListStudy(setting config.Setting, user *config.User, userCache *hqkjApi
 		break
 	}
 
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(userCache.Account), lg.Default, "] ", lg.Green, "课程", "【"+course.Name+"】 ", "学习完毕")
+	//===== AI 自动答题接入（作业 + 考试）：不改动上方任何视频刷课逻辑，仅在其后追加 =====
+	runAutoAnswer(setting, user, userCache, course, nodeList)
+
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, userCache.Account, lg.Default, "] ", lg.Green, "课程", "【"+course.Name+"】 ", "学习完毕")
 
 }
 
@@ -176,9 +179,9 @@ func normalModeAction(setting config.Setting, user *config.User, UserCache *hqkj
 			}
 			msg := gojsonq.New().JSONString(submitResult).Find("msg")
 			if msg != nil {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(submitProgress)), "%")
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(submitProgress)), "%")
 			} else {
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg"), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(submitProgress)), "%")
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg"), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(submitProgress)), "%")
 			}
 			if err != nil {
 				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "拉取进度错误", err.Error())
@@ -189,7 +192,7 @@ func normalModeAction(setting config.Setting, user *config.User, UserCache *hqkj
 			if submitProgress >= 100 {
 				//保存结果
 				endResult, err := haiqikeji.HqkjEndStudyAction(UserCache, sessionId)
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", lg.Default, " ", "服务器返回：", endResult)
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", lg.Default, " ", "服务器返回：", endResult)
 				if err != nil {
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), err.Error())
 					break
@@ -248,10 +251,10 @@ func fastModeAction(setting config.Setting, user *config.User, UserCache *hqkjAp
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "提交学时失败：", err.Error())
 					return
 				}
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(100)), "%")
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", "提交状态：", lg.Green, gojsonq.New().JSONString(submitResult).Find("msg").(string), lg.Default, " ", "观看进度：", fmt.Sprintf("%.2f", float64(100)), "%")
 				//保存结果
 				endResult, err := haiqikeji.HqkjEndStudyAction(UserCache, sessionId)
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", lg.Default, " ", "服务器返回：", endResult)
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", lg.Default, " ", "服务器返回：", endResult)
 				if err != nil {
 					lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), err.Error())
 					break
@@ -285,13 +288,13 @@ func videoAction(setting config.Setting, user *config.User, UserCache *ketangxAp
 	}
 	action, err := ketangx.CompleteVideoAction(UserCache, &node)
 	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", err.Error())
 		return
 	}
 	status := gojsonq.New().JSONString(action).Find("Success")
 	if status != nil && !status.(bool) {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", action)
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", lg.BoldRed, "结点类型: ", "<", node.Type, "> ", "学习异常：", action)
 		return
 	}
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(UserCache.Account), lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", "结点类型: ", "<", lg.Yellow, node.Type, lg.Default, "> ", lg.Green, "学习完毕，服务器返回状态:"+strconv.FormatBool(status.(bool)))
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, UserCache.Account, lg.Default, "] ", lg.Default, "【"+course.Title+"】 ", "【"+node.Title+"】", "结点类型: ", "<", lg.Yellow, node.Type, lg.Default, "> ", lg.Green, "学习完毕，服务器返回状态:"+strconv.FormatBool(status.(bool)))
 }
