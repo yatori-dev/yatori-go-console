@@ -178,7 +178,7 @@ jobs:
         if: runner.os=='Windows'
         run: |
           New-Item -ItemType Directory -Force -Path "${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\assets"
-          Copy-Item -Recurse frontend\out "\"${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\assets\web"
+          Copy-Item -Recurse frontend\out "${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\assets\web"
 
       - name: Create Release zip
         if: runner.os=='Windows'
