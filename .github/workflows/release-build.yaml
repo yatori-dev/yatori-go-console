@@ -74,6 +74,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pkg-config gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
       
+      # Set up Node.js for frontend build
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Build Frontend
+        run: |
+          cd frontend
+          pnpm install --frozen-lockfile || pnpm install
+          pnpm build
 
       # Set up Go
       - name: Set up Go
@@ -143,6 +159,12 @@ jobs:
           CGO_ENABLED=1 GOOS=darwin GOARCH=${{ matrix.arch }} go build \
             -o ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/${{ env.PROJECT_NAME }}
 
+      - name: Prepare Frontend Assets
+        if: runner.os=='Linux'
+        run: |
+          mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/assets
+          cp -r frontend/out ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release/assets/web
+
       - name: Create release tar
         if: runner.os=='Linux'
         run: | # 打包发布版本压缩包
@@ -153,6 +175,12 @@ jobs:
           rm -rf yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release
           cd ..
 
+
+      - name: Prepare Frontend Assets (Windows)
+        if: runner.os=='Windows'
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\assets"
+          Copy-Item -Recurse frontend\out "\"${{ env.RELEASE_DIR }}\yatori-go-console.${{env.VERSION}}-${{matrix.goos}}-${{matrix.arch}}-release\assets\web"
 
       - name: Create Release zip
         if: runner.os=='Windows'
@@ -167,6 +195,12 @@ jobs:
           cd ..
 
       # 📦 打包 macOS (amd64+arm64)
+      - name: Prepare Frontend Assets (macOS)
+        if: matrix.goos == 'darwin'
+        run: |
+          mkdir -p ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/assets
+          cp -r frontend/out ${{ env.RELEASE_DIR }}/yatori-go-console.${{env.VERSION}}-${{ matrix.goos }}-${{ matrix.arch }}-release/assets/web
+
       - name: Create macOS Release tar
         if: matrix.goos == 'darwin'
         run: |
@@ -210,4 +244,5 @@ jobs:
           body: ${{ env.RELEASE_NOTICES }}
           draft: false
           prerelease: false
+          target_commitish: ${{ github.ref }}
           files: ${{ env.RELEASE_DIR }}/**/*  # 文件发布目录
