@@ -242,6 +242,7 @@ export function AccountDetail({account, onBack, onUpdated}: AccountDetailProps) 
 
             const user = response.data.user
             const userConfigJson = user.userConfigJson ?? buildUserConfigJson(user)
+            const userConfig = safeParseUserConfig(userConfigJson)
             setDetailAccount((prev) => ({
                 ...prev,
                 uid: user.uid,
@@ -252,8 +253,8 @@ export function AccountDetail({account, onBack, onUpdated}: AccountDetailProps) 
                 isRunning: user.isRunning ?? prev.isRunning,
                 userConfigJson,
             }))
-            setAccountConfig(safeParseUserConfig(userConfigJson))
-            setForm(buildEditableForm(user))
+            setAccountConfig(userConfig)
+            setForm(buildEditableForm({...userConfig, uid: user.uid}))
         } catch (error) {
             console.error("账号详情加载失败:", error)
             toast({

@@ -94,6 +94,9 @@ func AddUserService(c *gin.Context) {
 		Account:     userPo.Account,
 		Password:    userPo.Password,
 	}
+	if req.CoursesCustom != nil {
+		userConfig.CoursesCustom = *req.CoursesCustom
+	}
 
 	userConfigJson, err2 := json.Marshal(userConfig)
 	if err2 != nil {
@@ -241,7 +244,7 @@ func LoginUserService(c *gin.Context) {
 
 // 更新账号信息
 func UpdateUserService(c *gin.Context) {
-	var req pojo.UserPO
+	var req vo.UpdateAccountRequest
 
 	// 绑定 JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -263,30 +266,31 @@ func UpdateUserService(c *gin.Context) {
 		return
 	}
 
-	// 将结构体转为 map 并过滤空字段
-	updateMap := make(map[string]interface{})
-
-	// 手动挑选可修改字段（最安全方式）
-	if req.AccountType != "" {
-		updateMap["account_type"] = req.AccountType
+	userConfig := config.User{
+		AccountType:   req.AccountType,
+		URL:           req.Url,
+		RemarkName:    req.RemarkName,
+		Account:       req.Account,
+		Password:      req.Password,
+		IsProxy:       req.IsProxy,
+		InformEmails:  req.InformEmails,
+		CoursesCustom: req.CoursesCustom,
 	}
-	if req.Url != "" {
-		updateMap["url"] = req.Url
-	}
-	if req.Account != "" {
-		updateMap["account"] = req.Account
-	}
-	if req.Password != "" {
-		updateMap["password"] = req.Password
-	}
-
-	// 空字段检查
-	if len(updateMap) == 0 {
-		c.JSON(200, vo.Response{
+	userConfigJson, err := json.Marshal(userConfig)
+	if err != nil {
+		c.JSON(http.StatusOK, vo.Response{
 			Code:    400,
-			Message: "没有可更新的字段",
+			Message: err.Error(),
 		})
 		return
+	}
+
+	updateMap := map[string]interface{}{
+		"account_type":     req.AccountType,
+		"url":              req.Url,
+		"account":          req.Account,
+		"password":         req.Password,
+		"user_config_json": string(userConfigJson),
 	}
 
 	// 调用 DAO 更新
@@ -413,7 +417,6 @@ func StopBrushService(c *gin.Context) {
 	})
 }
 
-
 // 获取账号日志 (精简版，待 upstream 合入 local_config 后替换)
 func AccountLogsService(c *gin.Context) {
 	uid := c.Param("uid")
@@ -426,7 +429,9 @@ func AccountLogsService(c *gin.Context) {
 }
 
 func decomposeAiUrl(fullUrl string) (string, string) {
-	if fullUrl == "" { return "", "chat" }
+	if fullUrl == "" {
+		return "", "chat"
+	}
 	if strings.HasSuffix(fullUrl, "/v1/responses") {
 		return strings.TrimSuffix(fullUrl, "/v1/responses"), "responses"
 	}
@@ -434,18 +439,25 @@ func decomposeAiUrl(fullUrl string) (string, string) {
 		return strings.TrimSuffix(fullUrl, "/v1/chat/completions"), "chat"
 	}
 	idx := strings.LastIndex(fullUrl, "/")
-	if idx > 8 { return fullUrl[:idx], "custom:" + fullUrl[idx+1:] }
+	if idx > 8 {
+		return fullUrl[:idx], "custom:" + fullUrl[idx+1:]
+	}
 	return fullUrl, "custom"
 }
 
 func resolveEndpoint(endpoint, customEp string) string {
 	switch endpoint {
-	case "responses": return "/v1/responses"
-	case "chat": return "/v1/chat/completions"
-	case "custom":
-		if customEp != "" { return "/" + customEp }
+	case "responses":
+		return "/v1/responses"
+	case "chat":
 		return "/v1/chat/completions"
-	default: return "/v1/chat/completions"
+	case "custom":
+		if customEp != "" {
+			return "/" + customEp
+		}
+		return "/v1/chat/completions"
+	default:
+		return "/v1/chat/completions"
 	}
 }
 
@@ -464,9 +476,15 @@ func GetAiConfigService(c *gin.Context) {
 	aiSetting := map[string]any{"provider": "", "model": "", "apiKey": "", "baseUrl": "", "endpoint": "chat", "aiUrl": ""}
 	if setting, ok := raw["setting"].(map[string]any); ok {
 		if a, ok := setting["aiSetting"].(map[string]any); ok {
-			if v, ok := a["aiType"].(string); ok { aiSetting["provider"] = v }
-			if v, ok := a["model"].(string); ok { aiSetting["model"] = v }
-			if v, ok := a["API_KEY"].(string); ok { aiSetting["apiKey"] = v }
+			if v, ok := a["aiType"].(string); ok {
+				aiSetting["provider"] = v
+			}
+			if v, ok := a["model"].(string); ok {
+				aiSetting["model"] = v
+			}
+			if v, ok := a["API_KEY"].(string); ok {
+				aiSetting["apiKey"] = v
+			}
 			if v, ok := a["aiUrl"].(string); ok {
 				aiSetting["aiUrl"] = v
 				aiSetting["baseUrl"], aiSetting["endpoint"] = decomposeAiUrl(v)
@@ -476,7 +494,9 @@ func GetAiConfigService(c *gin.Context) {
 	externalBankUrl := ""
 	if setting, ok := raw["setting"].(map[string]any); ok {
 		if q, ok := setting["apiQueSetting"].(map[string]any); ok {
-			if v, ok := q["url"].(string); ok { externalBankUrl = v }
+			if v, ok := q["url"].(string); ok {
+				externalBankUrl = v
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{"success": true, "aiSetting": aiSetting, "externalBankUrl": externalBankUrl})
@@ -484,12 +504,12 @@ func GetAiConfigService(c *gin.Context) {
 
 func SaveAiConfigService(c *gin.Context) {
 	var req struct {
-		Provider  string `json:"provider"`
-		Model     string `json:"model"`
-		ApiKey    string `json:"apiKey"`
-		BaseUrl   string `json:"baseUrl"`
-		Endpoint  string `json:"endpoint"`
-		CustomEp  string `json:"customEndpoint"`
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		ApiKey   string `json:"apiKey"`
+		BaseUrl  string `json:"baseUrl"`
+		Endpoint string `json:"endpoint"`
+		CustomEp string `json:"customEndpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
@@ -508,13 +528,20 @@ func SaveAiConfigService(c *gin.Context) {
 		return
 	}
 	setting, _ := raw["setting"].(map[string]any)
-	if setting == nil { setting = make(map[string]any); raw["setting"] = setting }
+	if setting == nil {
+		setting = make(map[string]any)
+		raw["setting"] = setting
+	}
 	aiSetting, _ := setting["aiSetting"].(map[string]any)
-	if aiSetting == nil { aiSetting = make(map[string]any) }
+	if aiSetting == nil {
+		aiSetting = make(map[string]any)
+	}
 	aiSetting["aiType"] = req.Provider
 	aiSetting["model"] = req.Model
 	aiSetting["API_KEY"] = req.ApiKey
-	if fullUrl != "" { aiSetting["aiUrl"] = fullUrl }
+	if fullUrl != "" {
+		aiSetting["aiUrl"] = fullUrl
+	}
 	setting["aiSetting"] = aiSetting
 	out, err := yaml.Marshal(raw)
 	if err != nil {
@@ -530,12 +557,12 @@ func SaveAiConfigService(c *gin.Context) {
 
 func TestAiConfigService(c *gin.Context) {
 	var req struct {
-		Provider  string `json:"provider"`
-		Model     string `json:"model"`
-		ApiKey    string `json:"apiKey"`
-		BaseUrl   string `json:"baseUrl"`
-		Endpoint  string `json:"endpoint"`
-		CustomEp  string `json:"customEndpoint"`
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		ApiKey   string `json:"apiKey"`
+		BaseUrl  string `json:"baseUrl"`
+		Endpoint string `json:"endpoint"`
+		CustomEp string `json:"customEndpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
