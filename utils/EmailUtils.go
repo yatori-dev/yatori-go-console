@@ -41,7 +41,7 @@ func SendMail(host string, port int, userName, password string, toMail []string,
 
 	if err := d.DialAndSend(m); err != nil {
 		//panic(err)
-		lg.Print(lg.INFO, fmt.Sprintf("邮件发送失败-DialAndSend失败: host=%s port=%d user=%s err=%w", host, port, userName, err))
+		lg.Print(lg.INFO, fmt.Sprintf("邮件发送失败-DialAndSend失败: host=%s port=%d user=%s err=%v", host, port, userName, err))
 	}
 }
 
