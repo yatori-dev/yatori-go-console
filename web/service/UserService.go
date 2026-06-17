@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -453,37 +454,92 @@ func AccountLogsService(c *gin.Context) {
 	c.JSON(http.StatusOK, vo.Response{Code: 200, Message: "拉取日志成功", Data: []any{}})
 }
 
-func decomposeAiUrl(fullUrl string) (string, string) {
-	if fullUrl == "" {
-		return "", "chat"
+func normalizeEndpoint(endpoint, customEp string) (string, error) {
+	switch strings.TrimSpace(endpoint) {
+	case "responses":
+		return "/v1/responses", nil
+	case "", "chat":
+		return "/v1/chat/completions", nil
+	case "custom":
+		customEp = strings.Trim(strings.TrimSpace(customEp), "/")
+		if customEp == "" {
+			return "", fmt.Errorf("自定义端点路径不能为空")
+		}
+		return "/" + customEp, nil
+	default:
+		return "/v1/chat/completions", nil
 	}
-	if strings.HasSuffix(fullUrl, "/v1/responses") {
-		return strings.TrimSuffix(fullUrl, "/v1/responses"), "responses"
-	}
-	if strings.HasSuffix(fullUrl, "/v1/chat/completions") {
-		return strings.TrimSuffix(fullUrl, "/v1/chat/completions"), "chat"
-	}
-	idx := strings.LastIndex(fullUrl, "/")
-	if idx > 8 {
-		return fullUrl[:idx], "custom:" + fullUrl[idx+1:]
-	}
-	return fullUrl, "custom"
 }
 
-func resolveEndpoint(endpoint, customEp string) string {
-	switch endpoint {
-	case "responses":
-		return "/v1/responses"
-	case "chat":
-		return "/v1/chat/completions"
-	case "custom":
-		if customEp != "" {
-			return "/" + customEp
-		}
-		return "/v1/chat/completions"
-	default:
-		return "/v1/chat/completions"
+func joinBaseAndEndpoint(baseURL, endpointPath string) (string, error) {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		return "", fmt.Errorf("基础 URL 不能为空")
 	}
+	parsed, err := url.Parse(baseURL)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("基础 URL 格式错误")
+	}
+	return strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(endpointPath, "/"), nil
+}
+
+func decomposeAiUrl(fullUrl string) (string, string, string) {
+	fullUrl = strings.TrimSpace(fullUrl)
+	if fullUrl == "" {
+		return "", "chat", ""
+	}
+	if strings.HasSuffix(fullUrl, "/v1/responses") {
+		return strings.TrimSuffix(fullUrl, "/v1/responses"), "responses", ""
+	}
+	if strings.HasSuffix(fullUrl, "/v1/chat/completions") {
+		return strings.TrimSuffix(fullUrl, "/v1/chat/completions"), "chat", ""
+	}
+	parsed, err := url.Parse(fullUrl)
+	if err == nil && parsed.Scheme != "" && parsed.Host != "" {
+		base := parsed.Scheme + "://" + parsed.Host
+		customEp := strings.TrimLeft(parsed.EscapedPath(), "/")
+		if parsed.RawQuery != "" {
+			customEp += "?" + parsed.RawQuery
+		}
+		return base, "custom", customEp
+	}
+	return fullUrl, "custom", ""
+}
+
+func runtimeAiType(provider, runtimeProvider string) string {
+	candidate := strings.ToUpper(strings.TrimSpace(runtimeProvider))
+	if candidate == "" {
+		candidate = strings.ToUpper(strings.TrimSpace(provider))
+	}
+	switch candidate {
+	case "CHATGLM", "XINGHUO", "TONGYI", "DOUBAO", "OPENAI", "DEEPSEEK", "METAAI", "SILICON", "OTHER":
+		return candidate
+	default:
+		return "OTHER"
+	}
+}
+
+func makeAiTestBody(endpoint, model string) ([]byte, error) {
+	if endpoint == "responses" {
+		return json.Marshal(map[string]interface{}{
+			"model": model,
+			"input": "hi",
+		})
+	}
+	return json.Marshal(map[string]interface{}{
+		"model": model,
+		"messages": []map[string]string{
+			{"role": "user", "content": "hi"},
+		},
+	})
+}
+
+func trimResponseBody(body []byte) string {
+	text := strings.TrimSpace(string(body))
+	if len(text) > 1000 {
+		return text[:1000] + "..."
+	}
+	return text
 }
 
 func GetAiConfigService(c *gin.Context) {
@@ -498,10 +554,14 @@ func GetAiConfigService(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "解析配置文件失败: " + err.Error()})
 		return
 	}
-	aiSetting := map[string]any{"provider": "", "model": "", "apiKey": "", "baseUrl": "", "endpoint": "chat", "aiUrl": ""}
+	aiSetting := map[string]any{"provider": "", "runtimeProvider": "", "model": "", "apiKey": "", "baseUrl": "", "endpoint": "chat", "customEndpoint": "", "aiUrl": ""}
 	if setting, ok := raw["setting"].(map[string]any); ok {
 		if a, ok := setting["aiSetting"].(map[string]any); ok {
 			if v, ok := a["aiType"].(string); ok {
+				aiSetting["provider"] = v
+				aiSetting["runtimeProvider"] = v
+			}
+			if v, ok := a["provider"].(string); ok && v != "" {
 				aiSetting["provider"] = v
 			}
 			if v, ok := a["model"].(string); ok {
@@ -511,8 +571,11 @@ func GetAiConfigService(c *gin.Context) {
 				aiSetting["apiKey"] = v
 			}
 			if v, ok := a["aiUrl"].(string); ok {
+				baseURL, endpoint, customEndpoint := decomposeAiUrl(v)
 				aiSetting["aiUrl"] = v
-				aiSetting["baseUrl"], aiSetting["endpoint"] = decomposeAiUrl(v)
+				aiSetting["baseUrl"] = baseURL
+				aiSetting["endpoint"] = endpoint
+				aiSetting["customEndpoint"] = customEndpoint
 			}
 		}
 	}
@@ -529,18 +592,34 @@ func GetAiConfigService(c *gin.Context) {
 
 func SaveAiConfigService(c *gin.Context) {
 	var req struct {
-		Provider string `json:"provider"`
-		Model    string `json:"model"`
-		ApiKey   string `json:"apiKey"`
-		BaseUrl  string `json:"baseUrl"`
-		Endpoint string `json:"endpoint"`
-		CustomEp string `json:"customEndpoint"`
+		Provider        string `json:"provider"`
+		RuntimeProvider string `json:"runtimeProvider"`
+		Model           string `json:"model"`
+		ApiKey          string `json:"apiKey"`
+		BaseUrl         string `json:"baseUrl"`
+		Endpoint        string `json:"endpoint"`
+		CustomEp        string `json:"customEndpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
 		return
 	}
-	fullUrl := req.BaseUrl + resolveEndpoint(req.Endpoint, req.CustomEp)
+	if strings.TrimSpace(req.Provider) == "" || strings.TrimSpace(req.Model) == "" || strings.TrimSpace(req.ApiKey) == "" {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "供应商、模型和 API 密钥不能为空"})
+		return
+	}
+	endpointPath, err := normalizeEndpoint(req.Endpoint, req.CustomEp)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	fullUrl, err := joinBaseAndEndpoint(req.BaseUrl, endpointPath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	runtimeProvider := runtimeAiType(req.Provider, req.RuntimeProvider)
+
 	configPath := "./config.yaml"
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -561,12 +640,11 @@ func SaveAiConfigService(c *gin.Context) {
 	if aiSetting == nil {
 		aiSetting = make(map[string]any)
 	}
-	aiSetting["aiType"] = req.Provider
-	aiSetting["model"] = req.Model
+	aiSetting["provider"] = strings.TrimSpace(req.Provider)
+	aiSetting["aiType"] = runtimeProvider
+	aiSetting["model"] = strings.TrimSpace(req.Model)
 	aiSetting["API_KEY"] = req.ApiKey
-	if fullUrl != "" {
-		aiSetting["aiUrl"] = fullUrl
-	}
+	aiSetting["aiUrl"] = fullUrl
 	setting["aiSetting"] = aiSetting
 	out, err := yaml.Marshal(raw)
 	if err != nil {
@@ -577,59 +655,76 @@ func SaveAiConfigService(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "写入配置文件失败: " + err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true})
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "配置已保存", "url": fullUrl, "provider": req.Provider, "runtimeProvider": runtimeProvider})
 }
 
 func TestAiConfigService(c *gin.Context) {
 	var req struct {
-		Provider string `json:"provider"`
-		Model    string `json:"model"`
-		ApiKey   string `json:"apiKey"`
-		BaseUrl  string `json:"baseUrl"`
-		Endpoint string `json:"endpoint"`
-		CustomEp string `json:"customEndpoint"`
+		Provider        string `json:"provider"`
+		RuntimeProvider string `json:"runtimeProvider"`
+		Model           string `json:"model"`
+		ApiKey          string `json:"apiKey"`
+		BaseUrl         string `json:"baseUrl"`
+		Endpoint        string `json:"endpoint"`
+		CustomEp        string `json:"customEndpoint"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求参数错误: " + err.Error()})
 		return
 	}
-	fullUrl := req.BaseUrl + resolveEndpoint(req.Endpoint, req.CustomEp)
-
-	// 使用json.Marshal构建请求体，避免JSON注入
-	testBodyStruct := map[string]interface{}{
-		"model": req.Model,
-		"messages": []map[string]string{
-			{"role": "user", "content": "hi"},
-		},
+	if strings.TrimSpace(req.Provider) == "" || strings.TrimSpace(req.Model) == "" || strings.TrimSpace(req.ApiKey) == "" {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "供应商、模型和 API 密钥不能为空"})
+		return
 	}
-	testBodyBytes, err := json.Marshal(testBodyStruct)
+	endpointPath, err := normalizeEndpoint(req.Endpoint, req.CustomEp)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "构建请求体失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	fullUrl, err := joinBaseAndEndpoint(req.BaseUrl, endpointPath)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
+	runtimeProvider := runtimeAiType(req.Provider, req.RuntimeProvider)
+	testBodyBytes, err := makeAiTestBody(req.Endpoint, req.Model)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "构建请求体失败: " + err.Error(), "url": fullUrl, "provider": req.Provider, "runtimeProvider": runtimeProvider})
 		return
 	}
 
 	req2, err := http.NewRequest("POST", fullUrl, bytes.NewReader(testBodyBytes))
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求构建失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "请求构建失败: " + err.Error(), "url": fullUrl, "provider": req.Provider, "runtimeProvider": runtimeProvider})
 		return
 	}
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("Authorization", "Bearer "+req.ApiKey)
 	client := &http.Client{Timeout: 10 * time.Second}
+	started := time.Now()
 	resp, err := client.Do(req2)
+	durationMs := time.Since(started).Milliseconds()
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "连接失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "连接失败: " + err.Error(), "url": fullUrl, "durationMs": durationMs, "provider": req.Provider, "runtimeProvider": runtimeProvider})
 		return
 	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "读取响应失败: " + err.Error()})
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "读取响应失败: " + err.Error(), "statusCode": resp.StatusCode, "url": fullUrl, "durationMs": durationMs, "provider": req.Provider, "runtimeProvider": runtimeProvider})
 		return
 	}
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		c.JSON(http.StatusOK, gin.H{"success": true, "message": "HTTP " + fmt.Sprintf("%d", resp.StatusCode)})
-	} else {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "HTTP " + fmt.Sprintf("%d", resp.StatusCode) + ": " + string(body)})
+	result := gin.H{
+		"success":         resp.StatusCode >= 200 && resp.StatusCode < 300,
+		"message":         "HTTP " + fmt.Sprintf("%d", resp.StatusCode),
+		"statusCode":      resp.StatusCode,
+		"url":             fullUrl,
+		"durationMs":      durationMs,
+		"provider":        req.Provider,
+		"runtimeProvider": runtimeProvider,
 	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		result["message"] = "HTTP " + fmt.Sprintf("%d", resp.StatusCode) + ": " + trimResponseBody(body)
+	}
+	c.JSON(http.StatusOK, result)
 }

@@ -73,8 +73,14 @@ func serverInit(basic config.BasicSetting) *gin.Engine {
 	// - apiGroup 已注册 /api/* 路由，会优先匹配
 	// - 其他 GET 路径走 NoRoute，返回静态资源 / page.html / index.html
 	// - /web/*filepath 兼容老路径，重定向到根
+	router.GET("/web", func(c *gin.Context) {
+		c.Redirect(301, "/")
+	})
 	router.GET("/web/*filepath", func(c *gin.Context) {
 		filepathParam := c.Param("filepath")
+		if filepathParam == "" {
+			filepathParam = "/"
+		}
 		c.Redirect(301, filepathParam)
 	})
 

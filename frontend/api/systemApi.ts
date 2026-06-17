@@ -5,11 +5,12 @@ import apiClient from './base'
 // ============================================================
 
 export interface AIConfig {
-  provider: string       // 供应商标识 (OPENAI / TONGYI / DEEPSEEK / SILICON / METAAI / DOUBAO / CHATGLM / XINGHUO / OLLAMA / OTHER / CUSTOM)
+  provider: string       // UI 供应商标识
+  runtimeProvider?: string // 实际写入 aiType 的运行时供应商，未知兼容接口会映射为 OTHER
   model: string
   apiKey: string
   baseUrl: string
-  endpoint: string       // chat | responses | custom:<path>
+  endpoint: string       // chat | responses | custom
   customEndpoint?: string
   aiUrl?: string
 }
@@ -24,7 +25,22 @@ export interface AIConfigResponse {
 export interface AIApiResponse {
   success: boolean
   message: string
+  statusCode?: number
+  url?: string
+  durationMs?: number
+  provider?: string
+  runtimeProvider?: string
 }
+
+const aiPayload = (config: AIConfig) => ({
+  provider: config.provider,
+  runtimeProvider: config.runtimeProvider || config.provider,
+  model: config.model,
+  apiKey: config.apiKey,
+  baseUrl: config.baseUrl,
+  endpoint: config.endpoint,
+  customEndpoint: config.customEndpoint || '',
+})
 
 export const getAiConfig = async (): Promise<AIConfigResponse> => {
   try {
@@ -36,14 +52,7 @@ export const getAiConfig = async (): Promise<AIConfigResponse> => {
 
 export const saveAiConfig = async (config: AIConfig): Promise<AIApiResponse> => {
   try {
-    return await apiClient.post('/v1/saveAiConfig', {
-      provider: config.provider,
-      model: config.model,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-      endpoint: config.endpoint,
-      customEndpoint: config.customEndpoint || '',
-    }) as AIApiResponse
+    return await apiClient.post('/v1/saveAiConfig', aiPayload(config)) as AIApiResponse
   } catch (error: any) {
     return { success: false, message: error.response?.data?.message || error.response?.data?.error || '保存AI配置失败' }
   }
@@ -51,14 +60,7 @@ export const saveAiConfig = async (config: AIConfig): Promise<AIApiResponse> => 
 
 export const testAiConfig = async (config: AIConfig): Promise<AIApiResponse> => {
   try {
-    return await apiClient.post('/v1/testAiConfig', {
-      provider: config.provider,
-      model: config.model,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-      endpoint: config.endpoint,
-      customEndpoint: config.customEndpoint || '',
-    }, { timeout: 60000 }) as AIApiResponse
+    return await apiClient.post('/v1/testAiConfig', aiPayload(config), { timeout: 60000 }) as AIApiResponse
   } catch (error: any) {
     return { success: false, message: error.response?.data?.message || error.response?.data?.error || '测试AI连接失败' }
   }
