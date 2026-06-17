@@ -1,8 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
-import { Users, FileQuestion, ChevronLeft, ChevronRight, Menu, X } from "lucide-react"
+import { Users, FileQuestion, ChevronLeft, ChevronRight, Menu, X, Lock } from "lucide-react"
+import { ADMIN_PASS_KEY } from "@/api/base"
 
 export type SidebarTab = "accounts" | "questions"
 
@@ -27,6 +28,24 @@ const navItems: { id: SidebarTab; label: string; icon: typeof Users }[] = [
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [adminPass, setAdminPass] = useState("")
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAdminPass(window.localStorage.getItem(ADMIN_PASS_KEY) || "")
+    }
+  }, [])
+
+  const handleAdminPassChange = (value: string) => {
+    setAdminPass(value)
+    if (typeof window !== "undefined") {
+      if (value.trim()) {
+        window.localStorage.setItem(ADMIN_PASS_KEY, value)
+      } else {
+        window.localStorage.removeItem(ADMIN_PASS_KEY)
+      }
+    }
+  }
 
   const handleMobileNavClick = () => {
     setMobileMenuOpen(false)
@@ -131,15 +150,33 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         </nav>
 
         {/* 底部信息 */}
-        <div className="p-4 border-t border-sidebar-border">
+        <div className="p-4 border-t border-sidebar-border space-y-3">
           {!collapsed ? (
-            <div className="text-xs text-sidebar-foreground/50 animate-in fade-in-50 duration-200">
-              <p>版本 v1.0.0</p>
-              <p className="mt-1">© 2025 Yatori</p>
+            <div className="space-y-2 animate-in fade-in-50 duration-200">
+              <div className="relative">
+                <Lock className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-sidebar-foreground/40" />
+                <input
+                  type="password"
+                  value={adminPass}
+                  onChange={(e) => handleAdminPassChange(e.target.value)}
+                  placeholder="管理密码（可选）"
+                  className={cn(
+                    "w-full pl-8 pr-2 py-1.5 text-xs rounded-md border bg-sidebar-accent/50",
+                    "border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/40",
+                    "focus:outline-none focus:ring-1 focus:ring-sidebar-primary",
+                    adminPass ? "border-green-500/50" : ""
+                  )}
+                />
+              </div>
+              <div className="text-xs text-sidebar-foreground/50">
+                <p>版本 v1.0.0</p>
+                <p className="mt-1">© 2025 Yatori</p>
+              </div>
             </div>
           ) : (
-            <div className="hidden lg:flex justify-center">
-              <div className="h-2 w-2 rounded-full bg-sidebar-primary animate-pulse"></div>
+            <div className="hidden lg:flex flex-col items-center gap-2">
+              <div className={cn("h-2 w-2 rounded-full animate-pulse", adminPass ? "bg-green-500" : "bg-sidebar-primary")}></div>
+              <Lock className={cn("h-4 w-4", adminPass ? "text-green-500" : "text-sidebar-foreground/40")} />
             </div>
           )}
         </div>
