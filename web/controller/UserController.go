@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"time"
 	"yatori-go-console/web/service"
 
@@ -12,6 +13,9 @@ import (
 )
 
 type UserApi struct{}
+
+// logIDPattern 限制日志ID只能为字母/数字/下划线/连字符，防止路径穿越（如 ../、/ 等）
+var logIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // 获取账号列表
 func (UserApi) AccountListController(c *gin.Context) {
@@ -87,6 +91,10 @@ func (UserApi) StopBrushController(c *gin.Context) {
 // 日志同步接口
 func (UserApi) StreamLog(c *gin.Context) {
 	logID := c.Param("id")
+	if !logIDPattern.MatchString(logID) {
+		c.String(400, "invalid log id")
+		return
+	}
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")

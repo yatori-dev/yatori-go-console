@@ -160,9 +160,11 @@ func Lunch() {
 	checkProxyIp()
 
 	//isIpProxy(&configJson)
-	//如果开启了Web模式，则直接切换Web模式
+	//如果开启了Web模式，则启动 Web 服务（账号通过 Web 管理）。
+	//注意：ServiceInit 内部会阻塞直到进程退出，因此 Web 模式下不会再执行命令行批量刷课（brushBlock）。
 	if configJson.Setting.BasicSetting.WebModel == 1 {
-		web.ServiceInit()
+		web.ServiceInit(configJson.Setting.BasicSetting)
+		return
 	}
 	brushBlock(&configJson)
 	lg.Print(lg.INFO, lg.Red, "Yatori --- ", "所有任务执行完毕")
@@ -212,7 +214,7 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	//学习通
 	platformLock.Add(1)
 	go func() {
-		xuexitong.RunBrushOperation(configData.Setting, xueXiTongAccount, xueXiTongOperation) //英华统一刷课模块
+		xuexitong.RunBrushOperation(configData.Setting, xueXiTongAccount, xueXiTongOperation) //学习通统一刷课模块
 		platformLock.Done()
 	}()
 	//码上研训
@@ -224,13 +226,13 @@ func brushBlock(configData *config.JSONDataForConfig) {
 	//WeLearn
 	platformLock.Add(1)
 	go func() {
-		welearn.RunBrushOperation(configData.Setting, welearnAccount, welearnOperation) //码上研训统一刷课模块
+		welearn.RunBrushOperation(configData.Setting, welearnAccount, welearnOperation) //WeLearn统一刷课模块
 		platformLock.Done()
 	}()
 	//icve
 	platformLock.Add(1)
 	go func() {
-		icve.RunBrushOperation(configData.Setting, icveAccount, icveOperation) //码上研训统一刷课模块
+		icve.RunBrushOperation(configData.Setting, icveAccount, icveOperation) //智慧职教(icve)统一刷课模块
 		platformLock.Done()
 	}()
 	//青书学堂
