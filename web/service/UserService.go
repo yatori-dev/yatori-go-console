@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,9 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -443,15 +447,127 @@ func StopBrushService(c *gin.Context) {
 	})
 }
 
-// 获取账号日志 (精简版，待 upstream 合入 local_config 后替换)
+// 账号 uid 格式校验（复用 streamLog 同款规则）
+var accountLogUIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+// 获取账号日志（读取 ./assets/log 下最新日志文件，按 uid/account/remarkName 过滤并脱敏）
 func AccountLogsService(c *gin.Context) {
 	uid := c.Param("uid")
-	user, _ := dao.QueryUser(global.GlobalDB, pojo.UserPO{Uid: uid})
+	if !accountLogUIDPattern.MatchString(uid) {
+		c.JSON(http.StatusOK, vo.Response{Code: 400, Message: "uid 格式错误"})
+		return
+	}
+
+	user, err := dao.QueryUser(global.GlobalDB, pojo.UserPO{Uid: uid})
+	if err != nil {
+		c.JSON(http.StatusOK, vo.Response{Code: 400, Message: err.Error()})
+		return
+	}
 	if user == nil {
 		c.JSON(http.StatusOK, vo.Response{Code: 400, Message: "该账号不存在"})
 		return
 	}
-	c.JSON(http.StatusOK, vo.Response{Code: 200, Message: "拉取日志成功", Data: []any{}})
+
+	// 收集用于匹配日志的标识：uid、账号、备注名
+	identifiers := []string{uid, user.Account}
+	userConfig := user.UserConfigTurnEntity()
+	if remark := strings.TrimSpace(userConfig.RemarkName); remark != "" && remark != user.Account {
+		identifiers = append(identifiers, remark)
+	}
+
+	logs, err := readAccountLogs("./assets/log", identifiers, 500)
+	if err != nil {
+		log.Printf("读取账号日志失败 uid=%s: %v", uid, err)
+	}
+
+	c.JSON(http.StatusOK, vo.Response{Code: 200, Message: "拉取日志成功", Data: map[string]any{
+		"success": err == nil,
+		"uid":     uid,
+		"logs":    logs,
+	}})
+}
+
+// readAccountLogs 从 logDir 读取匹配 identifiers 的最新日志行，最多返回 maxLines 行
+func readAccountLogs(logDir string, identifiers []string, maxLines int) (string, error) {
+	entries, err := os.ReadDir(logDir)
+	if err != nil {
+		return "", err
+	}
+
+	var files []os.FileInfo
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasPrefix(entry.Name(), "log") || !strings.HasSuffix(entry.Name(), ".txt") {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		files = append(files, info)
+	}
+
+	if len(files) == 0 {
+		return "", nil
+	}
+
+	// 按修改时间倒序，优先读最新日志
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].ModTime().After(files[j].ModTime())
+	})
+
+	// 构建匹配正则：任一标识
+	var patterns []string
+	for _, id := range identifiers {
+		if id == "" {
+			continue
+		}
+		patterns = append(patterns, regexp.QuoteMeta(id))
+	}
+	if len(patterns) == 0 {
+		return "", nil
+	}
+	matchRe := regexp.MustCompile(strings.Join(patterns, "|"))
+
+	// 脱敏规则
+	desensitizeRes := []*regexp.Regexp{
+		regexp.MustCompile(`(?i)(api[_-]?key)\s*[:=]\s*[^\s]+`),
+		regexp.MustCompile(`(?i)(password|passwd|pwd)\s*[:=]\s*[^\s]+`),
+		regexp.MustCompile(`(?i)(token|secret)\s*[:=]\s*[^\s]+`),
+		regexp.MustCompile(`sk-[a-zA-Z0-9]{10,}`),
+	}
+
+	var matched []string
+	lines := 0
+	for _, info := range files {
+		if lines >= maxLines {
+			break
+		}
+		path := filepath.Join(logDir, info.Name())
+		file, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+
+		scanner := bufio.NewScanner(file)
+		scanner.Buffer(make([]byte, 1024), 1024*1024)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if !matchRe.MatchString(line) {
+				continue
+			}
+			for _, re := range desensitizeRes {
+				line = re.ReplaceAllString(line, "$1: ***")
+			}
+			matched = append(matched, line)
+			lines++
+			if lines >= maxLines {
+				break
+			}
+		}
+		file.Close()
+	}
+
+	return strings.Join(matched, "\n"), nil
 }
 
 func normalizeEndpoint(endpoint, customEp string) (string, error) {
