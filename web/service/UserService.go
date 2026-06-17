@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -39,9 +40,7 @@ func UserListService(c *gin.Context) {
 		toMap := utils.StructToMap(user)
 		userActivity := global.GetUserActivity(user)
 		if userActivity != nil {
-			if xxt, ok := (*userActivity).(*activity.XXTActivity); ok {
-				toMap["isRunning"] = xxt.IsRunning
-			}
+			toMap["isRunning"] = (*userActivity).IsActive()
 		} else {
 			toMap["isRunning"] = false
 		}
@@ -248,8 +247,6 @@ func UpdateUserService(c *gin.Context) {
 
 	// 绑定 JSON
 	if err := c.ShouldBindJSON(&req); err != nil {
-		data, _ := c.GetRawData()
-		fmt.Println(string(data))
 		c.JSON(http.StatusOK, vo.Response{
 			Code:    400,
 			Message: "JSON 解析失败",
@@ -371,13 +368,41 @@ func StartBrushService(c *gin.Context) {
 		})
 		return
 	}
-	userActivity := global.GetUserActivity(*user)
-	if userActivity != nil {
-		//userActivity.IsRunning = false
+	if user == nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "该账号不存在",
+		})
+		return
 	}
+	// 获取活动，若不存在则按账号类型构建（与拉取课程列表保持一致），避免对 nil 解引用导致协程 panic 进而崩溃整个服务
+	userActivity := global.GetUserActivity(*user)
+	if userActivity == nil {
+		created := activity.BuildUserActivity(*user)
+		if created == nil {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    400,
+				Message: "不支持的账号类型或账号配置解析失败",
+			})
+			return
+		}
+		global.PutUserActivity(*user, &created)
+		userActivity = &created
+	}
+	// 已在运行则直接返回，避免重复启动多个刷课协程
+	if (*userActivity).IsActive() {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    200,
+			Message: "任务已在运行中",
+		})
+		return
+	}
+	act := *userActivity
 	go func() {
-		// 调用Start方法
-		(*userActivity).Start()
+		// Start 内部会在需要时自动登录；这里捕获错误并记录，避免协程内 panic 拖垮进程
+		if err := act.Start(); err != nil {
+			log.Printf("刷课启动失败 uid=%s: %v", uid, err)
+		}
 	}()
 
 	c.JSON(200, gin.H{
@@ -393,24 +418,24 @@ func StopBrushService(c *gin.Context) {
 		Uid: uid,
 	})
 	if err != nil {
-		c.JSON(400, gin.H{})
+		c.JSON(http.StatusOK, vo.Response{Code: 400, Message: err.Error()})
+		return
 	}
 	if user == nil {
-		c.JSON(400, gin.H{})
+		c.JSON(http.StatusOK, vo.Response{Code: 400, Message: "该账号不存在"})
 		return
 	}
 	userActivity := global.GetUserActivity(*user)
 	if userActivity == nil {
-		c.JSON(400, gin.H{})
+		// 没有正在运行的活动，视为已停止
+		c.JSON(http.StatusOK, vo.Response{Code: 200, Message: "任务未在运行"})
+		return
 	}
-	// 根据账号类型断言为具体活动类型并设置IsRunning
-	if xxt, ok := (*userActivity).(*activity.XXTActivity); ok {
-		xxt.IsRunning = false
-	} else if yinghua, ok := (*userActivity).(*activity.YingHuaActivity); ok {
-		yinghua.IsRunning = true
+	// Stop() 会将 IsRunning 置为 false，刷课循环据此中断
+	if err := (*userActivity).Stop(); err != nil {
+		c.JSON(http.StatusOK, vo.Response{Code: 400, Message: err.Error()})
+		return
 	}
-	(*userActivity).Stop()
-	//userActivity.Kill()
 	c.JSON(http.StatusOK, vo.Response{
 		Code:    200,
 		Message: "停止成功",
@@ -548,7 +573,7 @@ func SaveAiConfigService(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "序列化配置失败: " + err.Error()})
 		return
 	}
-	if err := os.WriteFile(configPath, out, 0644); err != nil {
+	if err := config.SaveRawConfigAtomic(configPath, out); err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": "写入配置文件失败: " + err.Error()})
 		return
 	}

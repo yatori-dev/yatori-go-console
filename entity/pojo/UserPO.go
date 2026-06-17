@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"log"
 	"yatori-go-console/config"
 )
 
@@ -39,9 +40,10 @@ func (s *StringArray) Scan(value interface{}) error {
 // 用户配置信息json转实体
 func (po *UserPO) UserConfigTurnEntity() config.User {
 	user := config.User{}
-	err := json.Unmarshal([]byte(po.UserConfigJson), &user)
-	if err != nil {
-		panic(err)
+	if err := json.Unmarshal([]byte(po.UserConfigJson), &user); err != nil {
+		// 不再 panic 拖垮整个进程：记录错误并返回空配置，由调用方按零值处理
+		log.Printf("解析用户配置JSON失败 uid=%s: %v", po.Uid, err)
+		return config.User{}
 	}
 	return user
 }

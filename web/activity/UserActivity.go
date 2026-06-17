@@ -14,6 +14,7 @@ type Activity interface {
 	GetUserCache() any //获取Cache
 	SetUser(user config.User)
 	GetUser() config.User
+	IsActive() bool //当前是否正在运行
 }
 
 // 用户活动
@@ -37,6 +38,11 @@ func (u *UserActivityBase) GetUser() config.User {
 // 获取UserCache
 func (u *UserActivityBase) GetUserCache() any {
 	return u.UserCache
+}
+
+// IsActive 当前活动是否正在运行
+func (u *UserActivityBase) IsActive() bool {
+	return u.IsRunning
 }
 
 // 构建活动
