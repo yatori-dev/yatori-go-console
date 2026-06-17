@@ -7,17 +7,33 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, EyeOff, Save, Bot, TestTube, Loader2, ExternalLink, RotateCcw } from "lucide-react"
-import { getAiConfig, saveAiConfig, testAiConfig, AIConfig } from "@/api/systemApi"
+import { Eye, EyeOff, Save, Bot, TestTube, Loader2, ExternalLink, RotateCcw, CheckCircle2, XCircle } from "lucide-react"
+import { getAiConfig, saveAiConfig, testAiConfig, AIConfig, AIApiResponse } from "@/api/systemApi"
 import { PROVIDER_PRESETS, getProviderPreset, defaultConfigForProvider } from "@/api/providerPresets"
 import { useToast } from "@/hooks/use-toast"
 
 export type AIConfigFormProps = Record<string, never>
 
+const endpointPath = (endpoint: string, customEndpoint?: string) => {
+  if (endpoint === "responses") return "/v1/responses"
+  if (endpoint === "custom") {
+    const ep = (customEndpoint || "").trim().replace(/^\/+/, "")
+    return ep ? `/${ep}` : ""
+  }
+  return "/v1/chat/completions"
+}
+
+const fullAiUrl = (config: AIConfig) => {
+  const baseUrl = (config.baseUrl || "").trim().replace(/\/+$/, "")
+  const path = endpointPath(config.endpoint, config.customEndpoint)
+  if (!baseUrl) return path
+  return `${baseUrl}${path}`
+}
+
 export function AIConfigForm(_: AIConfigFormProps = {}) {
   const { toast } = useToast()
   const [config, setConfig] = useState<AIConfig>({
-    provider: "", model: "", apiKey: "", baseUrl: "", endpoint: "chat", customEndpoint: "",
+    provider: "", runtimeProvider: "", model: "", apiKey: "", baseUrl: "", endpoint: "chat", customEndpoint: "",
   })
   const [externalBankUrl, setExternalBankUrl] = useState("")
   const [showApiKey, setShowApiKey] = useState(false)
@@ -25,6 +41,7 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
   const [isSaving, setIsSaving] = useState(false)
   const [isTesting, setIsTesting] = useState(false)
   const [originalProvider, setOriginalProvider] = useState("")
+  const [testResult, setTestResult] = useState<(AIApiResponse & { testedAt: string }) | null>(null)
 
   // 初次加载
   useEffect(() => {
@@ -35,6 +52,7 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
           const a = r.aiSetting
           setConfig({
             provider: a.provider || "",
+            runtimeProvider: a.runtimeProvider || a.provider || "",
             model: a.model || "",
             apiKey: a.apiKey || "",
             baseUrl: a.baseUrl || "",
@@ -55,21 +73,26 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
     })()
   }, [])
 
-  // 切换供应商时自动填默认值（但保留用户已填的 apiKey 和 model）
+  // 切换供应商时自动填默认值（保留用户已填的 apiKey）
   const onProviderChange = (newProvider: string) => {
     const def = defaultConfigForProvider(newProvider)
     setConfig(prev => ({
       ...def,
       apiKey: prev.apiKey,
-      model: prev.model || def.model,
+      model: def.model || prev.model,
     }))
+    setTestResult(null)
   }
 
-  const isFormValid = config.provider && config.model && config.apiKey && config.baseUrl
+  const providerPreset = useMemo(() => getProviderPreset(config.provider), [config.provider])
+  const showCustomEndpoint = config.endpoint === "custom"
+  const isFormValid = Boolean(config.provider && config.model && config.apiKey && config.baseUrl && (!showCustomEndpoint || config.customEndpoint?.trim()))
+  const currentUrl = fullAiUrl(config)
+  const suggestedModels = providerPreset?.models || []
 
   const handleSave = async () => {
     if (!isFormValid) {
-      toast({ variant: "destructive", title: "保存失败", description: "请填写完整的供应商、模型、API 密钥和基础 URL" })
+      toast({ variant: "destructive", title: "保存失败", description: "请填写完整的供应商、模型、API 密钥、基础 URL 和端点" })
       return
     }
     setIsSaving(true)
@@ -89,34 +112,36 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
 
   const handleTest = async () => {
     if (!isFormValid) {
-      toast({ variant: "destructive", title: "无法测试", description: "请先填写供应商、模型、API 密钥和基础 URL" })
+      toast({ variant: "destructive", title: "无法测试", description: "请先填写供应商、模型、API 密钥、基础 URL 和端点" })
       return
     }
     setIsTesting(true)
+    setTestResult(null)
     try {
       const r = await testAiConfig(config)
+      setTestResult({ ...r, testedAt: new Date().toLocaleString() })
       if (r.success) {
         toast({ title: "连接成功", description: r.message, duration: 8000 })
       } else {
         toast({ variant: "destructive", title: "连接失败", description: r.message, duration: 10000 })
       }
     } catch (e: any) {
-      toast({ variant: "destructive", title: "测试出错", description: String(e) })
+      const message = String(e)
+      setTestResult({ success: false, message, testedAt: new Date().toLocaleString() })
+      toast({ variant: "destructive", title: "测试出错", description: message })
     } finally {
       setIsTesting(false)
     }
   }
 
   const handleReset = () => {
+    setTestResult(null)
     if (!originalProvider) {
-      setConfig({ provider: "", model: "", apiKey: "", baseUrl: "", endpoint: "chat", customEndpoint: "" })
+      setConfig({ provider: "", runtimeProvider: "", model: "", apiKey: "", baseUrl: "", endpoint: "chat", customEndpoint: "" })
       return
     }
     setConfig(c => ({ ...c, model: "", apiKey: "" }))
   }
-
-  const providerPreset = useMemo(() => getProviderPreset(config.provider), [config.provider])
-  const showCustomEndpoint = config.endpoint === "custom"
 
   if (isLoading) {
     return (
@@ -182,6 +207,15 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
               <p className="text-xs sm:text-sm text-muted-foreground">
                 {providerPreset?.defaultModel ? `默认建议: ${providerPreset.defaultModel}` : "请输入目标模型 ID"}
               </p>
+              {suggestedModels.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {suggestedModels.map(model => (
+                    <Button key={model} type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={() => setConfig({ ...config, model })}>
+                      {model}
+                    </Button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* API Key */}
@@ -207,7 +241,7 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
                   {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs sm:text-sm text-muted-foreground">密钥将加密存储在 config.yaml 中</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">密钥将存储在 config.yaml 中，页面不会在测试结果中展示密钥</p>
             </div>
 
             {/* Base URL */}
@@ -222,7 +256,7 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
                 onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
                 className="text-sm sm:text-base font-mono"
               />
-              <p className="text-xs sm:text-sm text-muted-foreground">不含路径的根 URL（协议 + 域名 + 可选前缀）</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">可包含网关前缀，但不要包含最终接口路径；系统会自动拼接端点</p>
             </div>
 
             {/* Endpoint Mode */}
@@ -241,10 +275,7 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
                 </SelectContent>
               </Select>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                实际请求 URL = baseUrl + <code className="text-xs bg-muted px-1 rounded">{
-                  showCustomEndpoint ? (config.customEndpoint || '<请填写>') :
-                  config.endpoint === 'chat' ? '/v1/chat/completions' : '/v1/responses'
-                }</code>
+                实际请求 URL = <code className="text-xs bg-muted px-1 rounded break-all">{currentUrl || "<请填写>"}</code>
               </p>
             </div>
 
@@ -261,7 +292,7 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
                   onChange={(e) => setConfig({ ...config, customEndpoint: e.target.value })}
                   className="text-sm sm:text-base font-mono"
                 />
-                <p className="text-xs sm:text-sm text-muted-foreground">不含域名，从根路径开始</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">不含域名，可填写多级路径，开头的 / 会自动处理</p>
               </div>
             )}
 
@@ -277,15 +308,16 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
                     <span className="font-medium text-foreground">{providerPreset?.label || config.provider}</span>
                   </div>
                   <div className="flex justify-between gap-4">
+                    <span>运行时类型:</span>
+                    <span className="font-medium text-foreground">{config.runtimeProvider || providerPreset?.runtimeProvider || config.provider}</span>
+                  </div>
+                  <div className="flex justify-between gap-4">
                     <span>模型:</span>
                     <span className="font-medium text-foreground break-all">{config.model}</span>
                   </div>
                   <div className="flex justify-between gap-4">
                     <span>完整 URL:</span>
-                    <span className="font-mono text-foreground break-all text-right">
-                      {config.baseUrl}{showCustomEndpoint ? (config.customEndpoint || '<custom?>') :
-                        config.endpoint === 'chat' ? '/v1/chat/completions' : '/v1/responses'}
-                    </span>
+                    <span className="font-mono text-foreground break-all text-right">{currentUrl}</span>
                   </div>
                   <div className="flex justify-between gap-4">
                     <span>API 密钥:</span>
@@ -311,6 +343,23 @@ export function AIConfigForm(_: AIConfigFormProps = {}) {
                 <RotateCcw className="h-4 w-4" /> 重置
               </Button>
             </div>
+
+            {testResult && (
+              <div className={`p-3 sm:p-4 rounded-lg border ${testResult.success ? "bg-green-50 border-green-200 text-green-900" : "bg-red-50 border-red-200 text-red-900"}`}>
+                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                  {testResult.success ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                  {testResult.success ? "AI 连通性正常" : "AI 连通性异常"}
+                </h4>
+                <div className="space-y-1 text-xs sm:text-sm">
+                  <div>结果：{testResult.message}</div>
+                  {testResult.statusCode !== undefined && <div>HTTP 状态：{testResult.statusCode}</div>}
+                  {testResult.durationMs !== undefined && <div>耗时：{testResult.durationMs} ms</div>}
+                  {testResult.runtimeProvider && <div>运行时类型：{testResult.runtimeProvider}</div>}
+                  {testResult.url && <div className="break-all">测试 URL：{testResult.url}</div>}
+                  <div>测试时间：{testResult.testedAt}</div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
