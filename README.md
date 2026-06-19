@@ -18,11 +18,11 @@
 
 ## 🤔问题咨询
 
-> QQ交流群：
+> 推荐的一些计算机技术QQ交流群：
 >
-> * [932447008](https://qm.qq.com/q/KREkme4rYc)（一群，已满）
-> * [1044155704](https://qm.qq.com/q/ZmBAjtFJi6)（二群，未满）（推荐）
->
+> * [932447008](https://qm.qq.com/q/KREkme4rYc)（一群，未满）（推荐）
+> * [1044155704](https://qm.qq.com/q/ZmBAjtFJi6)（二群，已满）
+> * [1101685348](https://qm.qq.com/q/3MOiFau9pY)（三群，未满）（推荐）
 > B站：[BiliBili for 长白崎](https://space.bilibili.com/36987520)（不定时更新计算机相关技术教程）
 >
 > 个人博客：[长白崎の个人博客 (changbaiqi.top)](https://blogs.changbaiqi.top/)
