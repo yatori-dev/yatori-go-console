@@ -360,18 +360,52 @@ func StartBrushService(c *gin.Context) {
 		})
 		return
 	}
-	userActivity := global.GetUserActivity(*user)
-	if userActivity != nil {
-		//userActivity.IsRunning = false
+	if user == nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "该账号不存在",
+		})
+		return
 	}
-	go func() {
-		// 调用Start方法
-		(*userActivity).Start()
-	}()
 
-	c.JSON(200, gin.H{
-		"code": 200,
-		"msg":  "启动成功",
+	userActivity := global.GetUserActivity(*user)
+	activityCreated := false
+	if userActivity == nil || *userActivity == nil {
+		createActivity := activity.BuildUserActivity(*user)
+		if createActivity == nil {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    400,
+				Message: "当前平台暂不支持Web启动",
+			})
+			return
+		}
+		userActivity = &createActivity
+		activityCreated = true
+	}
+
+	if xxt, ok := (*userActivity).(*activity.XXTActivity); ok && xxt.GetUserCache() == nil {
+		if err := xxt.Login(); err != nil {
+			c.JSON(http.StatusOK, vo.Response{
+				Code:    400,
+				Message: "登录失败: " + err.Error(),
+			})
+			return
+		}
+	}
+
+	if activityCreated {
+		global.PutUserActivity(*user, userActivity)
+	}
+
+	go func(userActivity *activity.Activity) {
+		if err := (*userActivity).Start(); err != nil {
+			fmt.Println("启动失败:", err)
+		}
+	}(userActivity)
+
+	c.JSON(http.StatusOK, vo.Response{
+		Code:    200,
+		Message: "启动成功",
 	})
 }
 
@@ -382,24 +416,37 @@ func StopBrushService(c *gin.Context) {
 		Uid: uid,
 	})
 	if err != nil {
-		c.JSON(400, gin.H{})
-	}
-	if user == nil {
-		c.JSON(400, gin.H{})
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: err.Error(),
+		})
 		return
 	}
+	if user == nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "该账号不存在",
+		})
+		return
+	}
+
 	userActivity := global.GetUserActivity(*user)
-	if userActivity == nil {
-		c.JSON(400, gin.H{})
+	if userActivity == nil || *userActivity == nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    400,
+			Message: "任务未启动",
+		})
+		return
 	}
-	// 根据账号类型断言为具体活动类型并设置IsRunning
-	if xxt, ok := (*userActivity).(*activity.XXTActivity); ok {
-		xxt.IsRunning = false
-	} else if yinghua, ok := (*userActivity).(*activity.YingHuaActivity); ok {
-		yinghua.IsRunning = true
+
+	if err := (*userActivity).Stop(); err != nil {
+		c.JSON(http.StatusOK, vo.Response{
+			Code:    500,
+			Message: "停止失败: " + err.Error(),
+		})
+		return
 	}
-	(*userActivity).Stop()
-	//userActivity.Kill()
+
 	c.JSON(http.StatusOK, vo.Response{
 		Code:    200,
 		Message: "停止成功",
