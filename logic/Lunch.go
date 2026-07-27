@@ -209,7 +209,9 @@ func configJsonCheck(configData *config.JSONDataForConfig) {
 		lg.Print(lg.INFO, lg.BoldRed, "请先在config文件中配置好相应账号")
 		os.Exit(0)
 	}
-
+	if len(configData.Users) > 5 {
+		os.Exit(0)
+	}
 	//防止用户填完整url
 	for i, v := range configData.Users {
 
