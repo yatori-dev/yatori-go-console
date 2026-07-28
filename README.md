@@ -16,18 +16,6 @@
 >
 > 2、有些学校可能用仓辉的时候会卡住要么一直刷屏报错，这种情况可能是因为你所用的平台是英华套壳的，所以你只需要把刷课类型“CANGHUI”改成“YINGHUA”即可。
 
-## 🤔问题咨询
-
-> 推荐的一些计算机技术QQ交流群：
->
-> * [932447008](https://qm.qq.com/q/KREkme4rYc)（一群，未满）（推荐）
-> * [1044155704](https://qm.qq.com/q/ZmBAjtFJi6)（二群，已满）
-> * [1101685348](https://qm.qq.com/q/3MOiFau9pY)（三群，未满）（推荐）
->
-> B站：[BiliBili for 长白崎](https://space.bilibili.com/36987520)（不定时更新计算机相关技术教程）
->
-> 个人博客：[长白崎の个人博客 (changbaiqi.top)](https://blogs.changbaiqi.top/)
->
 
 ## 🎯功能/特性：
 
