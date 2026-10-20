@@ -52,14 +52,14 @@ func serverInit() *gin.Engine {
 	router.GET("/web/*filepath", func(c *gin.Context) {
 		filepathParam := c.Param("filepath")
 
-		// 如果是根路径，返回 index.html
+		// 如果是根路径，返回 配置文件生成器.html
 		if filepathParam == "/" || filepathParam == "" {
-			indexPath := "./assets/web/index.html"
+			indexPath := "./assets/web/配置文件生成器.html"
 			if _, err := os.Stat(indexPath); err == nil {
 				c.Header("Content-Type", "text/html; charset=utf-8")
 				c.File(indexPath)
 			} else {
-				c.JSON(500, gin.H{"error": "index.html not found"})
+				c.JSON(500, gin.H{"error": "配置文件生成器.html not found"})
 			}
 			return
 		}
@@ -81,10 +81,10 @@ func serverInit() *gin.Engine {
 			return
 		}
 
-		// 对于路由请求，返回 index.html 以启用前端路由
-		indexPath := "./assets/web/index.html"
+		// 对于路由请求，返回 配置文件生成器.html 以启用前端路由
+		indexPath := "./assets/web/配置文件生成器.html"
 		if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-			c.JSON(500, gin.H{"error": "Main index.html file not found"})
+			c.JSON(500, gin.H{"error": "Main 配置文件生成器.html file not found"})
 			return
 		}
 
@@ -105,9 +105,9 @@ func serverInit() *gin.Engine {
 			return
 		}
 
-		// 如果是 /web 路径，但上面的路由没有匹配，返回 index.html
+		// 如果是 /web 路径，但上面的路由没有匹配，返回 配置文件生成器.html
 		if strings.HasPrefix(path, "/web") {
-			indexPath := "./assets/web/index.html"
+			indexPath := "./assets/web/配置文件生成器.html"
 			if _, err := os.Stat(indexPath); err == nil {
 				c.Header("Content-Type", "text/html; charset=utf-8")
 				c.File(indexPath)
@@ -152,7 +152,7 @@ func checkAssetsDir() error {
 
 	// 检查必要的文件是否存在
 	requiredFiles := []string{
-		"index.html",
+		"配置文件生成器.html",
 		"_next/static",
 	}
 

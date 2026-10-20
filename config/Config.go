@@ -64,7 +64,7 @@ type CoursesCustom struct {
 	CxExamSw        *int              `json:"cxExamSw" yaml:"cxExamSw"`               //学习通是否开启考试
 	ShuffleSw       int               `json:"shuffleSw" yaml:"shuffleSw"`             //是否打乱顺序学习，1为打乱顺序，0为不打乱
 	VideoModel      int               `json:"videoModel" yaml:"videoModel"`           //观看视频模式
-	AutoExam        int               `json:"autoExam" yaml:"autoExam"`               //是否自动考试
+	AutoExam        int               `json:"autoExam" yaml:"autoExam"`               //自动答题模式：0=不答题，1=AI答题，2=外置题库答题（海旗为内置标答答题），3=学习通内置AI
 	ExamAutoSubmit  int               `json:"examAutoSubmit" yaml:"examAutoSubmit"`   //是否自动提交试卷
 	ExcludeCourses  []string          `json:"excludeCourses" yaml:"excludeCourses"`
 	IncludeCourses  []string          `json:"includeCourses" yaml:"includeCourses"`
