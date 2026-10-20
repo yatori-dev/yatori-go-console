@@ -39,27 +39,30 @@ import (
 	"github.com/yatori-dev/yatori-go-core/que-core/aiq"
 	"github.com/yatori-dev/yatori-go-core/que-core/qentity"
 	"github.com/yatori-dev/yatori-go-core/que-core/qtype"
-	"github.com/yatori-dev/yatori-go-core/utils/qutils"
 	lg "github.com/yatori-dev/yatori-go-core/utils/log"
+	"github.com/yatori-dev/yatori-go-core/utils/qutils"
 )
 
 // hqkjQuiz 作业/考试条目（仅取答题所需字段）
 type hqkjQuiz struct {
-	Id    string // workId 或 examId
-	Title string
+	Id            string // workId 或 examId
+	Title         string
+	Frequency     int     // 已作答次数（exam_list 的 frequency 字段；>0=已考过，用于考试防重复）
+	AchievedScore float64 // 实际得分（从 consult_list 的 studentResult[0].score 获取，仅 frequency>0 时有效）
 }
 
 // hqkjTopic 单道题目
 type hqkjTopic struct {
-	TopicId   string           // 题目 id（提交用）
-	RecordId  string           // work_start 的整卷记录 id（考试 exam_answer_add 用）
-	WrId      string           // consult 的作答记录 id（作业 work_answer_add 用）
-	WaId      string           // consult 的单题答案槽 id（作业 work_answer_add 用）
-	CateBid   string           // consult 题目大分类 id（work_answer_add 可能需要）
-	CateMid   string           // consult 题目中分类 id（work_answer_add 可能需要）
-	TypeInt   int              // 海旗原始题型编码（提交用）
-	Question  qentity.Question // 交给 AI 的标准题目结构
-	OptionIdx []string         // 与 Question.Options 一一对应的选项 idx（A/B/C/D）
+	TopicId    string           // 题目 id（提交用）
+	RecordId   string           // work_start 的整卷记录 id（考试 exam_answer_add 用）
+	WrId       string           // consult 的作答记录 id（作业 work_answer_add 用）
+	WaId       string           // consult 的单题答案槽 id（作业 work_answer_add 用）
+	CateBid    string           // consult 题目大分类 id（work_answer_add 可能需要）
+	CateMid    string           // consult 题目中分类 id（work_answer_add 可能需要）
+	TypeInt    int              // 海旗原始题型编码（提交用）
+	Question   qentity.Question // 交给 AI 的标准题目结构
+	OptionIdx  []string         // 与 Question.Options 一一对应的选项 idx（A/B/C/D）
+	CorrectIdx []string         // scale>=100 的选项 idx（开考接口直接泄露的标准答案；为空回退 AI）
 }
 
 // runAutoAnswer 海旗 AI 自动答题总入口（作业 + 考试）。
@@ -76,7 +79,7 @@ func runAutoAnswer(setting config.Setting, user *config.User, cache *hqkjApi.Hqk
 	seen := map[string]bool{} // 同一作业可能挂在多个 node 下被重复拉取，按 workId 去重，避免重复作答/提交
 	for _, node := range nodeList {
 		workAction(setting, user, cache, course, node, seen)
-		examAction(setting, user, cache, course, node, seen) // 考试 AI 答题（是否真正提交由 examDryRun 控制）
+		examAction(setting, user, cache, course, node, seen) // 考试 AI 答题：逐题提交由 examDryRun 控制，交卷由 config.ExamAutoSubmit 控制
 	}
 }
 
@@ -87,7 +90,7 @@ func workAction(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 	}
 	listResult, err := cache.PullWorkInfoApi(course.Id, node.Id, 10, nil)
 	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.BoldRed, "拉取作业列表失败：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.BoldRed, "拉取作业列表失败：", err.Error())
 		return
 	}
 	for _, q := range parseQuizList(listResult, "workInfo", "workId") {
@@ -95,7 +98,13 @@ func workAction(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 			continue
 		}
 		seen[q.Id] = true
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), "【", course.Name, "】", "【", node.Name, "】 ", lg.Yellow, "正在AI自动写作业：", q.Title)
+		// frequency>0 的作业已完成，调 consult_list 获取实际得分
+		if q.Frequency > 0 {
+			if consultResult, cerr := pullConsultApi(cache, "work", q.Id, course.Id); cerr == nil {
+				q.AchievedScore = parseConsultScore(consultResult)
+			}
+		}
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), "【", course.Name, "】", "【", node.Name, "】 ", lg.Yellow, "正在AI自动写作业：", q.Title)
 		answerQuiz(setting, user, cache, course, node, "work", q)
 	}
 }
@@ -107,7 +116,7 @@ func examAction(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 	}
 	listResult, err := cache.PullExamListApi(course.Id, node.Id, 10, nil)
 	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.BoldRed, "拉取考试列表失败：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.BoldRed, "拉取考试列表失败：", err.Error())
 		return
 	}
 	for _, q := range parseQuizList(listResult, "examInfo", "examId") {
@@ -115,7 +124,13 @@ func examAction(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 			continue
 		}
 		seen["exam:"+q.Id] = true
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), "【", course.Name, "】", "【", node.Name, "】 ", lg.Yellow, "正在AI自动考试：", q.Title)
+		// frequency>0 的考试已完成，调 consult_list 获取实际得分
+		if q.Frequency > 0 {
+			if consultResult, cerr := pullConsultApi(cache, "exam", q.Id, course.Id); cerr == nil {
+				q.AchievedScore = parseConsultScore(consultResult)
+			}
+		}
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", fmt.Sprintf("<%s>", setting.AiSetting.AiType), "【", course.Name, "】", "【", node.Name, "】 ", lg.Yellow, "正在AI自动考试：", q.Title, " (examId=", q.Id, " frequency=", strconv.Itoa(q.Frequency), ")")
 		answerQuiz(setting, user, cache, course, node, "exam", q)
 	}
 }
@@ -125,7 +140,7 @@ func answerQuiz(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 	// 第一步：拉详情，取记录列表（含每条记录的 id / paperId / classId）
 	detailResult, derr := pullDetailApi(cache, kind, quiz.Id, course.Id, quiz.Title)
 	if derr != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.BoldRed, "拉取作业详情失败：", derr.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.BoldRed, "拉取作业详情失败：", derr.Error())
 		return
 	}
 	records := parseDetailRecords(detailResult)
@@ -146,7 +161,7 @@ func answerQuiz(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 	}
 	rawResp, err := pullStartApi(cache, kind, quiz.Id, course.Id, quiz.Title, startPaperId, classId)
 	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.BoldRed, "拉取题目失败：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.BoldRed, "拉取题目失败：", err.Error())
 		return
 	}
 	topics := parseStartQuestions(rawResp)
@@ -165,39 +180,119 @@ func answerQuiz(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 		}
 	}
 	if len(topics) == 0 {
-		// 没拉到题：作业无客观题、未开始、已截止或已答题等，打印接口原文便于判断
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", node.Name, "】", "【", quiz.Title, "】 ", lg.Yellow, "跳过（未拉到客观题）：", rawResp)
+		// 没拉到题：智能判断原因（未开始/已完成/已截止）并打印人性化提示
+		var startTime, endTime string
+		var frequency int
+		for _, r := range records {
+			if r.StartTime != "" {
+				startTime = r.StartTime
+			}
+			if r.EndTime != "" {
+				endTime = r.EndTime
+			}
+		}
+		frequency = quiz.Frequency // 从 exam_list 继承的 frequency
+		now := time.Now()
+		var reason string
+		// 优先判断 frequency（已完成）
+		if frequency > 0 {
+			if quiz.AchievedScore > 0 {
+				reason = fmt.Sprintf("已完成，不可再次提交（已作答 %d 次，得分 %.0f 分）", frequency, quiz.AchievedScore)
+			} else {
+				reason = fmt.Sprintf("已完成，不可再次提交（已作答 %d 次）", frequency)
+			}
+		}
+		// 次优判断开始/截止时间（使用本地时区解析，避免 UTC 时区误判）
+		if reason == "" && startTime != "" {
+			st, err := time.ParseInLocation("2006-01-02 15:04:05", startTime, time.Local)
+			if err == nil && now.Before(st) {
+				reason = fmt.Sprintf("尚未开始，开始时间：%s", startTime)
+			}
+		}
+		if reason == "" && endTime != "" {
+			et, err := time.ParseInLocation("2006-01-02 15:04:05", endTime, time.Local)
+			if err == nil && now.After(et) {
+				reason = fmt.Sprintf("已截止，截止时间：%s", endTime)
+			}
+		}
+		// 兜底：拉不到题但时间正常、frequency=0 → 可能是服务端其他限制
+		if reason == "" {
+			reason = fmt.Sprintf("未拉到客观题（frequency=%d, 当前时间=%s, 开始时间=%s, 截止时间=%s）", frequency, now.Format("2006-01-02 15:04:05"), startTime, endTime)
+		}
+		kindStr := "作业"
+		if kind == "exam" {
+			kindStr = "考试"
+		}
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", node.Name, "】", "【", quiz.Title, "】 ", lg.Yellow, kindStr, reason)
+		return
+	}
+	// 拉到题了，但如果 frequency>0（已作答过），则跳过不进入答题环节（避免逐题提交时打印一堆 500 报错）
+	if quiz.Frequency > 0 {
+		kindStr := "作业"
+		if kind == "exam" {
+			kindStr = "考试"
+		}
+		if quiz.AchievedScore > 0 {
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", node.Name, "】", "【", quiz.Title, "】 ", lg.Yellow, kindStr, "已完成，不可再次提交（已作答 ", strconv.Itoa(quiz.Frequency), " 次，得分 ", fmt.Sprintf("%.0f", quiz.AchievedScore), " 分）")
+		} else {
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", node.Name, "】", "【", quiz.Title, "】 ", lg.Yellow, kindStr, "已完成，不可再次提交（已作答 ", strconv.Itoa(quiz.Frequency), " 次）")
+		}
 		return
 	}
 	okCount := 0
 	for _, t := range topics {
-		answers := aiAnswerTopic(setting, user.Account, t)
+		// 答案来源：开考接口若已泄露标答(scale=100→CorrectIdx)则直接采用、跳过 AI；否则回退 AI 答题。
+		var answers []string
+		if len(t.CorrectIdx) > 0 {
+			answers = t.CorrectIdx
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Green, "采用平台标答(scale=100)：topicId=", t.TopicId, " 答案=", fmt.Sprintf("%v", answers))
+		} else {
+			answers = aiAnswerTopic(setting, user.Account, t)
+		}
 		var subResult string
-		if kind == "work" { // 作业走 work_answer_add（核心库未提供，console 层对称实现；recordId+wrId+waId 全带）——已实测打通，恒真实提交
-			subResult, err = workAnswerApi(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, t.WrId, t.WaId, strconv.Itoa(t.TypeInt), answers)
+		if kind == "work" { // 作业走 work_answer_add（核心库未提供，console 层对称实现；8 字段不带 wrId/waId）——已实测打通，恒真实提交
+			subResult, err = workAnswerApi(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, strconv.Itoa(t.TypeInt), answers)
 		} else { // 考试走 console 全字段 examAnswerApi（核心库 AnswerApi 只发 recordId、缺 wrId/waId）
 			if examDryRun { // 【考试 dry-run】只打印将提交的 payload，绝不真正提交；有开放考试核对无误后把 examDryRun 改为 false 放开
-				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ",
-					lg.Yellow, "【考试DRY-RUN·未提交】", examAnswerPayload(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, t.WrId, t.WaId, strconv.Itoa(t.TypeInt), answers))
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ",
+					lg.Yellow, "【考试DRY-RUN·未提交】", examAnswerPayload(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, strconv.Itoa(t.TypeInt), answers))
 				continue
 			}
-			subResult, err = examAnswerApi(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, t.WrId, t.WaId, strconv.Itoa(t.TypeInt), answers)
+			subResult, err = examAnswerApi(cache, course.Id, quiz.Id, t.TopicId, t.RecordId, strconv.Itoa(t.TypeInt), answers)
 		}
 		if err != nil {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.BoldRed, "提交答案异常：", err.Error())
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.BoldRed, "提交答案异常：", err.Error())
 			continue
 		}
 		if code, ok := gojsonq.New().JSONString(subResult).Find("code").(float64); ok && int(code) == 200 {
 			okCount++
+			kindStr := "作业"
+			if kind == "exam" {
+				kindStr = "考试"
+			}
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Green, kindStr, "题目 ", t.TopicId, " 提交成功（", strconv.Itoa(okCount), "/", strconv.Itoa(len(topics)), "）")
 		} else {
-			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.Red, "提交答案返回异常：", subResult, " workId：", quiz.Id, " topicId：", t.TopicId, " wrId：", t.WrId, " waId：", t.WaId, " 题型：", strconv.Itoa(t.TypeInt), " 答案：", fmt.Sprintf("%v", answers))
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Red, "提交答案返回异常：", subResult, " workId：", quiz.Id, " topicId：", t.TopicId, " wrId：", t.WrId, " waId：", t.WaId, " 题型：", strconv.Itoa(t.TypeInt), " 答案：", fmt.Sprintf("%v", answers))
 		}
 	}
-	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", lg.Green, "AI答题完毕，成功提交 ", strconv.Itoa(okCount), "/", strconv.Itoa(len(topics)), " 题")
+	lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", "【", course.Name, "】", "【", node.Name, "】 >>> ", lg.Green, "AI答题完毕，成功提交 ", strconv.Itoa(okCount), "/", strconv.Itoa(len(topics)), " 题")
 
-	// ⚠️假设3：海旗逐题提交(yee_exam_answer_add)后即落库，暂未接入「单独交卷」接口。
-	if user.CoursesCustom.ExamAutoSubmit == 1 {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, config.DisplayAccount(user.Account), lg.Default, "] ", lg.DarkGray, "（答案已逐题提交；海旗暂未接入单独交卷接口，如需自动交卷请提供交卷接口）")
+	// 考试交卷：逐题 yee_exam_answer_add 仅暂存，需 yee_exam_answer_finish(state=2) 才正式交卷出成绩。
+	// 双重保险：仅 kind==exam 且 config.ExamAutoSubmit==1 才交卷；examDryRun 下只打印不真正交卷。
+	if kind == "exam" && user.CoursesCustom.ExamAutoSubmit == 1 && len(topics) > 0 {
+		recordId := topics[0].RecordId // 整卷同一 recordId（开考接口返回）
+		if examDryRun {
+			lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Yellow, "【考试DRY-RUN】跳过交卷(yee_exam_answer_finish)，recordId=", recordId)
+		} else {
+			finRes, ferr := examFinishApi(cache, course.Id, quiz.Id, recordId)
+			if ferr != nil {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.BoldRed, "考试交卷异常：", ferr.Error())
+			} else if code, ok := gojsonq.New().JSONString(finRes).Find("code").(float64); ok && int(code) == 200 {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Green, "考试已正式交卷(state=2)，examId=", quiz.Id)
+			} else {
+				lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr[user.AccountType]), "[", lg.Green, user.Account, lg.Default, "] ", lg.Red, "考试交卷返回异常：", finRes)
+			}
+		}
 	}
 }
 
@@ -205,7 +300,7 @@ func answerQuiz(setting config.Setting, user *config.User, cache *hqkjApi.HqkjUs
 func aiAnswerTopic(setting config.Setting, account string, t hqkjTopic) []string {
 	aiAnswer, err := aiq.AggregationAIApi(setting.AiSetting.AiUrl, setting.AiSetting.Model, setting.AiSetting.AiType, aiq.BuildAiQuestionMessage(t.Question), setting.AiSetting.APIKEY)
 	if err != nil {
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr["HQKJ"]), "[", lg.Green, config.DisplayAccount(account), lg.Default, "] ", lg.BoldRed, "AI回答异常：", err.Error())
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr["HQKJ"]), "[", lg.Green, account, lg.Default, "] ", lg.BoldRed, "AI回答异常：", err.Error())
 	}
 	var contents []string
 	_ = json.Unmarshal([]byte(aiAnswer), &contents)
@@ -237,7 +332,7 @@ func aiAnswerTopic(setting config.Setting, account string, t hqkjTopic) []string
 				answers = []string{t.OptionIdx[0]}
 			}
 		}
-		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr["HQKJ"]), "[", lg.Green, config.DisplayAccount(account), lg.Default, "] ", lg.BoldRed, "AI回答无法解析，题型：", t.Question.Type, "，已采用兜底答案。AI原始返回：", aiAnswer)
+		lg.Print(lg.INFO, fmt.Sprintf("[%s]", global.AccountTypeStr["HQKJ"]), "[", lg.Green, account, lg.Default, "] ", lg.BoldRed, "AI回答无法解析，题型：", t.Question.Type, "，已采用兜底答案。AI原始返回：", aiAnswer)
 	}
 	return answers
 }
@@ -300,6 +395,9 @@ func parseQuizList(jsonStr, arrKey, idKey string) []hqkjQuiz {
 		if v, ok := m["title"].(string); ok {
 			q.Title = v
 		}
+		if v, ok := m["frequency"].(float64); ok { // 已作答次数（考试列表特有；作业列表无此字段则为 0）
+			q.Frequency = int(v)
+		}
 		if q.Id != "" {
 			res = append(res, q)
 		}
@@ -310,7 +408,7 @@ func parseQuizList(jsonStr, arrKey, idKey string) []hqkjQuiz {
 // parseStartQuestions 解析 work_start/exam_start 返回的题目。
 // 实测题目数组为 data.workTopics[]，每题字段：id(题目id→提交用 topicId)/recordId(整卷记录id→提交用)/
 // type(题型 1单选 3判断…)/topic(题面,含HTML标签)/option[]{idx,answer,scale}。
-// ⚠️按用户要求：只取题面+选项喂 AI，scale(=100 即正确答案标记)一律忽略，绝不抄答案。
+// scale(=100 即正确答案标记)会被收集进 CorrectIdx，由 answerQuiz 优先采用（拿不到时回退 AI 答题）。
 func parseStartQuestions(jsonStr string) []hqkjTopic {
 	var topics []hqkjTopic
 	var arr []any
@@ -364,6 +462,11 @@ func parseStartQuestions(jsonStr string) []hqkjTopic {
 				idx, _ := om["idx"].(string)
 				t.Question.Options = append(t.Question.Options, ans)
 				t.OptionIdx = append(t.OptionIdx, idx)
+				// 开考接口(exam_start/work_start)直接在 option.scale 标注正确项：scale>=100 即满分正确答案。
+				// 收集所有满分项 idx 作为标准答案（多选可能多个），供 answerQuiz 优先采用、跳过 AI。
+				if scale, ok := om["scale"].(float64); ok && scale >= 100 {
+					t.CorrectIdx = append(t.CorrectIdx, idx)
+				}
 			}
 		}
 		if t.TopicId != "" && len(t.Question.Options) > 0 {
@@ -427,8 +530,13 @@ func pullDetailApi(cache *hqkjApi.HqkjUserCache, kind, quizId, courseId, title s
 // 考试版核心库已实现并自带空 paperId 的 yee_course_student_exam_start(PullExamQuestionsApi)，直接复用；
 // 作业版核心库未提供，这里按 exam_start 的对称范式实现 yee_course_student_work_start，复用 cache 会话与代理设置。
 func pullStartApi(cache *hqkjApi.HqkjUserCache, kind, quizId, courseId, title, paperId, classId string) (string, error) {
-	if kind == "exam" {
-		return cache.PullExamQuestionsApi(quizId, courseId, title, 10, nil)
+	var path, idKey string
+	if kind == "work" {
+		path = "/api/user/yee_course_student_work_start"
+		idKey = "workId"
+	} else {
+		path = "/api/user/yee_course_student_exam_start"
+		idKey = "examId"
 	}
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	if cache.IpProxySW { // 复用账号的 IP 代理设置
@@ -437,8 +545,9 @@ func pullStartApi(cache *hqkjApi.HqkjUserCache, kind, quizId, courseId, title, p
 		}
 	}
 	client := &http.Client{Timeout: 30 * time.Second, Transport: tr}
-	urlStr := cache.PreUrl + "/api/user/yee_course_student_work_start?schoolId=" + cache.SchoolId +
-		"&studentId=" + cache.UserId + "&courseId=" + courseId + "&workId=" + quizId +
+	// 浏览器真实参数：studentId, platform=pc, createUserId（从 exam_detail 解析，暂用 userId 代替）, state=1, classId, paperId, random, randData, randNumber
+	urlStr := cache.PreUrl + path + "?schoolId=" + cache.SchoolId +
+		"&studentId=" + cache.UserId + "&courseId=" + courseId + "&" + idKey + "=" + quizId +
 		"&platform=pc&createUserId=" + cache.UserId + "&state=1&classId=" + classId + "&paperId=" + paperId +
 		"&random=&randData=%257B%257D&randNumber="
 	req, err := http.NewRequest("GET", urlStr, nil)
@@ -462,9 +571,12 @@ func pullStartApi(cache *hqkjApi.HqkjUserCache, kind, quizId, courseId, title, p
 
 // hqkjRecord work_detail/exam_detail 里的一条答题记录。
 type hqkjRecord struct {
-	Id      string // 记录 id（paperId=0 的老式作业用它走 consult_list 拉题）
-	PaperId string // 固定试卷 id（>0 时走 work_start 拉题）
-	ClassId string // 班级 id（work_start 必填）
+	Id        string // 记录 id（paperId=0 的老式作业用它走 consult_list 拉题）
+	PaperId   string // 固定试卷 id（>0 时走 work_start 拉题）
+	ClassId   string // 班级 id（work_start 必填）
+	StartTime string // 开始时间（格式 "2026-06-14 00:00:00"）
+	EndTime   string // 截止时间（格式 "2026-06-21 23:55:55"）
+	Frequency int    // 已作答次数（从 exam_list 的 frequency 继承，detail 里无此字段）
 }
 
 // parseDetailRecords 解析 work_detail/exam_detail 的记录列表（id / paperId>0 / classId>0）。
@@ -489,6 +601,12 @@ func parseDetailRecords(jsonStr string) []hqkjRecord {
 			}
 			if v, ok := m["classId"].(float64); ok && int(v) > 0 {
 				r.ClassId = strconv.Itoa(int(v))
+			}
+			if v, ok := m["startTime"].(string); ok {
+				r.StartTime = v
+			}
+			if v, ok := m["endTime"].(string); ok {
+				r.EndTime = v
 			}
 			if r.Id != "" {
 				recs = append(recs, r)
@@ -537,29 +655,16 @@ func pullConsultApi(cache *hqkjApi.HqkjUserCache, kind, recordId, courseId strin
 }
 
 // workAnswerApi 提交作业答案。核心库只有考试版 yee_exam_answer_add，这里按对称范式实现作业版
-// yee_work_answer_add；payload 在考试版基础上把 examId 换 workId，并补上 consult 拿到的 wrId/waId。
-func workAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, workId, topicId, recordId, wrId, waId, qType string, answers []string) (string, error) {
-	// recordId 与 wrId 是同一“作答记录id”在 workTopics/workResult 两种返回里的不同字段名，互补取非空值
-	if recordId == "" {
-		recordId = wrId
-	}
-	if wrId == "" {
-		wrId = recordId
-	}
-	if recordId == "" { // 兜底，避免拼出非法 JSON
+// yee_work_answer_add；payload 与考试版同构、仅 examId→workId（实测抓包均不带 wrId/waId）。
+func workAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, workId, topicId, recordId, qType string, answers []string) (string, error) {
+	if recordId == "" { // 兜底，避免拼出非法 JSON（正常 recordId 来自 work_start 响应的 recordId）
 		recordId = "0"
 	}
-	if wrId == "" {
-		wrId = "0"
-	}
-	if waId == "" {
-		waId = "0"
-	}
 	answersData, _ := json.Marshal(answers)
-	// 三次实测铁律：payload 必须带 recordId（缺则服务端“系统异常”），其值=wrId；并保留 wrId/waId 给全字段最大化成功率。
+	// payload 与真实抓包(yee_work_answer_add)一致：8 字段、不带 wrId/waId（实测浏览器不带也 200 success）。
 	payload := `{"schoolId":` + cache.SchoolId + `,"courseId":` + courseId + `,"userId":` + cache.UserId +
-		`,"workId":` + workId + `,"recordId":` + recordId + `,"wrId":` + wrId + `,"waId":` + waId +
-		`,"topicId":` + topicId + `,"answer":` + string(answersData) + `,"type":` + qType + `}`
+		`,"workId":` + workId + `,"topicId":` + topicId + `,"answer":` + string(answersData) +
+		`,"recordId":` + recordId + `,"type":` + qType + `}`
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	if cache.IpProxySW { // 复用账号的 IP 代理设置
 		tr.Proxy = func(req *http.Request) (*url.URL, error) {
@@ -588,38 +693,26 @@ func workAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, workId, topicId, reco
 }
 
 // examDryRun 考试专用 dry-run 开关：true=考试只打印将提交的 payload、绝不真正发请求（验证用）；false=真实提交。
-// 作业已实测打通、恒真实提交，不受此开关影响。考试限时且疑似只能交一次，故先以 dry-run 验证拉题/AI/payload
-// 全部无误，待账号有开放考试、核对 payload 无误后再改为 false 放开真实提交。
-const examDryRun = true
+// 作业已实测打通、恒真实提交，不受此开关影响。2026-06-14：payload 与交卷接口已用 Fiddler 抓包逐字节验证无误，
+// 故放开为 false 真实提交。交卷(yee_exam_answer_finish)另受 config.ExamAutoSubmit 控制（默认 0=只答题不交卷）。
+const examDryRun = false
 
-// examAnswerPayload 构造考试提交 payload。与已实测打通的作业 workAnswerApi 对称（仅 workId→examId、接口路径不同）：
-// 考试 consult 返回 workResult 同样给 wrId/waId、无 recordId，故 recordId↔wrId 互补取非空值、并带全字段。
-func examAnswerPayload(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, recordId, wrId, waId, qType string, answers []string) string {
-	if recordId == "" {
-		recordId = wrId
-	}
-	if wrId == "" {
-		wrId = recordId
-	}
-	if recordId == "" { // 兜底，避免拼出非法 JSON
+// examAnswerPayload 构造考试提交 payload。字段与核心库 AnswerApi、真实抓包(yee_exam_answer_add)完全一致：
+// {schoolId,courseId,userId,examId,topicId,answer,recordId,type}——考试不带 wrId/waId（那是作业 work_answer_add 才需要的）。
+func examAnswerPayload(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, recordId, qType string, answers []string) string {
+	if recordId == "" { // 兜底，避免拼出非法 JSON（正常 recordId 来自 exam_start 响应的 examTopics[].recordId）
 		recordId = "0"
-	}
-	if wrId == "" {
-		wrId = "0"
-	}
-	if waId == "" {
-		waId = "0"
 	}
 	answersData, _ := json.Marshal(answers)
 	return `{"schoolId":` + cache.SchoolId + `,"courseId":` + courseId + `,"userId":` + cache.UserId +
-		`,"examId":` + examId + `,"recordId":` + recordId + `,"wrId":` + wrId + `,"waId":` + waId +
-		`,"topicId":` + topicId + `,"answer":` + string(answersData) + `,"type":` + qType + `}`
+		`,"examId":` + examId + `,"topicId":` + topicId + `,"answer":` + string(answersData) +
+		`,"recordId":` + recordId + `,"type":` + qType + `}`
 }
 
-// examAnswerApi 提交考试答案（yee_exam_answer_add）。核心库 AnswerApi 只发 recordId、缺 wrId/waId，
-// 这里仿已验证的作业版 workAnswerApi 带全字段，复用 cache 会话与代理设置。
-func examAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, recordId, wrId, waId, qType string, answers []string) (string, error) {
-	payload := examAnswerPayload(cache, courseId, examId, topicId, recordId, wrId, waId, qType, answers)
+// examAnswerApi 提交考试答案（yee_exam_answer_add）。payload 与核心库 AnswerApi、真实抓包一致、不带 wrId/waId；
+// console 层保留本函数是为与 examDryRun 打印共用 examAnswerPayload，并复用 cache 的 IP 代理设置。
+func examAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, recordId, qType string, answers []string) (string, error) {
+	payload := examAnswerPayload(cache, courseId, examId, topicId, recordId, qType, answers)
 	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	if cache.IpProxySW { // 复用账号的 IP 代理设置
 		tr.Proxy = func(req *http.Request) (*url.URL, error) {
@@ -645,4 +738,48 @@ func examAnswerApi(cache *hqkjApi.HqkjUserCache, courseId, examId, topicId, reco
 		return "", err
 	}
 	return string(body), nil
+}
+
+// examFinishApi 考试交卷（yee_exam_answer_finish, state=2）。逐题 yee_exam_answer_add 仅暂存，
+// 此接口才正式交卷出成绩。参数按真实抓包：workId=examId、studentId=userId=cache.UserId、recordId 来自开考响应。
+func examFinishApi(cache *hqkjApi.HqkjUserCache, courseId, examId, recordId string) (string, error) {
+	if recordId == "" { // 兜底，避免拼出非法 URL
+		recordId = "0"
+	}
+	urlStr := cache.PreUrl + "/api/user/yee_exam_answer_finish?schoolId=" + cache.SchoolId +
+		"&studentId=" + cache.UserId + "&userId=" + cache.UserId + "&workId=" + examId +
+		"&examId=" + examId + "&state=2&recordId=" + recordId + "&courseId=" + courseId
+	tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
+	if cache.IpProxySW { // 复用账号的 IP 代理设置
+		tr.Proxy = func(req *http.Request) (*url.URL, error) {
+			return url.Parse("http://" + cache.ProxyIP)
+		}
+	}
+	client := &http.Client{Timeout: 30 * time.Second, Transport: tr}
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("accept", "application/json, text/plain, */*")
+	req.Header.Set("authorization", cache.Token)
+	req.Header.Set("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+// parseConsultScore 从 consult_list 返回的 JSON 中提取实际得分（studentResult[0].score）。
+func parseConsultScore(jsonStr string) float64 {
+	scoreVal, ok := gojsonq.New().JSONString(jsonStr).Find("data.studentResult.[0].score").(float64)
+	if !ok {
+		return 0
+	}
+	return scoreVal
 }
