@@ -23,6 +23,7 @@ env:
   RELEASE_DIR: release
   RELEASE_NOTICES: |
     - [‍👏] 更新群友贡献的core代码
+    - [‍👏] 更新go版本避免高风险漏洞
     
     
     xxt用户注意：
