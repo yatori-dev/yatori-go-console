@@ -20,6 +20,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Read Go version from go.mod
+        id: goversion
+        run: |
+          GO_VERSION=$(awk '$1=="go" {print $2; exit}' go.mod)
+          if [ -z "$GO_VERSION" ]; then
+            echo "❌ 无法从 go.mod 读取 go 版本"
+            exit 1
+          fi
+          echo "version=${GO_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "🧩 使用 Go 版本: ${GO_VERSION}"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -48,6 +59,8 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
+          build-args: |
+            GO_VERSION=${{ steps.goversion.outputs.version }}
           tags: |
             ghcr.io/yatori-dev/yatori-go-console:latest
             ghcr.io/yatori-dev/yatori-go-console:${{ steps.version.outputs.version }}

@@ -1,5 +1,8 @@
 # ---------- Build stage ----------
-FROM golang:1.24-bookworm AS builder
+# Go 版本由 CI（.github/workflows/docker-build.yml）从 go.mod 读取后通过 --build-arg 传入，
+# 默认值仅用于本地直接 docker build，请保持与 go.mod 的 go 指令一致。
+ARG GO_VERSION=1.27.3
+FROM golang:${GO_VERSION}-bookworm AS builder
 
 WORKDIR /app
 
