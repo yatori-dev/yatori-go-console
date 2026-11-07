@@ -1,0 +1,11 @@
+.git
+.idea
+.vscode
+*.exe
+yatori.db
+assets/log
+assets/node_modules
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/*.log

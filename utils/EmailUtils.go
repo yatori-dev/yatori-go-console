@@ -6,7 +6,7 @@ import (
 	"html"
 	"strings"
 
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
+	lg "github.com/yatori-dev/yatori-go-core/v3/utils/log"
 	"gopkg.in/gomail.v2"
 )
 

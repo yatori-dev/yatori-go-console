@@ -1,7 +1,20 @@
-# ---------- Build stage ----------
 # Go 版本由 CI（.github/workflows/docker-build.yml）从 go.mod 读取后通过 --build-arg 传入，
 # 默认值仅用于本地直接 docker build，请保持与 go.mod 的 go 指令一致。
 ARG GO_VERSION=1.27.3
+
+# ---------- Frontend build stage ----------
+FROM node:22-bookworm-slim AS frontend
+
+WORKDIR /frontend
+
+COPY frontend/package.json ./
+RUN npm install --no-audit --no-fund --legacy-peer-deps
+
+COPY frontend/ ./
+RUN npm run build
+
+
+# ---------- Build stage ----------
 FROM golang:${GO_VERSION}-bookworm AS builder
 
 WORKDIR /app
@@ -13,13 +26,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # 复制 go.mod 和 go.sum，并下载依赖
 COPY go.mod go.sum ./
-RUN go mod download
+RUN GOFLAGS=-mod=mod go mod download
 
 # 复制所有源码
 COPY . .
 
 # ✅ 同步和清理依赖，避免 go.mod 不一致问题
-RUN go mod tidy
+RUN GOFLAGS=-mod=mod go mod tidy
 
 # ✅ 声明目标平台参数（由 buildx 自动注入）
 ARG TARGETOS
@@ -46,6 +59,9 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 # ✅ 拷贝可执行文件到系统路径
 COPY --from=builder /xvexitong /usr/local/bin/xvexitong
+
+# ✅ 拷贝 Next.js 静态导出页面（Web 管理模式）
+COPY --from=frontend /frontend/out ./frontend/out
 
 # ✅ 容器启动命令
 ENTRYPOINT ["/usr/local/bin/xvexitong"]

@@ -8,7 +8,9 @@
 
 <div align="center"><h2>Yatori-go-console</h2></div>
 
-<div align="center"><img width="125px" src="https://img.shields.io/badge/GO1.24.0-building-r.svg?logo=go"></img> <img width="80px" src="https://img.shields.io/github/stars/yatori-dev/yatori-go-console.svg"></img> <img width="90px" src="https://img.shields.io/github/downloads/yatori-dev/yatori-go-console/total.svg"></img> <img width="70px" src="https://img.shields.io/github/license/Yatori-Dev/yatori-go-console.svg"></img></div>
+<div align="center"><img width="125px" src="https://img.shields.io/badge/GO1.27.3-building-r.svg?logo=go"></img> <img width="80px" src="https://img.shields.io/github/stars/yatori-dev/yatori-go-console.svg"></img> <img width="90px" src="https://img.shields.io/github/downloads/yatori-dev/yatori-go-console/total.svg"></img> <img width="70px" src="https://img.shields.io/github/license/Yatori-Dev/yatori-go-console.svg"></img></div>
+
+> 本项目已迁移至 **yatori-go-core v3** 统一 SDK：`github.com/yatori-dev/yatori-go-core/v3`，所有平台统一通过 `yatori.Client` 调用。
 
 ## 📢作者有话说
 
@@ -74,6 +76,35 @@
 > Linux系统环境下是推荐使用Docker版本运行的，因为`yatori-go-console`编译的环境是在`glibc2.35`下进行，有些老系统比如`CentOS7`无法正常使用会报错glibc版本过低。
 
 
+### Web 管理模式（账号数据库化）
+从 yatori-go-core v3 迁移开始，Web 模式的账号保存在本地 `yatori.db`，不再需要写进 `config.yaml`。
+
+1. 构建前端：
+
+```bash
+cd frontend
+pnpm install
+pnpm build
+```
+
+构建产物在 `frontend/out`，console 会优先从该目录提供页面；也可以把 `frontend/out` 复制到 `assets/web` 后随程序分发。
+
+2. 启动 Web 模式：
+
+```bash
+./yatori-go-console --web
+```
+
+首次使用 `--web` 且没有 `config.yaml` 时，会生成一份不含账号的基础配置。浏览器打开：
+
+```text
+http://localhost:8080/web/
+```
+
+在「账号管理」中添加账号、课程配置和 AI 配置即可，账号相关配置会写入 SQLite。
+
+> `config.yaml` 目前只保留基础设置、AI、邮箱等全局配置；账号配置请统一走 Web 界面。
+
 ### Docker版本食用:
 > [文档链接](https://yatori-dev.github.io/yatori-docs/yatori-go-console/docs.html#%F0%9F%9A%80-docker%E7%89%88%E6%9C%AC%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E-%E5%9F%BA%E4%BA%8Elinux)
 
@@ -81,7 +112,7 @@
 ### 代码二开食用请转至[yatori-dev/yatori-go-core](https://github.com/yatori-dev/yatori-go-core)项目
 
 #### 代码运行环境（以下只提供Windows环境下载直连）:
-* go: [1.23.4](https://studygolang.com/dl/golang/go1.23.4.windows-amd64.zip)
+* go: [1.27.3](https://go.dev/dl/)（与 go.mod 保持一致）
 * gcc: [11.2.0](https://github.com/cristianadam/mingw-builds/releases/download/v11.2.0-rev1/x86_64-11.2.0-release-posix-seh-rt_v9-rev1.7z)
 
 > [!TIP]

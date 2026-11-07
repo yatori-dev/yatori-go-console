@@ -63,6 +63,26 @@ func (UserApi) StopBrushController(c *gin.Context) {
 	service.StopBrushService(c)
 }
 
+// 获取账号任务状态
+func (UserApi) AccountStatusController(c *gin.Context) {
+	service.AccountStatusService(c)
+}
+
+// 获取账号运行日志
+func (UserApi) AccountLogController(c *gin.Context) {
+	service.AccountLogService(c)
+}
+
+// 读取全局设置
+func (UserApi) GetSettingController(c *gin.Context) {
+	service.GetSettingService(c)
+}
+
+// 保存全局设置
+func (UserApi) SaveSettingController(c *gin.Context) {
+	service.SaveSettingService(c)
+}
+
 // 日志同步接口
 func (UserApi) StreamLog(c *gin.Context) {
 	logID := c.Param("id")

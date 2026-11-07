@@ -6,20 +6,14 @@ import (
 	"strings"
 	"sync"
 	"yatori-go-console/config"
-	"yatori-go-console/logic/cqie"
-	"yatori-go-console/logic/enaea"
-	"yatori-go-console/logic/haiqikeji"
-	"yatori-go-console/logic/icve"
-	"yatori-go-console/logic/ketangx"
-	qsxt "yatori-go-console/logic/qingshuxuetang"
-	"yatori-go-console/logic/welearn"
-	"yatori-go-console/logic/xuexitong"
-	"yatori-go-console/logic/yinghua"
+	"yatori-go-console/global"
+	"yatori-go-console/logic/runner"
 	utils2 "yatori-go-console/utils"
 	"yatori-go-console/web"
+	"yatori-go-console/web/activity"
 
 	"github.com/gofrs/flock"
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
+	lg "github.com/yatori-dev/yatori-go-core/v3/utils/log"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,6 +47,12 @@ func Lunch() {
 		os.Exit(1)
 	}
 	defer instanceLock.Unlock()
+
+	// --web / -web：直接进入 Web 管理模式，账号从数据库读取
+	webModeFlag := hasFlag("--web") || hasFlag("-web")
+	if !fileExists("./config.yaml") && webModeFlag {
+		createDefaultWebConfig()
+	}
 
 	// 检查config.yaml是否存在
 	if !fileExists("./config.yaml") {
@@ -130,115 +130,92 @@ func Lunch() {
 	}
 	//读取配置文件
 	configJson := config.ReadConfig("./config.yaml")
+	if webModeFlag {
+		configJson.Setting.BasicSetting.WebModel = 1
+	}
+	//全局设置（Web 模式下的 DB 账号也会复用 AI、邮箱等配置）
+	global.Setting = configJson.Setting
 	//初始化日志配置
 	lg.LogInit(lg.StringToLOGLEVEL(configJson.Setting.BasicSetting.LogLevel), configJson.Setting.BasicSetting.LogOutFileSw == 1, configJson.Setting.BasicSetting.ColorLog, "./assets/log")
 	//配置文件检查模块
 	configJsonCheck(&configJson)
-	//是否开启IP代理池
-	checkProxyIp()
+	//是否开启IP代理池（Web 模式允许 config.yaml 不配置账号）
+	checkProxyIp(configJson.Setting.BasicSetting.WebModel == 1)
 
 	//isIpProxy(&configJson)
 	//如果开启了Web模式，则直接切换Web模式
 	if configJson.Setting.BasicSetting.WebModel == 1 {
+		activity.SetDefaultSetting(configJson.Setting)
 		web.ServiceInit()
 	}
 	brushBlock(&configJson)
 	lg.Print(lg.INFO, lg.Red, "Yatori --- ", "所有任务执行完毕")
 }
 
-var platformLock sync.WaitGroup //平台锁
-// brushBlock 刷课执行块
-func brushBlock(configData *config.JSONDataForConfig) {
-	//统一登录模块------------------------------------------------------------------
-	yingHuaAccount := yinghua.FilterAccount(configData)
-	yingHuaOperation := yinghua.UserLoginOperation(yingHuaAccount)
-	enaeaAccount := enaea.FilterAccount(configData)
-	enaeaOperation := enaea.UserLoginOperation(enaeaAccount)
-	cqieAccount := cqie.FilterAccount(configData)
-	cqieOpertation := cqie.UserLoginOperation(cqieAccount)
-	xueXiTongAccount := xuexitong.FilterAccount(configData)
-	xueXiTongOperation := xuexitong.UserLoginOperation(xueXiTongAccount)
-	ketangxAccount := ketangx.FilterAccount(configData)
-	ketangxOperation := ketangx.UserLoginOperation(ketangxAccount)
-	welearnAccount := welearn.FilterAccount(configData)
-	welearnOperation := welearn.UserLoginOperation(welearnAccount)
-	icveAccount := icve.FilterAccount(configData)
-	icveOperation := icve.UserLoginOperation(icveAccount)
-	qsxtAccount := qsxt.FilterAccount(configData)
-	qsxtOperation := qsxt.UserLoginOperation(qsxtAccount)
-	hqkjAccount := haiqikeji.FilterAccount(configData)
-	hqkjOperation := haiqikeji.UserLoginOperation(hqkjAccount)
+func hasFlag(flag string) bool {
+	for _, arg := range os.Args[1:] {
+		if arg == flag {
+			return true
+		}
+	}
+	return false
+}
 
-	//统一刷课---------------------------------------------------------------------
-	//英华
-	platformLock.Add(1)
-	go func() {
-		yinghua.RunBrushOperation(configData.Setting, yingHuaAccount, yingHuaOperation) //英华统一刷课模块
-		platformLock.Done()
-	}()
-	//学习公社
-	platformLock.Add(1)
-	go func() {
-		enaea.RunBrushOperation(configData.Setting, enaeaAccount, enaeaOperation) //学习公社统一刷课模块
-		platformLock.Done()
-	}()
-	platformLock.Add(1)
-	go func() {
-		cqie.RunBrushOperation(configData.Setting, cqieAccount, cqieOpertation) //重庆工程学院CQIE刷课模块
-		platformLock.Done()
-	}()
-	//学习通
-	platformLock.Add(1)
-	go func() {
-		xuexitong.RunBrushOperation(configData.Setting, xueXiTongAccount, xueXiTongOperation) //英华统一刷课模块
-		platformLock.Done()
-	}()
-	//码上研训
-	platformLock.Add(1)
-	go func() {
-		ketangx.RunBrushOperation(configData.Setting, ketangxAccount, ketangxOperation) //码上研训统一刷课模块
-		platformLock.Done()
-	}()
-	//WeLearn
-	platformLock.Add(1)
-	go func() {
-		welearn.RunBrushOperation(configData.Setting, welearnAccount, welearnOperation) //码上研训统一刷课模块
-		platformLock.Done()
-	}()
-	//icve
-	platformLock.Add(1)
-	go func() {
-		icve.RunBrushOperation(configData.Setting, icveAccount, icveOperation) //码上研训统一刷课模块
-		platformLock.Done()
-	}()
-	//青书学堂
-	platformLock.Add(1)
-	go func() {
-		qsxt.RunBrushOperation(configData.Setting, qsxtAccount, qsxtOperation) //青书学堂统一刷课模块
-		platformLock.Done()
-	}()
-	//海旗科技
-	platformLock.Add(1)
-	go func() {
-		haiqikeji.RunBrushOperation(configData.Setting, hqkjAccount, hqkjOperation) //海旗科技统一刷课模块
-		platformLock.Done()
-	}()
+// createDefaultWebConfig 在 --web 首次启动且没有 config.yaml 时生成一份不含账号的基础配置。
+func createDefaultWebConfig() {
+	setConfig := config.JSONDataForConfig{}
+	setConfig.Setting.BasicSetting.CompletionTone = 1
+	setConfig.Setting.BasicSetting.ColorLog = 1
+	setConfig.Setting.BasicSetting.LogOutFileSw = 1
+	setConfig.Setting.BasicSetting.LogLevel = "INFO"
+	setConfig.Setting.BasicSetting.LogModel = 0
+	setConfig.Setting.BasicSetting.WebModel = 1
+	setConfig.Setting.AiSetting.AiType = "TONGYI"
+	setConfig.Setting.ApiQueSetting.Url = "http://localhost:8083"
+
+	data, err := yaml.Marshal(&setConfig)
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile("./config.yaml", data, 0644); err != nil {
+		panic(err)
+	}
+	lg.Print(lg.INFO, lg.Green, "已生成 Web 模式基础配置 config.yaml（不含账号，账号请在网页中添加）")
+}
+
+var platformLock sync.WaitGroup //用户锁
+
+// brushBlock 刷课执行块：v3 统一 SDK 下不再按平台拆分，账号之间并发执行。
+func brushBlock(configData *config.JSONDataForConfig) {
+	for i := range configData.Users {
+		platformLock.Add(1)
+		go func(user config.User) {
+			defer platformLock.Done()
+			runner.RunUser(configData.Setting, user)
+		}(configData.Users[i])
+	}
 	platformLock.Wait()
 }
 
 // configJsonCheck 配置文件检测检验
 func configJsonCheck(configData *config.JSONDataForConfig) {
+	webMode := configData.Setting.BasicSetting.WebModel == 1
+	// Web 模式的账号从数据库读取，config.yaml 可以不再配置 users
 	if len(configData.Users) == 0 {
+		if webMode {
+			lg.Print(lg.INFO, lg.Yellow, "Web 模式：config.yaml 未配置账号，将从数据库读取账号")
+			return
+		}
 		lg.Print(lg.INFO, lg.BoldRed, "请先在config文件中配置好相应账号")
 		os.Exit(0)
 	}
-	if len(configData.Users) > 5 {
+	if len(configData.Users) > 5 && !webMode {
 		os.Exit(0)
 	}
 	//防止用户填完整url
 	for i, v := range configData.Users {
 
-		if v.AccountType == "YINGHUA" || v.AccountType == "HQKJ" {
+		if v.AccountType == "YINGHUA" || v.AccountType == "HQKJ" || v.AccountType == "ZXCPKS" {
 			if !strings.HasPrefix(v.URL, "http") {
 				lg.Print(lg.INFO, lg.BoldRed, "账号", v.Account, "未配置正确url，请先在config文件中配置好相应账号信息")
 				os.Exit(0)
@@ -255,14 +232,24 @@ func configJsonCheck(configData *config.JSONDataForConfig) {
 }
 
 // 检查代理IP是否为正常
-func checkProxyIp() {
-	if !utils2.IsProxyFlag {
+func checkProxyIp(webMode bool) {
+	if !utils2.IsProxyFlag && !webMode {
 		return
+	}
+	if webMode {
+		// Web 模式账号在数据库里，允许没有 ip.txt（不使用代理的账号可以正常跑）
+		if _, err := os.Stat("./ip.txt"); os.IsNotExist(err) {
+			return
+		}
 	}
 	lg.Print(lg.INFO, lg.Yellow, "正在开启IP池代理...")
 	lg.Print(lg.INFO, lg.Yellow, "正在检查IP池IP可用性...")
 	reader, err := utils2.IpFilesReader("./ip.txt")
 	if err != nil {
+		if webMode {
+			lg.Print(lg.INFO, lg.BoldRed, "IP代理池文件ip.txt读取失败，Web 模式下将忽略代理池")
+			return
+		}
 		lg.Print(lg.INFO, lg.BoldRed, "IP代理池文件ip.txt读取失败，请确认文件格式或者内容是否正确")
 		os.Exit(0)
 	}
@@ -278,6 +265,10 @@ func checkProxyIp() {
 	lg.Print(lg.INFO, lg.BoldGreen, "IP检查完毕")
 	//若无可用IP代理则直接退出
 	if len(utils2.IPProxyPool) == 0 {
+		if webMode {
+			lg.Print(lg.INFO, lg.BoldRed, "无可用IP代理池，Web 模式下未开启代理的账号仍可正常运行")
+			return
+		}
 		lg.Print(lg.INFO, lg.BoldRed, "无可用IP代理池，若要继续使用请先检查IP代理池文件内的IP可用性，或者在配置文件关闭IP代理功能")
 		os.Exit(0)
 	}

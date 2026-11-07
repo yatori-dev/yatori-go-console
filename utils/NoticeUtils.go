@@ -10,7 +10,7 @@ package utils
 //	"github.com/faiface/beep"
 //	"github.com/faiface/beep/mp3"
 //	"github.com/faiface/beep/speaker"
-//	lg "github.com/yatori-dev/yatori-go-core/utils/log"
+//	lg "github.com/yatori-dev/yatori-go-core/v3/utils/log"
 //
 // )
 //

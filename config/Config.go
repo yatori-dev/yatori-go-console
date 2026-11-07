@@ -11,8 +11,8 @@ import (
 	"sync"
 
 	"github.com/spf13/viper"
-	"github.com/yatori-dev/yatori-go-core/models/ctype"
-	log2 "github.com/yatori-dev/yatori-go-core/utils/log"
+	"github.com/yatori-dev/yatori-go-core/v3/models/ctype"
+	log2 "github.com/yatori-dev/yatori-go-core/v3/utils/log"
 )
 
 type JSONDataForConfig struct {
@@ -51,6 +51,17 @@ type Setting struct {
 	AiSetting     AiSetting     `json:"aiSetting" yaml:"aiSetting"`
 	ApiQueSetting ApiQueSetting `json:"apiQueSetting" yaml:"apiQueSetting"`
 }
+
+// FaceSignature 是学习通新版人脸校验所需的本地签名参数。
+// 只需要 cxcid + sc；keyPem/keyPemFile 可留空，core 已内置并会在运行时解密私钥。
+type FaceSignature struct {
+	Cxcid      string         `json:"cxcid" yaml:"cxcid"`
+	Sc         string         `json:"sc" yaml:"sc"`
+	KeyPEM     string         `json:"keyPem,omitempty" yaml:"keyPem,omitempty"`
+	KeyPEMFile string         `json:"keyPemFile,omitempty" yaml:"keyPemFile,omitempty"`
+	Chapter    *FaceSignature `json:"chapter,omitempty" yaml:"chapter,omitempty"`
+}
+
 type CoursesSettings struct {
 	Name         string   `json:"name"`
 	IncludeExams []string `json:"includeExams" yaml:"includeExams"`
@@ -71,14 +82,17 @@ type CoursesCustom struct {
 	CoursesSettings []CoursesSettings `json:"coursesSettings" yaml:"coursesSettings"`
 }
 type User struct {
-	AccountType   string        `json:"accountType" yaml:"accountType"`
-	URL           string        `json:"url"`
-	RemarkName    string        `json:"remarkName,omitempty" yaml:"remarkName,omitempty" mapstructure:"remarkName"` //可选备注名
-	Account       string        `json:"account"`
-	Password      string        `json:"password"`
-	IsProxy       int           `json:"isProxy" yaml:"isProxy"` //是否代理IP
-	InformEmails  []string      `json:"informEmails" yaml:"informEmails"`
-	CoursesCustom CoursesCustom `json:"coursesCustom" yaml:"coursesCustom"`
+	AccountType   string         `json:"accountType" yaml:"accountType"`
+	URL           string         `json:"url"`
+	RemarkName    string         `json:"remarkName,omitempty" yaml:"remarkName,omitempty" mapstructure:"remarkName"` //可选备注名
+	Account       string         `json:"account"`
+	Password      string         `json:"password"`
+	Cookie        string         `json:"cookie,omitempty" yaml:"cookie,omitempty"`         //学习通 App 完整 Cookie（含 k8s/vc3）；设置后优先用 Cookie 登录
+	CookieFile    string         `json:"cookieFile,omitempty" yaml:"cookieFile,omitempty"` //Cookie 文件路径，避免把长 Cookie 写进配置
+	IsProxy       int            `json:"isProxy" yaml:"isProxy"`                           //是否代理IP
+	InformEmails  []string       `json:"informEmails" yaml:"informEmails"`
+	FaceSignature *FaceSignature `json:"faceSignature,omitempty" yaml:"faceSignature,omitempty"`
+	CoursesCustom CoursesCustom  `json:"coursesCustom" yaml:"coursesCustom"`
 }
 
 var (
@@ -131,25 +145,46 @@ func ReadJsonConfig(filePath string) JSONDataForConfig {
 	return configJson
 }
 
+// NormalizeUser 补齐账号配置默认值并做基础清洗。
+// 供 config.yaml、数据库账号和 Web API 共用，避免三处各写一套默认值。
+func NormalizeUser(user *User) {
+	v := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+	if user.CoursesCustom.CxNode == nil {
+		user.CoursesCustom.CxNode = &v[3]
+	}
+	if user.CoursesCustom.CxChapterTestSw == nil {
+		user.CoursesCustom.CxChapterTestSw = &v[1]
+	}
+	if user.CoursesCustom.CxWorkSw == nil {
+		user.CoursesCustom.CxWorkSw = &v[1]
+	}
+	if user.CoursesCustom.CxExamSw == nil {
+		user.CoursesCustom.CxExamSw = &v[1]
+	}
+	user.AccountType = strings.ToUpper(strings.TrimSpace(user.AccountType))
+	user.Account = strings.TrimSpace(user.Account)
+	user.RemarkName = strings.TrimSpace(user.RemarkName)
+	emails := make([]string, 0, len(user.InformEmails))
+	for _, email := range user.InformEmails {
+		if value := strings.TrimSpace(email); value != "" {
+			emails = append(emails, value)
+		}
+	}
+	user.InformEmails = emails
+}
+
+// DisplayName 返回账号展示名：优先备注名，其次账号。
+func DisplayName(user User) string {
+	if name := strings.TrimSpace(user.RemarkName); name != "" {
+		return name
+	}
+	return user.Account
+}
+
 // 默认值处理
 func defaultValue(config *JSONDataForConfig) {
 	for i := range config.Users {
-		v := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
-		if config.Users[i].CoursesCustom.CxNode == nil {
-			(&config.Users[i].CoursesCustom).CxNode = &v[3]
-		}
-		if config.Users[i].CoursesCustom.CxChapterTestSw == nil {
-			(&config.Users[i].CoursesCustom).CxChapterTestSw = &v[1]
-		}
-		if config.Users[i].CoursesCustom.CxChapterTestSw == nil {
-			(&config.Users[i].CoursesCustom).CxChapterTestSw = &v[1]
-		}
-		if config.Users[i].CoursesCustom.CxWorkSw == nil {
-			(&config.Users[i].CoursesCustom).CxWorkSw = &v[1]
-		}
-		if config.Users[i].CoursesCustom.CxExamSw == nil {
-			(&config.Users[i].CoursesCustom).CxExamSw = &v[1]
-		}
+		NormalizeUser(&config.Users[i])
 	}
 }
 

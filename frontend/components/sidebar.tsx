@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Users, FileQuestion, ChevronLeft, ChevronRight, Menu, X } from "lucide-react"
+import { Users, Bot, ChevronLeft, ChevronRight, Menu, X } from "lucide-react"
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
@@ -19,8 +19,8 @@ export function Sidebar() {
     },
     {
       href: "/questions",
-      label: "答题管理",
-      icon: FileQuestion,
+      label: "AI 配置",
+      icon: Bot,
     },
   ]
 

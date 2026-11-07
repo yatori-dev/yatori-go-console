@@ -4,7 +4,7 @@
 package utils
 
 import (
-	lg "github.com/yatori-dev/yatori-go-core/utils/log"
+	lg "github.com/yatori-dev/yatori-go-core/v3/utils/log"
 	"golang.org/x/sys/windows/registry"
 )
 

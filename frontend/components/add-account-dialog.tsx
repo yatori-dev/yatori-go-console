@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
     Dialog,
     DialogContent,
@@ -14,110 +13,93 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { Eye, EyeOff } from "lucide-react"
-import type { Account } from "@/components/account-list"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { addAccount as apiAddAccount } from "@/api/accountApi"
+import { addAccount, defaultAccountConfig, type AccountConfig } from "@/api/accountApi"
 import { toast } from "@/components/ui/use-toast"
+import {
+    PLATFORMS,
+    getAnswerModeDescription,
+    getAnswerModeLabel,
+    getVideoModeDescription,
+    getVideoModeLabel,
+    isConcurrentVideoMode,
+    platformRequiresUrl,
+} from "@/utils/platformUtils"
 
 type AddAccountDialogProps = {
     open: boolean
     onOpenChange: (open: boolean) => void
-    onAdd: (account: Account) => void
+    onAdded: () => void
 }
 
-export function AddAccountDialog({ open, onOpenChange, onAdd }: AddAccountDialogProps) {
-    const [accountType, setAccountType] = useState("")
-    const [url, setUrl] = useState("")
-    const [account, setAccount] = useState("")
-    const [password, setPassword] = useState("")
+export function AddAccountDialog({ open, onOpenChange, onAdded }: AddAccountDialogProps) {
+    const [config, setConfig] = useState<AccountConfig>(defaultAccountConfig())
     const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
+
+    const platform = useMemo(
+        () => PLATFORMS.find((item) => item.code === config.accountType),
+        [config.accountType],
+    )
+    const requiresUrl = platformRequiresUrl(config.accountType)
+
+    const updateConfig = (patch: Partial<AccountConfig>) => {
+        setConfig((prev) => ({ ...prev, ...patch }))
+    }
+
+    const updateCoursesCustom = (patch: Partial<AccountConfig["coursesCustom"]>) => {
+        setConfig((prev) => ({
+            ...prev,
+            coursesCustom: { ...prev.coursesCustom, ...patch },
+        }))
+    }
+
+    const handlePlatformChange = (value: string) => {
+        const next = PLATFORMS.find((item) => item.code === value)
+        const videoModel = next?.videoModes.includes(config.coursesCustom.videoModel)
+            ? config.coursesCustom.videoModel
+            : 1
+        const autoExam = next?.answerModes.includes(config.coursesCustom.autoExam)
+            ? config.coursesCustom.autoExam
+            : 0
+        setConfig((prev) => ({
+            ...prev,
+            accountType: value,
+            url: next?.requiresUrl ? prev.url : "",
+            coursesCustom: { ...prev.coursesCustom, videoModel, autoExam },
+        }))
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
-        // 验证必填字段
-        if (!accountType.trim() || !account.trim() || !password.trim()) {
-            toast({
-                title: "表单验证失败",
-                description: "请填写所有必填字段",
-                variant: "destructive",
-            })
+        if (!config.accountType || !config.account.trim() || !config.password.trim()) {
+            toast({ title: "表单验证失败", description: "请填写平台、账号和密码", variant: "destructive" })
             return
         }
-
-        // 当选择英华学堂时，需要验证url字段
-        if (accountType.trim() === "YINGHUA" && !url.trim()) {
-            toast({
-                title: "表单验证失败",
-                description: "请填写英华学堂的平台URL",
-                variant: "destructive",
-            })
+        if (requiresUrl && !config.url.trim()) {
+            toast({ title: "表单验证失败", description: "该平台必须填写 URL", variant: "destructive" })
             return
         }
 
         setLoading(true)
-
         try {
-            // 调用API添加账号
-            const response = await apiAddAccount({
-                accountType: accountType.trim(),
-                url: accountType.trim() === "YINGHUA" ? url.trim() : "",
-                account: account.trim(),
-                password: password.trim(),
-            })
-
-            if (response.code===200) {
-                // API添加成功
-                toast({
-                    title: "添加成功",
-                    description: response.message || "账号已成功添加",
-                    variant: "default",
-                })
-
-                // 调用父组件的onAdd函数将新账号添加到本地列表
-                if (response.data) {
-                    onAdd(response.data)
-                } else {
-                    // 如果API没有返回完整的账号数据，创建一个简化版
-                    const newAccount = {
-                        accountType: accountType.trim(),
-                        account: account.trim(),
-                        password: password.trim(),
-                        status: "active",
-                        courseCount: 0,
-                        lastLogin: new Date().toLocaleString("zh-CN"),
-                        url: accountType.trim() === "YINGHUA" ? url.trim() : undefined,
-                        uid: Date.now().toString(), // 生成临时UID
-                    } as Account
-                    onAdd(newAccount)
-                }
-
-                // 清空表单
-                setAccountType("")
-                setUrl("")
-                setAccount("")
-                setPassword("")
-
-                // 关闭对话框
+            const response = await addAccount(config)
+            if (response.code === 200) {
+                toast({ title: "添加成功", description: response.message || "账号已成功添加" })
+                setConfig(defaultAccountConfig())
+                setShowPassword(false)
                 onOpenChange(false)
+                onAdded()
             } else {
-                // API添加失败
                 toast({
                     title: "添加失败",
                     description: response.message || "添加账号失败",
                     variant: "destructive",
                 })
             }
-        } catch (error) {
-            // 网络或其他错误
-            console.error("添加账号失败:", error)
-            toast({
-                title: "网络错误",
-                description: "无法连接到服务器，请稍后重试",
-                variant: "destructive",
-            })
         } finally {
             setLoading(false)
         }
@@ -125,35 +107,40 @@ export function AddAccountDialog({ open, onOpenChange, onAdd }: AddAccountDialog
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>添加新账号</DialogTitle>
-                    <DialogDescription>填写账号信息以添加到管理列表</DialogDescription>
+                    <DialogDescription>
+                        账号会保存到本地数据库，后续不再通过 config.yaml 维护账号
+                    </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label htmlFor="account">平台</Label>
-                            <Select value={accountType} onValueChange={setAccountType}>
-                                <SelectTrigger id="platform" className="w-full">
+                            <Label>平台</Label>
+                            <Select value={config.accountType} onValueChange={handlePlatformChange}>
+                                <SelectTrigger className="w-full">
                                     <SelectValue placeholder="请选择账号平台" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="XUEXITONG">学习通</SelectItem>
-                                    <SelectItem value="YINGHUA">英华学堂</SelectItem>
+                                    {PLATFORMS.map((item) => (
+                                        <SelectItem key={item.code} value={item.code}>
+                                            {item.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>
 
-                        {/* 仅当选择英华学堂时显示平台URL输入项 */}
-                        {accountType === "YINGHUA" && (
+                        {requiresUrl && (
                             <div className="space-y-2">
-                                <Label htmlFor="url">平台URL</Label>
+                                <Label htmlFor="url">平台 URL</Label>
                                 <Input
                                     id="url"
-                                    placeholder="请输入英华学堂的平台URL"
-                                    value={url}
-                                    onChange={(e) => setUrl(e.target.value)}
+                                    placeholder="例如 https://xxx.haiqikeji.com"
+                                    value={config.url}
+                                    onChange={(e) => updateConfig({ url: e.target.value })}
+                                    disabled={loading}
                                 />
                             </div>
                         )}
@@ -163,20 +150,23 @@ export function AddAccountDialog({ open, onOpenChange, onAdd }: AddAccountDialog
                             <Input
                                 id="account"
                                 placeholder="请输入登录账号"
-                                value={account}
-                                onChange={(e) => setAccount(e.target.value)}
+                                value={config.account}
+                                onChange={(e) => updateConfig({ account: e.target.value })}
+                                disabled={loading}
                             />
                         </div>
+
                         <div className="space-y-2">
-                            <Label htmlFor="password">密码/Cookie/Token</Label>
+                            <Label htmlFor="password">密码 / Cookie / Token</Label>
                             <div className="relative">
                                 <Input
                                     id="password"
                                     type={showPassword ? "text" : "password"}
-                                    placeholder="请输入密码/Cookie/Token"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="请输入密码、Cookie 或 Token"
+                                    value={config.password}
+                                    onChange={(e) => updateConfig({ password: e.target.value })}
                                     className="pr-10"
+                                    disabled={loading}
                                 />
                                 <Button
                                     type="button"
@@ -189,6 +179,116 @@ export function AddAccountDialog({ open, onOpenChange, onAdd }: AddAccountDialog
                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </Button>
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="remarkName">备注名（可选）</Label>
+                            <Input
+                                id="remarkName"
+                                placeholder="用于区分多个账号"
+                                value={config.remarkName || ""}
+                                onChange={(e) => updateConfig({ remarkName: e.target.value })}
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-lg border p-3">
+                            <div>
+                                <Label className="text-sm">开启 IP 代理</Label>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    开启后从 ip.txt 中随机选择代理
+                                </p>
+                            </div>
+                            <Switch
+                                checked={config.isProxy === 1}
+                                onCheckedChange={(checked) => updateConfig({ isProxy: checked ? 1 : 0 })}
+                                disabled={loading}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-2">
+                                <Label>视频模式</Label>
+                                <Select
+                                    value={String(config.coursesCustom.videoModel)}
+                                    onValueChange={(value) => updateCoursesCustom({ videoModel: Number(value) })}
+                                    disabled={loading}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(platform?.videoModes || [0, 1, 2]).map((mode) => (
+                                            <SelectItem key={mode} value={String(mode)}>
+                                                {getVideoModeLabel(config.accountType, mode)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {getVideoModeDescription(config.accountType, config.coursesCustom.videoModel) && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {getVideoModeDescription(config.accountType, config.coursesCustom.videoModel)}
+                                    </p>
+                                )}
+                                {isConcurrentVideoMode(config.accountType, config.coursesCustom.videoModel) && (
+                                    <div className="space-y-1 pt-1">
+                                        <Label className="text-xs">同时任务点数（1-5）</Label>
+                                        <Input
+                                            type="number"
+                                            min={1}
+                                            max={5}
+                                            value={config.coursesCustom.cxNode ?? 3}
+                                            onChange={(e) =>
+                                                updateCoursesCustom({
+                                                    cxNode: Math.max(1, Math.min(5, Number(e.target.value) || 1)),
+                                                })
+                                            }
+                                            disabled={loading}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                            <div className="space-y-2">
+                                <Label>答题模式</Label>
+                                <Select
+                                    value={String(config.coursesCustom.autoExam)}
+                                    onValueChange={(value) => updateCoursesCustom({ autoExam: Number(value) })}
+                                    disabled={loading}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {(platform?.answerModes || [0]).map((mode) => (
+                                            <SelectItem key={mode} value={String(mode)}>
+                                                {getAnswerModeLabel(config.accountType, mode)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                {config.coursesCustom.autoExam !== 0 && (
+                                    <p className="text-xs text-muted-foreground">
+                                        {getAnswerModeDescription(config.accountType, config.coursesCustom.autoExam)}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>交卷方式</Label>
+                            <Select
+                                value={String(config.coursesCustom.examAutoSubmit)}
+                                onValueChange={(value) => updateCoursesCustom({ examAutoSubmit: Number(value) })}
+                                disabled={loading}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">只保存不交卷</SelectItem>
+                                    <SelectItem value="1">答完自动交卷</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                     <DialogFooter>

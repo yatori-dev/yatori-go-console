@@ -1,225 +1,464 @@
 "use client"
 
-import {useState, useEffect, useCallback} from "react"
-import {motion} from "framer-motion"
-import {Button} from "@/components/ui/button"
-import {Card, CardContent, CardHeader} from "@/components/ui/card"
-import {Badge} from "@/components/ui/badge"
-import {Input} from "@/components/ui/input"
-import {Checkbox} from "@/components/ui/checkbox"
-import {Progress} from "@/components/ui/progress"
-import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select"
-import {ArrowLeft, Play, Pause, User, Check, BookOpen, Loader2, Eye, EyeOff, KeyRound, Leaf, Trash2, Lock, RefreshCcw} from "lucide-react"
-import type {Account, Course} from "@/components/account-list"
-import {getPlatformName} from "@/utils/platformUtils"
-import {getCourseList} from "@/api/courseApi";
-import {addAccount as apiAddAccount} from "@/api";
-import {toast} from "@/components/ui/use-toast";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { motion } from "framer-motion"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Progress } from "@/components/ui/progress"
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+    ArrowLeft,
+    Play,
+    StopCircle,
+    User,
+    Check,
+    BookOpen,
+    Loader2,
+    Eye,
+    EyeOff,
+    KeyRound,
+    Leaf,
+    Trash2,
+    Lock,
+    RefreshCcw,
+    ShieldCheck,
+    ListChecks,
+} from "lucide-react"
+import type { Account, AccountConfig, AccountStatus } from "@/api/accountApi"
+import {
+    checkAccountLogin,
+    getAccountLog,
+    getAccountStatus,
+    normalizeConfig,
+    startBrushForUid,
+    stopBrushForUid,
+    updateAccount,
+} from "@/api/accountApi"
+import type { Course } from "@/api/courseApi"
+import { getCourseList } from "@/api/courseApi"
+import {
+    getAnswerModeDescription,
+    getAnswerModeLabel,
+    getPlatformName,
+    getVideoModeDescription,
+    getVideoModeLabel,
+    isConcurrentVideoMode,
+    PLATFORMS,
+} from "@/utils/platformUtils"
+import { toast } from "@/components/ui/use-toast"
 
 type AccountDetailProps = {
     account: Account
     onBack: () => void
+    onChanged: () => void
 }
 
-export function AccountDetail({account, onBack}: AccountDetailProps) {
-    const [selectedCourses, setSelectedCourses] = useState<string[]>([])
+const isRunningState = (state?: string): boolean => {
+    return state === "starting" || state === "running" || state === "stopping"
+}
+
+const STATUS_LABELS: Record<string, string> = {
+    idle: "未进行",
+    starting: "启动中",
+    running: "进行中",
+    stopping: "停止中",
+    succeeded: "已完成",
+    failed: "失败",
+    canceled: "已停止",
+}
+
+export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps) {
+    const [config, setConfig] = useState<AccountConfig>(() => normalizeConfig(account.config))
     const [courseList, setCourseList] = useState<Course[]>([])
+    const [selectedCourses, setSelectedCourses] = useState<string[]>([])
     const [isLoadingCourses, setIsLoadingCourses] = useState(false)
-    const [isProcessing, setIsProcessing] = useState(false)
+    const [status, setStatus] = useState<AccountStatus>(
+        account.status || {
+            uid: account.uid,
+            state: account.isRunning ? "running" : "idle",
+        },
+    )
+    const [isRunning, setIsRunning] = useState(isRunningState(account.status?.state) || account.isRunning)
+    const [lastError, setLastError] = useState(account.status?.lastError || account.lastError || "")
+    const [logs, setLogs] = useState<string[]>([])
+    const [hasStarted, setHasStarted] = useState(
+        account.isRunning || (account.status?.state ? account.status.state !== "idle" : false),
+    )
+    const [isSaving, setIsSaving] = useState(false)
+    const [isStarting, setIsStarting] = useState(false)
+    const [isStopping, setIsStopping] = useState(false)
+    const [isChecking, setIsChecking] = useState(false)
     const [showAccount, setShowAccount] = useState(true)
     const [showPassword, setShowPassword] = useState(false)
+    const logContainerRef = useRef<HTMLDivElement | null>(null)
+    const stickToBottomRef = useRef(true)
+    const didLoadCourses = useRef(false)
+    const platform = useMemo(
+        () => PLATFORMS.find((item) => item.code === config.accountType),
+        [config.accountType],
+    )
 
-    // 功能配置状态
-    // const [videoMode, setVideoMode] = useState<string>("0")
-    // const [examMode, setExamMode] = useState<string>("0")
-    // const [submitMode, setSubmitMode] = useState<string>("0")
+    useEffect(() => {
+        setConfig(normalizeConfig(account.config))
+        // 只在切换账号时重置表单，避免轮询刷新覆盖未保存的修改
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [account.uid])
 
-    //账号配置
-    const [accountConfig, setAccountConfig] = useState<any>(JSON.parse(account.userConfigJson))
-    // 按钮状态
-    const [isRunning, setIsRunning] = useState(false)
-
-    // 通知邮箱列表状态
-    const [emails, setEmails] = useState<string[]>([]);
-
-    // 分页状态
-    const [currentPage, setCurrentPage] = useState(1);
-    const [pageSize, setPageSize] = useState(5);
-
-    const handleLoadCourses = useCallback(async () => {
-        try {
-            setIsLoadingCourses(true)
-            const response = await getCourseList(account.uid)
-
-            if (response.code === 200) {
-                //赋值课程列表
-                setCourseList(response.data['courseList'])
-                toast({
-                    title: "课程加载成功",
-                    description: response.message || "课程列表已成功加载",
-                    variant: "default",
-                })
-            } else {
-                // API加载失败
-                toast({
-                    title: "课程加载失败",
-                    description: response.message || "课程列表加载失败",
-                    variant: "destructive",
-                })
+    useEffect(() => {
+        if (account.status) {
+            setStatus((prev) =>
+                prev.state === account.status!.state &&
+                prev.taskId === account.status!.taskId &&
+                prev.lastError === account.status!.lastError
+                    ? prev
+                    : account.status!,
+            )
+            setIsRunning((prev) => (prev === isRunningState(account.status!.state) ? prev : isRunningState(account.status!.state)))
+            setLastError((prev) =>
+                (prev || "") === (account.status!.lastError || "") ? prev : account.status!.lastError || "",
+            )
+            if (account.status.state !== "idle") {
+                setHasStarted(true)
             }
-        } catch (error) {
-            // 网络或其他错误
-            console.error("课程加载失败:", error)
-            toast({
-                title: "网络错误",
-                description: "无法连接到服务器，请稍后重试",
-                variant: "destructive",
-            })
-        } finally {
-            setIsLoadingCourses(false)
+            return
+        }
+        setIsRunning(account.isRunning)
+    }, [account.uid, account.isRunning, account.status])
+
+    // 任务状态以 /accountStatus 为准，避免前端靠布尔值猜测
+    useEffect(() => {
+        let active = true
+        const poll = async () => {
+            const response = await getAccountStatus(account.uid)
+            if (!active || response.code !== 200 || !response.data?.status) {
+                return
+            }
+            const next = response.data.status
+            setStatus((prev) =>
+                prev.state === next.state &&
+                prev.taskId === next.taskId &&
+                prev.lastError === next.lastError
+                    ? prev
+                    : next,
+            )
+            setIsRunning((prev) => (prev === isRunningState(next.state) ? prev : isRunningState(next.state)))
+            setLastError((prev) => ((prev || "") === (next.lastError || "") ? prev : next.lastError || ""))
+            if (next.state !== "idle") {
+                setHasStarted(true)
+            }
+        }
+        poll()
+        const timer = setInterval(poll, 2000)
+        return () => {
+            active = false
+            clearInterval(timer)
         }
     }, [account.uid])
 
-    // 页面加载时自动加载课程列表
+    // 选课结果按账号持久化：返回列表再进来不会丢，也不会退回“全部课程”
     useEffect(() => {
-        handleLoadCourses()
-    }, [account, handleLoadCourses])
-
-    // 设置视屏模式
-    const handleVideoModel=(val:Number)=>{
-        setAccountConfig((prev:any)=>({
-            ...prev,
-            coursesCustom:{
-                ...prev.coursesCustom,
-                videoModel:val
+        let restored: string[] = []
+        try {
+            const raw = window.localStorage.getItem(`yatori:selectedCourses:${account.uid}`)
+            if (raw) {
+                const parsed = JSON.parse(raw)
+                if (Array.isArray(parsed)) {
+                    restored = parsed.filter((item): item is string => typeof item === "string")
+                }
             }
+        } catch {
+            restored = []
+        }
+        setSelectedCourses(restored)
+    }, [account.uid])
+
+    const updateSelection = useCallback(
+        (next: string[]) => {
+            setSelectedCourses(next)
+            try {
+                window.localStorage.setItem(`yatori:selectedCourses:${account.uid}`, JSON.stringify(next))
+            } catch {
+                // localStorage 不可用时只保留内存态
+            }
+        },
+        [account.uid],
+    )
+
+    const loadCourses = useCallback(async (silent = false) => {
+        if (!silent) {
+            setIsLoadingCourses(true)
+        }
+        try {
+            const response = await getCourseList(account.uid)
+            if (response.code === 200 && response.data) {
+                setCourseList(response.data.courseList || [])
+            } else if (!silent) {
+                toast({
+                    title: "课程加载失败",
+                    description: response.message,
+                    variant: "destructive",
+                })
+            }
+        } finally {
+            if (!silent) {
+                setIsLoadingCourses(false)
+            }
+        }
+    }, [account.uid])
+
+    useEffect(() => {
+        // 避免 React StrictMode/重复渲染导致首次打开同时发起两次登录和课程请求
+        if (didLoadCourses.current) {
+            return
+        }
+        didLoadCourses.current = true
+        loadCourses()
+    }, [loadCourses])
+
+    // 运行中定时刷新课程进度
+    useEffect(() => {
+        if (!isRunning) {
+            return
+        }
+        const timer = setInterval(() => {
+            loadCourses(true)
+        }, 5000)
+        return () => clearInterval(timer)
+    }, [isRunning, loadCourses])
+
+    // 账号日志轮询
+    useEffect(() => {
+        if (!hasStarted && !isRunning) {
+            return
+        }
+        let active = true
+        const poll = async () => {
+            const response = await getAccountLog(account.uid, 300)
+            if (!active || response.code !== 200 || !response.data) {
+                return
+            }
+            const next = response.data.lines || []
+            setLogs((prev) => {
+                if (
+                    prev.length === next.length &&
+                    (next.length === 0 || prev[next.length - 1] === next[next.length - 1])
+                ) {
+                    return prev
+                }
+                return next
+            })
+        }
+        poll()
+        const timer = setInterval(poll, 2000)
+        return () => {
+            active = false
+            clearInterval(timer)
+        }
+    }, [account.uid, hasStarted, isRunning])
+
+    // 只滚动日志容器自身；用户往回翻日志时不再强行拉到底部，更不会影响整页滚动位置
+    useEffect(() => {
+        const container = logContainerRef.current
+        if (!container || !stickToBottomRef.current) {
+            return
+        }
+        container.scrollTop = container.scrollHeight
+    }, [logs])
+
+    // 任务结束后刷新一次课程列表，让本地记录的节点进度立刻反映到进度条上
+    const prevTaskStateRef = useRef(status.state)
+    useEffect(() => {
+        const prev = prevTaskStateRef.current
+        prevTaskStateRef.current = status.state
+        if (prev === status.state) {
+            return
+        }
+        if (status.state === "succeeded" || status.state === "failed" || status.state === "canceled") {
+            const timer = setTimeout(() => loadCourses(true), 800)
+            return () => clearTimeout(timer)
+        }
+    }, [status.state, loadCourses])
+
+    const updateConfig = (patch: Partial<AccountConfig>) => {
+        setConfig((prev) => ({ ...prev, ...patch }))
+    }
+
+    const updateCoursesCustom = (patch: Partial<AccountConfig["coursesCustom"]>) => {
+        setConfig((prev) => ({
+            ...prev,
+            coursesCustom: { ...prev.coursesCustom, ...patch },
         }))
     }
 
-    // 设置考试模式
-    const handleAutoExam=(val:Number)=>{
-        setAccountConfig((prev:any)=>({
-            ...prev,
-            coursesCustom:{
-                ...prev.coursesCustom,
-                autoExam:val
+    const handleSave = async () => {
+        setIsSaving(true)
+        try {
+            // 课程选择改为仅通过“开始任务”时的勾选生效，清理旧的 include/exclude 配置
+            const payload: AccountConfig = {
+                ...config,
+                coursesCustom: {
+                    ...config.coursesCustom,
+                    includeCourses: [],
+                    excludeCourses: [],
+                },
             }
-        }))
-    }
-
-    // 设置视屏模式
-    const handleExamAutoSubmit=(val:Number)=>{
-        setAccountConfig((prev:any)=>({
-            ...prev,
-            coursesCustom:{
-                ...prev.coursesCustom,
-                examAutoSubmit:val
+            const response = await updateAccount(account.uid, payload)
+            if (response.code === 200 && response.data) {
+                setConfig(normalizeConfig(response.data.config))
+                toast({ title: "保存成功", description: "账号配置已更新" })
+                onChanged()
+            } else {
+                toast({
+                    title: "保存失败",
+                    description: response.message,
+                    variant: "destructive",
+                })
             }
-        }))
-    }
-
-    // 添加邮箱
-    const handleAddEmail = () => {
-        setEmails([...emails, ""])
-    }
-
-    // 更新邮箱
-    const handleEmailChange = (index: number, value: string) => {
-        const newEmails = [...emails]
-        newEmails[index] = value
-        setEmails(newEmails)
-    }
-
-    // 删除邮箱
-    const handleRemoveEmail = (index: number) => {
-        const newEmails = emails.filter((_, i) => i !== index)
-        setEmails(newEmails)
-    }
-
-    // 分页计算
-    const paginatedCourses = () => {
-        const startIndex = (currentPage - 1) * pageSize;
-        const endIndex = startIndex + pageSize;
-        return courseList.slice(startIndex, endIndex);
-    };
-
-    // 计算总页数
-    const totalPages = Math.ceil(courseList.length / pageSize);
-
-    const handleSelectAll = (checked: boolean) => {
-        if (checked) {
-            setSelectedCourses(courseList.map((c) => c.courseId))
-        } else {
-            setSelectedCourses([])
+        } finally {
+            setIsSaving(false)
         }
     }
 
-    const handleSelectCourse = (courseId: string, checked: boolean) => {
-        if (checked) {
-            setSelectedCourses([...selectedCourses, courseId])
-        } else {
-            setSelectedCourses(selectedCourses.filter((id) => id !== courseId))
+    const handleCheckLogin = async () => {
+        setIsChecking(true)
+        try {
+            const response = await checkAccountLogin(account.uid)
+            toast({
+                title: response.code === 200 ? "登录正常" : "登录失败",
+                description: response.code === 200 ? `平台：${getPlatformName(account.accountType)}` : response.message,
+                variant: response.code === 200 ? "default" : "destructive",
+            })
+        } finally {
+            setIsChecking(false)
         }
     }
 
     const handleStart = async () => {
-        if (selectedCourses.length === 0) {
-            alert("请至少选择一门课程")
-            return
+        setIsStarting(true)
+        try {
+            const selectedNames = selectedCourses
+                .map((courseId) => courseList.find((course) => course.courseId === courseId)?.courseName)
+                .filter((name): name is string => Boolean(name))
+            const response = await startBrushForUid(account.uid, selectedNames)
+            if (response.code === 200) {
+                setLastError("")
+                setHasStarted(true)
+                setStatus((prev) => ({ ...prev, uid: account.uid, state: "starting", lastError: "" }))
+                setIsRunning(true)
+                toast({
+                    title: "任务已启动",
+                    description:
+                        selectedNames.length > 0
+                            ? `本次只执行 ${selectedNames.length} 门课程`
+                            : "将执行账号配置内的全部课程",
+                })
+                setTimeout(() => loadCourses(true), 1000)
+            } else {
+                setLastError(response.message)
+                toast({
+                    title: "启动失败",
+                    description: response.message,
+                    variant: "destructive",
+                })
+            }
+        } finally {
+            setIsStarting(false)
         }
-
-        setIsProcessing(true)
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        alert(`已开始处理 ${selectedCourses.length} 门课程`)
-        setIsProcessing(false)
-        setSelectedCourses([])
     }
 
-    const maskText = (text: string) => {
-        return "*".repeat(text.length)
+    const handleStop = async () => {
+        setIsStopping(true)
+        try {
+            const response = await stopBrushForUid(account.uid)
+            if (response.code === 200) {
+                setStatus((prev) => ({ ...prev, uid: account.uid, state: "stopping" }))
+                setIsRunning(true)
+                toast({ title: "已请求停止", description: "执行器会在当前节点结束后退出" })
+            } else {
+                setLastError(response.message)
+                toast({
+                    title: "停止失败",
+                    description: response.message,
+                    variant: "destructive",
+                })
+            }
+        } finally {
+            setIsStopping(false)
+        }
     }
 
+    const maskText = (text: string) => "*".repeat(Math.min(text.length, 12))
+
+    const allSelected = courseList.length > 0 && selectedCourses.length === courseList.length
+    // 未选课时优先展示「本次任务实际执行的课程」，避免一进详情就显示全部课程
+    const taskCourseNames = status.courses && status.courses.length > 0 ? status.courses : []
+    const progressCourses =
+        selectedCourses.length > 0
+            ? courseList.filter((course) => selectedCourses.includes(course.courseId))
+            : taskCourseNames.length > 0
+              ? courseList.filter((course) => taskCourseNames.includes(course.courseName))
+              : courseList
+    const displayName = config.remarkName?.trim() || config.account
 
     return (
         <motion.div
-            initial={{opacity: 0, y: 20}}
-            animate={{opacity: 1, y: 0}}
-            transition={{duration: 0.5, ease: "easeOut"}}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
         >
             <Button variant="ghost" onClick={onBack} className="mb-4 sm:mb-6 gap-2 text-sm sm:text-base">
-                <ArrowLeft className="h-4 w-4"/>
+                <ArrowLeft className="h-4 w-4" />
                 返回账号列表
             </Button>
 
             <Card className="mb-4 sm:mb-6">
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <div
-                            className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-                            <User className="h-6 w-6 sm:h-8 sm:w-8"/>
+                        <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <User className="h-6 w-6 sm:h-8 sm:w-8" />
                         </div>
                         <div className="flex-1 w-full">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                                <h2 className="text-xl sm:text-2xl font-semibold text-foreground">{showAccount ? account.account : maskText(account.account)}
-                                    <Button variant="ghost" size="icon" className="h-6 w-6"
-                                            onClick={() => setShowAccount(!showAccount)}>
-                                        {showAccount ? <Eye className="h-3 w-3"/> : <EyeOff className="h-3 w-3"/>}
+                                <h2 className="text-xl sm:text-2xl font-semibold text-foreground flex items-center gap-1">
+                                    <span>{showAccount ? displayName : maskText(displayName)}</span>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => setShowAccount(!showAccount)}
+                                    >
+                                        {showAccount ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                                     </Button>
                                 </h2>
-                                <Badge variant={account.status === "active" ? "default" : "secondary"}>
-                                    {account.status === "active" ? "活跃" : "未激活"}
+                                <Badge
+                                    variant={
+                                        status.state === "failed"
+                                            ? "destructive"
+                                            : isRunning
+                                              ? "default"
+                                              : "secondary"
+                                    }
+                                >
+                                    {STATUS_LABELS[status.state] || status.state}
                                 </Badge>
                             </div>
                             <div className="space-y-2">
                                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                                    <Leaf className="h-3 w-3 sm:h-4 sm:w-4"/>
-                                    <span>{getPlatformName(account.accountType)}</span>
+                                    <Leaf className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    <span>{getPlatformName(config.accountType)}</span>
+                                    {config.url && <span className="truncate">· {config.url}</span>}
                                 </div>
                                 <div className="flex items-center justify-between gap-2 text-xs sm:text-sm">
                                     <div className="flex items-center gap-2 text-muted-foreground">
-                                        <KeyRound className="h-3 w-3 sm:h-4 sm:w-4"/>
-                                        <span
-                                            className="font-mono">{showPassword ? account.password : maskText(account.password)}</span>
+                                        <KeyRound className="h-3 w-3 sm:h-4 sm:w-4" />
+                                        <span className="font-mono">
+                                            {showPassword ? config.password : maskText(config.password)}
+                                        </span>
                                     </div>
                                     <Button
                                         variant="ghost"
@@ -227,296 +466,437 @@ export function AccountDetail({account, onBack}: AccountDetailProps) {
                                         className="h-6 w-6"
                                         onClick={() => setShowPassword(!showPassword)}
                                     >
-                                        {showPassword ? <Eye className="h-3 w-3"/> : <EyeOff className="h-3 w-3"/>}
+                                        {showPassword ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                                     </Button>
                                 </div>
                                 <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                                    <BookOpen className="h-3 w-3 sm:h-4 sm:w-4"/>
-                                    <span>{courseList.length} 门课程</span>
+                                    <BookOpen className="h-3 w-3 sm:h-4 sm:w-4" />
+                                    <span>{courseList.length} 门课程，已选 {selectedCourses.length} 门</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
+                <CardContent className="space-y-4">
                     <div className="flex flex-wrap gap-3">
                         <Button
                             variant="default"
-                            className="gap-2 transition-all hover:shadow-md"
-                            disabled={isRunning}
+                            className="gap-2"
+                            onClick={handleSave}
+                            disabled={isRunning || isSaving}
                         >
-                            <Check className="h-4 w-4"/>
-                            保存
+                            <Check className="h-4 w-4" />
+                            {isSaving ? "保存中..." : "保存配置"}
                         </Button>
-                        <Button
-                            variant={isRunning ? "destructive" : "default"}
-                            className="gap-2 transition-all hover:shadow-md"
-                            onClick={() => setIsRunning(prev => !prev)}
-                        >
-                            {isRunning ? <Pause className="h-4 w-4 animate-pulse"/> : <Play className="h-4 w-4"/>}
-                            {isRunning ? "取消" : "开始"}
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
-            {/* 功能配置卡片 */}
-            <div className="relative mb-4 sm:mb-6">
-                <Card className="">
-                    <CardHeader>
-                        <h3 className="text-lg sm:text-xl font-semibold text-foreground">功能配置</h3>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        {/* 刷视频模式选择 */}
-                        <div className="flex items-center justify-between gap-4">
-                            <label className="text-sm sm:text-base font-medium text-foreground">刷视频模式</label>
-                            <div className="flex-1 max-w-sm">
-                                <Select
-                                    // value={videoMode}
-                                    value={String(accountConfig.coursesCustom.videoModel)}
-                                    onValueChange={(val) => handleVideoModel(Number(val))}
-                                    // onValueChange={(val)=>setVideoMode(Number(val))}
-                                    disabled={isRunning}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="选择刷视频模式"/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="0">不刷</SelectItem>
-                                        <SelectItem value="1">普通模式</SelectItem>
-                                        <SelectItem value="2">暴力模式</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        {/* 自动考试模式选择 */}
-                        <div className="flex items-center justify-between gap-4">
-                            <label className="text-sm sm:text-base font-medium text-foreground">自动考试模式</label>
-                            <div className="flex-1 max-w-sm">
-                                <Select
-                                    value={String(accountConfig.coursesCustom.autoExam)}
-                                    onValueChange={(val) => handleAutoExam(Number(val))}
-                                    disabled={isRunning}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="选择自动考试模式"/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="0">不考</SelectItem>
-                                        <SelectItem value="1">AI考试</SelectItem>
-                                        <SelectItem value="2">外置题库考试</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        {/* 自动提交试卷模式 */}
-                        <div className="flex items-center justify-between gap-4">
-                            <label className="text-sm sm:text-base font-medium text-foreground">提交试卷模式</label>
-                            <div className="flex-1 max-w-sm">
-                                <Select
-                                    value={String(accountConfig.coursesCustom.examAutoSubmit)}
-                                    onValueChange={(val) => handleExamAutoSubmit(Number(val))}
-                                    disabled={isRunning}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="选择提交试卷模式"/>
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="0">只保存</SelectItem>
-                                        <SelectItem value="1">自动提交</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        {/* 通知邮箱列表 */}
-                        <div className="space-y-3">
-                            <div className="flex items-center justify-between">
-                                <label className="text-sm sm:text-base font-medium text-foreground">通知邮箱列表</label>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2"
-                                    onClick={handleAddEmail}
-                                    disabled={isRunning}
-                                >
-                                    新增邮箱
-                                </Button>
-                            </div>
-                            <div className="space-y-2">
-                                {emails.map((email, index) => (
-                                    <div key={index} className="flex items-center gap-2">
-                                        <div className="flex-1 max-w-sm">
-                                            <Input
-                                                type="email"
-                                                placeholder="输入邮箱地址"
-                                                value={email}
-                                                onChange={(e) => handleEmailChange(index, e.target.value)}
-                                                className="w-full"
-                                                disabled={isRunning}
-                                            />
-                                        </div>
-                                        <Button
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-9 w-9"
-                                            onClick={() => handleRemoveEmail(index)}
-                                            disabled={isRunning}
-                                        >
-                                            <Trash2 className="h-4 w-4 text-muted-foreground"/>
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-                {isRunning && (
-                    <div className="absolute inset-0 bg-gray-500/20 backdrop-blur-[1px] pointer-events-none z-10 rounded-lg flex flex-col items-center justify-center gap-2">
-                        <Lock className="h-8 w-8 text-gray-700" />
-                        <span className="text-base font-medium text-gray-800">请先取消任务</span>
-                    </div>
-                )}
-            </div>
-
-            <div className="relative">
-                <div
-                    className="mb-4 sm:mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                        <h3 className="text-lg sm:text-xl font-semibold text-foreground">课程列表</h3>
-                        <div className="flex items-center gap-2">
-                            <Checkbox
-                                id="select-all"
-                                checked={selectedCourses.length === courseList.length && courseList.length > 0}
-                                onCheckedChange={handleSelectAll}
-                                disabled={isRunning}
-                            />
-                            <label htmlFor="select-all"
-                                   className="text-xs sm:text-sm text-muted-foreground cursor-pointer">
-                                全选 ({selectedCourses.length}/{courseList.length})
-                            </label>
-                        </div>
-                    </div>
-                    {/* 刷新按钮 */}
-                    <div>
                         <Button
                             variant="outline"
-                            size="sm"
                             className="gap-2"
-                            onClick={handleLoadCourses}
-                            disabled={isLoadingCourses}
+                            onClick={handleCheckLogin}
+                            disabled={isChecking || isRunning}
                         >
-                            <RefreshCcw className="h-4 w-4 animate-spin-slow" />
-                            刷新课程
+                            {isChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                            登录检测
                         </Button>
-                    </div>
-                </div>
-
-                {isLoadingCourses ? (
-                    <div className="flex justify-center items-center py-12">
-                        <Loader2 className="h-10 w-10 animate-spin text-primary"/>
-                        <span className="ml-3 text-lg text-muted-foreground">加载课程中...</span>
-                    </div>
-                ) : (
-                    <>
-                        <div className="space-y-2 sm:space-y-3">
-                            {paginatedCourses().map((course) => (
-                                <div key={course.courseId} className="relative">
-                                    <Card
-                                        className={`transition-all ${
-                                            selectedCourses.includes(course.courseId) ? "border-primary bg-primary/5" : "hover:border-primary/50"
-                                        }`}
-                                    >
-                                        <CardContent className="p-3 sm:p-4">
-                                            <div className="flex items-start gap-3 sm:gap-4">
-                                                <Checkbox
-                                                    id={course.courseId}
-                                                    checked={selectedCourses.includes(course.courseId)}
-                                                    onCheckedChange={(checked) => handleSelectCourse(course.courseId, checked as boolean)}
-                                                    className="mt-1"
-                                                    disabled={isRunning}
-                                                />
-                                                <div className="flex-1 min-w-0">
-                                                    <div
-                                                        className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 mb-3">
-                                                        <div className="flex-1 min-w-0">
-                                                            <h4 className="font-semibold text-sm sm:text-base text-foreground mb-1 break-words">
-                                                                {course.courseName}
-                                                            </h4>
-                                                            <div
-                                                                className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
-                                                                <span className="truncate">{course.instructor}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-left sm:text-right">
-                                                            <div
-                                                                className="text-base sm:text-lg font-semibold text-primary">{course.progress}%
-                                                            </div>
-                                                            <div className="text-xs text-muted-foreground">完成度</div>
-                                                        </div>
-                                                    </div>
-                                                    <Progress value={course.progress} className="h-1.5 sm:h-2"/>
-                                                </div>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
-                                    {isRunning && (
-                                        <div className="absolute inset-0 bg-gray-500/20 backdrop-blur-[1px] pointer-events-none z-10 rounded-lg flex flex-col items-center justify-center gap-1">
-                                            <Lock className="h-6 w-6 text-gray-700" />
-                                            <span className="text-sm font-medium text-gray-800">请先取消任务</span>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-
-                        {courseList.length === 0 && (
-                            <Card>
-                                <CardContent
-                                    className="flex flex-col items-center justify-center py-8 sm:py-12 text-center px-4">
-                                    <BookOpen className="h-10 w-10 sm:h-12 sm:w-12 text-muted-foreground mb-4"/>
-                                    <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">暂无课程</h3>
-                                    <p className="text-xs sm:text-sm text-muted-foreground">该账号还没有关联任何课程</p>
-                                </CardContent>
-                            </Card>
+                        {isRunning ? (
+                            <Button
+                                variant="destructive"
+                                className="gap-2"
+                                onClick={handleStop}
+                                disabled={isStopping || status.state === "stopping"}
+                            >
+                                {isStopping || status.state === "stopping" ? (
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <StopCircle className="h-4 w-4" />
+                                )}
+                                {status.state === "starting" ? "启动中..." : status.state === "stopping" ? "停止中..." : "停止任务"}
+                            </Button>
+                        ) : (
+                            <Button className="gap-2" onClick={handleStart} disabled={isStarting}>
+                                {isStarting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                                {isStarting ? "启动中..." : "开始任务"}
+                            </Button>
                         )}
-                        {/* 分页 */}
-                        {totalPages > 1 && (
-                            <div className="flex items-center justify-center gap-2 mt-6">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                    disabled={currentPage === 1}
-                                >
-                                    上一页
-                                </Button>
-                                <div className="flex items-center gap-1">
-                                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                                        <Button
-                                            key={page}
-                                            variant={currentPage === page ? "default" : "outline"}
-                                            size="sm"
-                                            onClick={() => setCurrentPage(page)}
-                                        >
-                                            {page}
-                                        </Button>
+                    </div>
+                    {isRunning && (
+                        <p className="text-xs text-muted-foreground">
+                            任务运行中，配置已锁定；如需修改请先停止任务。
+                        </p>
+                    )}
+                    {lastError && (
+                        <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive whitespace-pre-wrap break-words">
+                            {lastError}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <Card className="mb-4 sm:mb-6 relative overflow-hidden">
+                <CardHeader>
+                    <h3 className="text-lg sm:text-xl font-semibold text-foreground">功能配置</h3>
+                </CardHeader>
+                <CardContent className={`space-y-6 ${isRunning ? "opacity-60 pointer-events-none" : ""}`}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>备注名</Label>
+                            <Input
+                                value={config.remarkName || ""}
+                                placeholder="用于区分多个账号"
+                                onChange={(e) => updateConfig({ remarkName: e.target.value })}
+                            />
+                        </div>
+                        <div className="flex items-center justify-between rounded-lg border p-3">
+                            <div>
+                                <Label className="text-sm">IP 代理</Label>
+                                <p className="text-xs text-muted-foreground mt-1">从 ip.txt 随机选择代理</p>
+                            </div>
+                            <Switch
+                                checked={config.isProxy === 1}
+                                onCheckedChange={(checked) => updateConfig({ isProxy: checked ? 1 : 0 })}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>密码 / Cookie / Token</Label>
+                        <div className="relative">
+                            <Input
+                                type={showPassword ? "text" : "password"}
+                                value={config.password}
+                                onChange={(e) => updateConfig({ password: e.target.value })}
+                                className="pr-10"
+                            />
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-0 top-0 h-full w-10 hover:bg-transparent"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>视频模式</Label>
+                            <Select
+                                value={String(config.coursesCustom.videoModel)}
+                                onValueChange={(value) => updateCoursesCustom({ videoModel: Number(value) })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(platform?.videoModes || [0, 1, 2]).map((mode) => (
+                                        <SelectItem key={mode} value={String(mode)}>
+                                            {getVideoModeLabel(config.accountType, mode)}
+                                        </SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                            {getVideoModeDescription(config.accountType, config.coursesCustom.videoModel) && (
+                                <p className="text-xs text-muted-foreground">
+                                    {getVideoModeDescription(config.accountType, config.coursesCustom.videoModel)}
+                                </p>
+                            )}
+                            {isConcurrentVideoMode(config.accountType, config.coursesCustom.videoModel) && (
+                                <div className="space-y-1 pt-1">
+                                    <Label className="text-xs">同时任务点数（1-5）</Label>
+                                    <Input
+                                        type="number"
+                                        min={1}
+                                        max={5}
+                                        value={config.coursesCustom.cxNode ?? 3}
+                                        onChange={(e) =>
+                                            updateCoursesCustom({
+                                                cxNode: Math.max(1, Math.min(5, Number(e.target.value) || 1)),
+                                            })
+                                        }
+                                    />
                                 </div>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <Label>答题模式</Label>
+                            <Select
+                                value={String(config.coursesCustom.autoExam)}
+                                onValueChange={(value) => updateCoursesCustom({ autoExam: Number(value) })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(platform?.answerModes || [0]).map((mode) => (
+                                        <SelectItem key={mode} value={String(mode)}>
+                                            {getAnswerModeLabel(config.accountType, mode)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            {config.coursesCustom.autoExam !== 0 && (
+                                <p className="text-xs text-muted-foreground">
+                                    {getAnswerModeDescription(config.accountType, config.coursesCustom.autoExam)}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>交卷方式</Label>
+                            <Select
+                                value={String(config.coursesCustom.examAutoSubmit)}
+                                onValueChange={(value) => updateCoursesCustom({ examAutoSubmit: Number(value) })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">只保存不交卷</SelectItem>
+                                    <SelectItem value="1">答完自动交卷</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>打乱学习顺序</Label>
+                            <Select
+                                value={String(config.coursesCustom.shuffleSw)}
+                                onValueChange={(value) => updateCoursesCustom({ shuffleSw: Number(value) })}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="0">按平台顺序</SelectItem>
+                                    <SelectItem value="1">随机顺序</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {/* 课程选择移入功能配置 */}
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <ListChecks className="h-4 w-4 text-muted-foreground" />
+                                <Label>选择课程（不选表示全部）</Label>
+                            </div>
+                            <div className="flex gap-2">
                                 <Button
+                                    type="button"
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                                    disabled={currentPage === totalPages}
+                                    onClick={() => updateSelection(courseList.map((course) => course.courseId))}
+                                    disabled={courseList.length === 0}
                                 >
-                                    下一页
+                                    全选
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updateSelection([])}
+                                    disabled={selectedCourses.length === 0}
+                                >
+                                    清空
                                 </Button>
                             </div>
-                        )}
-                    </>
+                        </div>
+                        <div className="rounded-lg border max-h-64 overflow-y-auto overscroll-contain">
+                            {isLoadingCourses ? (
+                                <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                                    加载课程中...
+                                </div>
+                            ) : courseList.length === 0 ? (
+                                <div className="py-6 text-center text-sm text-muted-foreground">
+                                    暂无课程，请先刷新
+                                </div>
+                            ) : (
+                                <div className="divide-y">
+                                    {courseList.map((course) => (
+                                        <label
+                                            key={course.courseId}
+                                            className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50"
+                                        >
+                                            <Checkbox
+                                                checked={selectedCourses.includes(course.courseId)}
+                                                onCheckedChange={(checked) => {
+                                                    if (checked) {
+                                                        updateSelection([...selectedCourses, course.courseId])
+                                                    } else {
+                                                        updateSelection(
+                                                            selectedCourses.filter((id) => id !== course.courseId),
+                                                        )
+                                                    }
+                                                }}
+                                            />
+                                            <span className="flex-1 text-sm truncate">{course.courseName}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {course.progress.toFixed(1)}%
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex justify-end">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => loadCourses()}
+                                disabled={isLoadingCourses}
+                            >
+                                <RefreshCcw className={`h-4 w-4 ${isLoadingCourses ? "animate-spin" : ""}`} />
+                                刷新课程
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <Label>通知邮箱</Label>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    updateConfig({ informEmails: [...(config.informEmails || []), ""] })
+                                }
+                            >
+                                新增邮箱
+                            </Button>
+                        </div>
+                        <div className="space-y-2">
+                            {(config.informEmails || []).map((email, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <Input
+                                        type="email"
+                                        placeholder="输入邮箱地址"
+                                        value={email}
+                                        onChange={(e) => {
+                                            const next = [...(config.informEmails || [])]
+                                            next[index] = e.target.value
+                                            updateConfig({ informEmails: next })
+                                        }}
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-9 w-9"
+                                        onClick={() =>
+                                            updateConfig({
+                                                informEmails: (config.informEmails || []).filter((_, i) => i !== index),
+                                            })
+                                        }
+                                    >
+                                        <Trash2 className="h-4 w-4 text-muted-foreground" />
+                                    </Button>
+                                </div>
+                            ))}
+                            {(config.informEmails || []).length === 0 && (
+                                <p className="text-xs text-muted-foreground">未配置通知邮箱</p>
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+                {isRunning && (
+                    <div className="absolute inset-0 z-[1] flex flex-col items-center justify-center gap-2 rounded-xl bg-background/40 backdrop-blur-[1px] pointer-events-none">
+                        <Lock className="h-8 w-8 text-muted-foreground" />
+                        <span className="text-base font-medium text-foreground/80">请先停止任务</span>
+                    </div>
                 )}
-            </div>
+            </Card>
+
+            {/* 任务进度 + 运行日志 */}
+            {(hasStarted || isRunning) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-lg font-semibold text-foreground">任务进度</h3>
+                                {isRunning && (
+                                    <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                                            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                                        </span>
+                                        进行中
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                {selectedCourses.length > 0
+                                    ? `当前展示已选 ${selectedCourses.length} 门课程`
+                                    : taskCourseNames.length > 0
+                                      ? `当前展示本次任务的 ${taskCourseNames.length} 门课程`
+                                      : "未选择课程时展示全部课程"}
+                            </p>
+                        </CardHeader>
+                        <CardContent className="space-y-4 max-h-[420px] overflow-y-auto overscroll-contain">
+                            {progressCourses.length === 0 ? (
+                                <div className="py-8 text-center text-sm text-muted-foreground">暂无课程进度</div>
+                            ) : (
+                                progressCourses.map((course) => (
+                                    <div key={course.courseId} className="space-y-1.5">
+                                        <div className="flex items-center justify-between gap-3 text-sm">
+                                            <span className="truncate">{course.courseName}</span>
+                                            <span className="text-primary font-medium tabular-nums">
+                                                {course.progress.toFixed(1)}%
+                                            </span>
+                                        </div>
+                                        <div className="relative">
+                                            <Progress
+                                                value={course.progress}
+                                                className={`h-2 transition-all duration-500 ${
+                                                    isRunning ? "animate-pulse" : ""
+                                                }`}
+                                            />
+                                            {isRunning && (
+                                                <span className="pointer-events-none absolute inset-0 overflow-hidden rounded-full">
+                                                    <span className="absolute inset-y-0 w-1/3 animate-[progress-shimmer_1.8s_ease-in-out_infinite] rounded-full bg-white/50 blur-[2px] dark:bg-white/30" />
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    <Card className="flex flex-col">
+                        <CardHeader>
+                            <h3 className="text-lg font-semibold text-foreground">运行日志</h3>
+                            <p className="text-xs text-muted-foreground">最近 300 行，每 2 秒刷新</p>
+                        </CardHeader>
+                        <CardContent className="flex-1">
+                            <div
+                                ref={logContainerRef}
+                                onScroll={(event) => {
+                                    const el = event.currentTarget
+                                    stickToBottomRef.current =
+                                        el.scrollHeight - el.scrollTop - el.clientHeight < 48
+                                }}
+                                className="h-[360px] overflow-y-auto overscroll-contain rounded-lg bg-muted/40 p-3 font-mono text-xs leading-5"
+                            >
+                                {logs.length === 0 ? (
+                                    <div className="text-muted-foreground">暂无日志</div>
+                                ) : (
+                                    logs.map((line, index) => (
+                                        <div key={index} className="whitespace-pre-wrap break-all">
+                                            {line}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </motion.div>
     )
 }
+

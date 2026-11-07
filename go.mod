@@ -13,9 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	//github.com/faiface/beep v1.1.0
 	github.com/spf13/viper v1.21.0
-	github.com/thedevsaddam/gojsonq v2.3.0+incompatible
-	github.com/yatori-dev/yatori-go-core v0.0.0-20261026155051-dca6f5d65861 //v2.0.5.6
-	golang.org/x/crypto v0.58.0
+	github.com/yatori-dev/yatori-go-core/v3 v3.0.6
 	golang.org/x/sys v0.49.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
@@ -59,11 +57,14 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.57.1 // indirect
 	github.com/refraction-networking/utls v1.8.2 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
+	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
+	github.com/thedevsaddam/gojsonq v2.3.0+incompatible // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
@@ -71,9 +72,14 @@ require (
 	go.uber.org/mock v0.6.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.23.0 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/image v0.47.0 // indirect
 	golang.org/x/net v0.61.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 )
+
+replace github.com/yatori-dev/yatori-go-core/v3 => ../yatori-go-core
+
+replace github.com/Changbaiqi/ddddocr-go => ../ddddocr-go

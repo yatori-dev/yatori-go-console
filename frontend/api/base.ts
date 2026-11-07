@@ -1,37 +1,23 @@
 import axios from 'axios'
 
-// 创建Axios实例
+// 默认使用相对路径：console 的 Gin 服务在 /api 下提供接口。
+// 本地单独跑 Next 开发服务器时，可通过 NEXT_PUBLIC_API_BASE 指向 http://localhost:8080/api。
+const apiBase = process.env.NEXT_PUBLIC_API_BASE || '/api'
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080/api', // 根据你的实际后端API地址配置
-  // baseURL: './api', // 根据你的实际后端API地址配置
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+    baseURL: apiBase,
+    timeout: 240000,
+    headers: {
+        'Content-Type': 'application/json',
+    },
 })
 
-// 请求拦截器
-apiClient.interceptors.request.use(
-  (config) => {
-    // 可以在这里添加认证信息，如token
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  }
-)
-
-// 响应拦截器
 apiClient.interceptors.response.use(
-  (response) => {
-    // 统一处理响应
-    return response.data
-  },
-  (error) => {
-    // 统一处理错误
-    console.error('API请求错误:', error)
-    return Promise.reject(error)
-  }
+    (response) => response.data,
+    (error) => {
+        console.error('API请求错误:', error)
+        return Promise.reject(error)
+    },
 )
 
 export default apiClient

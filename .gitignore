@@ -15,3 +15,8 @@ ip.txt
 /deleteTag.bat
 /.claude/
 .vscode
+go.work
+go.work.sum
+/logic/runner/assets/*
+/config
+*.bak

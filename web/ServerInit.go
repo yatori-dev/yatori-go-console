@@ -1,16 +1,18 @@
 package web
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"yatori-go-console/dao"
 	"yatori-go-console/global"
+	"yatori-go-console/logic/progress"
+	"yatori-go-console/web/activity"
 
 	"github.com/gin-gonic/gin"
 )
@@ -23,10 +25,21 @@ func ServiceInit() {
 		panic(err)
 	}
 	global.GlobalDB = dbInit
+	progress.Init(dbInit)
 
-	// 初始化服务器
+	// 数据库里存在全局设置时覆盖 config.yaml（账号配置已迁移到数据库）
+	if setting, err := dao.LoadSetting(dbInit); err == nil && setting != nil {
+		global.Setting = *setting
+	}
+	activity.SetDefaultSetting(global.Setting)
+
+	// 初始化服务器（可用 YATORI_WEB_ADDR 覆盖监听地址）
+	addr := os.Getenv("YATORI_WEB_ADDR")
+	if addr == "" {
+		addr = ":8092"
+	}
 	initServer := serverInit()
-	initServer.Run(":8080")
+	initServer.Run(addr)
 }
 
 // Group 封装 gin.RouterGroup
@@ -36,95 +49,102 @@ type Group struct {
 
 // serverInit 初始化 Gin 服务
 func serverInit() *gin.Engine {
-	router := gin.Default()
+	router := gin.New()
+	router.Use(gin.Logger())
+	router.Use(gin.CustomRecovery(func(c *gin.Context, recovered any) {
+		log.Printf("panic recovered: %v\n%s", recovered, string(debug.Stack()))
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
+			"code":    500,
+			"message": fmt.Sprintf("服务器内部错误: %v", recovered),
+		})
+	}))
 
 	router.Use(Cors())
-	router.Use(LoggerMiddleware())
 
-	// 1️⃣ API 路由 - 放在最前面以确保优先匹配
+	// 1. API 路由
 	apiGroup := router.Group("/api")
 	apiGroup.GET("/test", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "API working"})
 	})
 	Group{apiGroup}.ApiV1Router()
 
-	// 2️⃣ 单一路由处理 - 避免冲突
+	// 2. 前端静态资源（Next.js 导出目录）
 	router.GET("/web/*filepath", func(c *gin.Context) {
-		filepathParam := c.Param("filepath")
-
-		// 如果是根路径，返回 配置文件生成器.html
-		if filepathParam == "/" || filepathParam == "" {
-			indexPath := "./assets/web/配置文件生成器.html"
-			if _, err := os.Stat(indexPath); err == nil {
-				c.Header("Content-Type", "text/html; charset=utf-8")
-				c.File(indexPath)
-			} else {
-				c.JSON(500, gin.H{"error": "配置文件生成器.html not found"})
-			}
-			return
-		}
-
-		// 检查是否是静态资源（通过扩展名判断）
-		ext := filepath.Ext(filepathParam)
-		if ext != "" && ext != ".html" {
-			// 尝试查找静态文件
-			staticPath := filepath.Join("./assets/web", filepathParam[1:]) // 去掉开头的 "/"
-			if _, err := os.Stat(staticPath); err == nil {
-				c.File(staticPath)
-				return
-			}
-			// 如果静态文件不存在，返回 404
-			c.JSON(404, gin.H{
-				"error": "Static resource not found",
-				"path":  filepathParam,
-			})
-			return
-		}
-
-		// 对于路由请求，返回 配置文件生成器.html 以启用前端路由
-		indexPath := "./assets/web/配置文件生成器.html"
-		if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-			c.JSON(500, gin.H{"error": "Main 配置文件生成器.html file not found"})
-			return
-		}
-
-		c.Header("Content-Type", "text/html; charset=utf-8")
-		c.File(indexPath)
+		serveWeb(c, c.Param("filepath"))
+	})
+	router.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/web/")
 	})
 
-	// 3️⃣ 处理其他未匹配的路由
+	// 3. 未匹配路由
 	router.NoRoute(func(c *gin.Context) {
-		path := c.Request.URL.Path
-
-		// 如果是 API 请求，返回 API 404
-		if strings.HasPrefix(path, "/api") {
-			c.JSON(404, gin.H{
-				"error": "API endpoint not found",
-				"path":  path,
-			})
+		requestPath := c.Request.URL.Path
+		if strings.HasPrefix(requestPath, "/api") {
+			c.JSON(404, gin.H{"error": "API endpoint not found", "path": requestPath})
 			return
 		}
-
-		// 如果是 /web 路径，但上面的路由没有匹配，返回 配置文件生成器.html
-		if strings.HasPrefix(path, "/web") {
-			indexPath := "./assets/web/配置文件生成器.html"
-			if _, err := os.Stat(indexPath); err == nil {
-				c.Header("Content-Type", "text/html; charset=utf-8")
-				c.File(indexPath)
-			} else {
-				c.JSON(404, gin.H{"error": "Frontend app not found"})
-			}
+		if strings.HasPrefix(requestPath, "/web") {
+			serveWeb(c, strings.TrimPrefix(requestPath, "/web"))
 			return
 		}
-
-		// 其他路径返回 404
-		c.JSON(404, gin.H{
-			"error": "Page not found",
-			"path":  path,
-		})
+		c.JSON(404, gin.H{"error": "Page not found", "path": requestPath})
 	})
 
 	return router
+}
+
+// webRootDir 返回前端静态资源目录。
+// 优先使用 frontend/out（Next.js 本地构建产物），其次使用打包后的 assets/web。
+func webRootDir() string {
+	for _, dir := range []string{"./frontend/out", "./assets/web"} {
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			if _, err := os.Stat(filepath.Join(dir, "index.html")); err == nil {
+				return dir
+			}
+		}
+	}
+	return "./assets/web"
+}
+
+// serveWeb 处理 Next.js 静态导出路由：
+//
+//	/web/accounts        -> accounts.html 或 accounts/index.html
+//	/web/_next/xxx.js    -> _next/xxx.js
+//	/web/                -> index.html
+func serveWeb(c *gin.Context, requestPath string) {
+	root := webRootDir()
+	cleaned := path.Clean("/" + requestPath)
+	if strings.Contains(cleaned, "..") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid path"})
+		return
+	}
+	if cleaned == "/" {
+		cleaned = "/index.html"
+	}
+
+	relative := filepath.FromSlash(strings.TrimPrefix(cleaned, "/"))
+	candidates := []string{
+		filepath.Join(root, relative),
+		filepath.Join(root, relative, "index.html"),
+		filepath.Join(root, relative+".html"),
+	}
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			c.File(candidate)
+			return
+		}
+	}
+
+	// 静态导出没有服务端路由，未命中时回退首页；保留旧版配置文件生成器页面兼容。
+	if _, err := os.Stat(filepath.Join(root, "index.html")); err == nil {
+		c.File(filepath.Join(root, "index.html"))
+		return
+	}
+	if _, err := os.Stat(filepath.Join(root, "配置文件生成器.html")); err == nil {
+		c.File(filepath.Join(root, "配置文件生成器.html"))
+		return
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "Frontend app not found", "path": requestPath})
 }
 
 // Cors 跨域中间件
@@ -145,33 +165,14 @@ func Cors() gin.HandlerFunc {
 
 // checkAssetsDir 检查静态资源目录是否存在
 func checkAssetsDir() error {
-	assetsPath := "./assets/web"
+	assetsPath := webRootDir()
 	if _, err := os.Stat(assetsPath); os.IsNotExist(err) {
-		return fmt.Errorf("静态资源目录不存在: %s，请确保 Next.js 项目已构建并输出到该目录", assetsPath)
+		return fmt.Errorf("静态资源目录不存在: %s，请先执行 frontend 构建", assetsPath)
 	}
-
-	// 检查必要的文件是否存在
-	requiredFiles := []string{
-		"配置文件生成器.html",
-		"_next/static",
-	}
-
-	for _, file := range requiredFiles {
-		fullPath := filepath.Join(assetsPath, file)
-		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
-			return fmt.Errorf("必要的静态资源文件不存在: %s", fullPath)
+	for _, file := range []string{"index.html", "_next/static"} {
+		if _, err := os.Stat(filepath.Join(assetsPath, file)); os.IsNotExist(err) {
+			return fmt.Errorf("必要的静态资源文件不存在: %s", filepath.Join(assetsPath, file))
 		}
 	}
-
 	return nil
-}
-
-// LoggerMiddleware 日志中间件
-func LoggerMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		bodyBytes, _ := io.ReadAll(c.Request.Body)
-		c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		log.Printf("Request Body: %s", string(bodyBytes))
-		c.Next()
-	}
 }

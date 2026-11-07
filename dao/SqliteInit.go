@@ -19,6 +19,14 @@ func SqliteInit() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	//自动创建设置表
+	if err = db.AutoMigrate(&pojo.SettingPO{}); err != nil {
+		return nil, err
+	}
+	// 创建学习进度表（本地节点完成记录）
+	if err = db.AutoMigrate(&pojo.StudyProgressPO{}); err != nil {
+		return nil, err
+	}
 	////自动创建Course表
 	//err = db.AutoMigrate(&entity.Course{})
 	//if err != nil {

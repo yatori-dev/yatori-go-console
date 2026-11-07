@@ -123,3 +123,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 任务运行中进度条上的流光效果 */
+@keyframes progress-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}

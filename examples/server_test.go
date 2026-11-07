@@ -20,7 +20,7 @@ func TestTTXActivity(t *testing.T) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	if xxt, ok := userActivity.(activity.XXTAbility); ok {
+	if xxt, ok := userActivity.(activity.CourseAbility); ok {
 		list, err := xxt.PullCourseList()
 		if err != nil {
 			fmt.Println(err)
