@@ -22,8 +22,7 @@ env:
   VERSION: ${{ github.event.inputs.tag_name || github.ref_name }}
   RELEASE_DIR: release
   RELEASE_NOTICES: |
-    - [‍👏] 更新群友贡献的core代码
-    - [‍👏] 更新go版本避免高风险漏洞
+    - [‍👏] 基于全新coreV3实现
     
     
     xxt用户注意：
