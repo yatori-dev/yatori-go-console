@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	//github.com/faiface/beep v1.1.0
 	github.com/spf13/viper v1.21.0
-	github.com/yatori-dev/yatori-go-core/v3 v3.0.6
+	github.com/yatori-dev/yatori-go-core/v3 v3.0.7
 	golang.org/x/sys v0.49.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
@@ -22,7 +22,7 @@ require (
 )
 
 require (
-	github.com/Changbaiqi/ddddocr-go v0.1.5-0.20251217103242-1896343369f8 // indirect
+	github.com/Changbaiqi/ddddocr-go v0.0.0-20261105171522-8d0e8f159482 // indirect
 	github.com/PuerkitoBio/goquery v1.13.0 // indirect
 	github.com/andybalholm/brotli v1.2.6 // indirect
 	github.com/andybalholm/cascadia v1.3.5 // indirect
@@ -80,6 +80,5 @@ require (
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 )
 
-replace github.com/yatori-dev/yatori-go-core/v3 => ../yatori-go-core
-
-replace github.com/Changbaiqi/ddddocr-go => ../ddddocr-go
+// 本地联调 core 时请用 go work（go.work 不入库），不要在这里写 replace，
+// 否则 GitHub Actions 上没有同级目录会直接失败。
