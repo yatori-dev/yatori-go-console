@@ -22,6 +22,7 @@ import (
 	"yatori-go-console/logic/runner"
 	"yatori-go-console/utils"
 	"yatori-go-console/utils/logbuf"
+	"yatori-go-console/utils/logincode"
 	"yatori-go-console/web/activity"
 
 	"github.com/gin-gonic/gin"
@@ -152,6 +153,7 @@ func DeleteUserService(c *gin.Context) {
 	}
 	global.DeleteUserActivity(user.Uid)
 	logbuf.Clear(logbuf.Key(user.AccountType, user.Account))
+	logincode.Clear(logincode.Key(user.AccountType, user.Account))
 	progress.Clear(progress.AccountKey(user.AccountType, user.Account))
 	if err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{Uid: user.Uid}); err != nil {
 		fail(c, err.Error())
@@ -250,6 +252,58 @@ func AccountLogService(c *gin.Context) {
 	limit := parseQueryInt(c.Query("limit"), 300)
 	lines := logbuf.Tail(logbuf.Key(userPO.AccountType, userPO.Account), limit)
 	ok(c, "读取日志成功", gin.H{"lines": lines})
+}
+
+// AccountLoginCodeService 查询当前账号是否有待输入的登录验证码。
+func AccountLoginCodeService(c *gin.Context) {
+	userPO, err := dao.QueryUser(global.GlobalDB, pojo.UserPO{Uid: c.Param("uid")})
+	if err != nil || userPO == nil {
+		fail(c, "账号不存在")
+		return
+	}
+	key := logincode.Key(userPO.AccountType, userPO.Account)
+	if pending := logincode.Pending(key); pending != nil {
+		ok(c, "等待验证码", gin.H{"pending": true, "challenge": pending})
+		return
+	}
+	ok(c, "无待输入验证码", gin.H{"pending": false})
+}
+
+// SubmitLoginCodeService 提交前端输入的登录验证码。
+func SubmitLoginCodeService(c *gin.Context) {
+	userPO, err := dao.QueryUser(global.GlobalDB, pojo.UserPO{Uid: c.Param("uid")})
+	if err != nil || userPO == nil {
+		fail(c, "账号不存在")
+		return
+	}
+	var req struct {
+		Code string `json:"code"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil || strings.TrimSpace(req.Code) == "" {
+		fail(c, "验证码不能为空")
+		return
+	}
+	key := logincode.Key(userPO.AccountType, userPO.Account)
+	if err := logincode.Submit(key, strings.TrimSpace(req.Code)); err != nil {
+		fail(c, err.Error())
+		return
+	}
+	ok(c, "验证码已提交", nil)
+}
+
+// SendLoginCodeService 触发平台发送短信验证码。
+func SendLoginCodeService(c *gin.Context) {
+	userPO, err := dao.QueryUser(global.GlobalDB, pojo.UserPO{Uid: c.Param("uid")})
+	if err != nil || userPO == nil {
+		fail(c, "账号不存在")
+		return
+	}
+	key := logincode.Key(userPO.AccountType, userPO.Account)
+	if err := logincode.SendSMS(c.Request.Context(), key); err != nil {
+		fail(c, err.Error())
+		return
+	}
+	ok(c, "验证码已发送", nil)
 }
 
 // 登录账号（保留接口，实际登录由任务启动/登录检测完成）
@@ -473,6 +527,17 @@ func mergeUser(existing, incoming config.User) config.User {
 	}
 	if merged.Password == "" {
 		merged.Password = existing.Password
+	}
+	// Web 端没有 cookie / cookieFile / faceSignature 的输入项，保存账号时要保留已有值，
+	// 否则在网页上点一次“保存配置”就会把学习通的 Cookie 和人脸签名清空。
+	if merged.Cookie == "" {
+		merged.Cookie = existing.Cookie
+	}
+	if merged.CookieFile == "" {
+		merged.CookieFile = existing.CookieFile
+	}
+	if merged.FaceSignature == nil {
+		merged.FaceSignature = existing.FaceSignature
 	}
 	if merged.InformEmails == nil {
 		merged.InformEmails = existing.InformEmails

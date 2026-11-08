@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
     ArrowLeft,
     Play,
@@ -28,15 +29,21 @@ import {
     RefreshCcw,
     ShieldCheck,
     ListChecks,
+    SlidersHorizontal,
+    BarChart3,
+    Terminal,
 } from "lucide-react"
-import type { Account, AccountConfig, AccountStatus } from "@/api/accountApi"
+import type { Account, AccountConfig, AccountStatus, LoginCodeChallenge } from "@/api/accountApi"
 import {
     checkAccountLogin,
     getAccountLog,
+    getAccountLoginCode,
     getAccountStatus,
     normalizeConfig,
+    sendAccountLoginCodeSms,
     startBrushForUid,
     stopBrushForUid,
+    submitAccountLoginCode,
     updateAccount,
 } from "@/api/accountApi"
 import type { Course } from "@/api/courseApi"
@@ -95,6 +102,10 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
     const [isChecking, setIsChecking] = useState(false)
     const [showAccount, setShowAccount] = useState(true)
     const [showPassword, setShowPassword] = useState(false)
+    const [loginChallenge, setLoginChallenge] = useState<LoginCodeChallenge | null>(null)
+    const [loginCodeInput, setLoginCodeInput] = useState("")
+    const [isSendingLoginCode, setIsSendingLoginCode] = useState(false)
+    const [isSubmittingLoginCode, setIsSubmittingLoginCode] = useState(false)
     const logContainerRef = useRef<HTMLDivElement | null>(null)
     const stickToBottomRef = useRef(true)
     const didLoadCourses = useRef(false)
@@ -188,6 +199,28 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
         },
         [account.uid],
     )
+
+    // 登录验证码轮询：学习通 APP 登录触发短信/图形验证码时弹窗输入
+    useEffect(() => {
+        let active = true
+        const poll = async () => {
+            const response = await getAccountLoginCode(account.uid)
+            if (!active) {
+                return
+            }
+            if (response.code === 200 && response.data?.pending && response.data.challenge) {
+                setLoginChallenge(response.data.challenge)
+            } else {
+                setLoginChallenge(null)
+            }
+        }
+        poll()
+        const timer = setInterval(poll, 3000)
+        return () => {
+            active = false
+            clearInterval(timer)
+        }
+    }, [account.uid])
 
     const loadCourses = useCallback(async (silent = false) => {
         if (!silent) {
@@ -392,8 +425,41 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
         }
     }
 
-    const maskText = (text: string) => "*".repeat(Math.min(text.length, 12))
+    const handleSendLoginCode = async () => {
+        setIsSendingLoginCode(true)
+        try {
+            const response = await sendAccountLoginCodeSms(account.uid)
+            toast({
+                title: response.code === 200 ? "验证码已发送" : "发送失败",
+                description: response.message,
+                variant: response.code === 200 ? "default" : "destructive",
+            })
+        } finally {
+            setIsSendingLoginCode(false)
+        }
+    }
 
+    const handleSubmitLoginCode = async () => {
+        const code = loginCodeInput.trim()
+        if (!code) {
+            return
+        }
+        setIsSubmittingLoginCode(true)
+        try {
+            const response = await submitAccountLoginCode(account.uid, code)
+            if (response.code === 200) {
+                toast({ title: "验证码已提交", description: "等待登录结果" })
+                setLoginCodeInput("")
+                setLoginChallenge(null)
+            } else {
+                toast({ title: "提交失败", description: response.message, variant: "destructive" })
+            }
+        } finally {
+            setIsSubmittingLoginCode(false)
+        }
+    }
+
+    const maskText = (text: string) => "*".repeat(Math.min(text.length, 12))
     const allSelected = courseList.length > 0 && selectedCourses.length === courseList.length
     // 未选课时优先展示「本次任务实际执行的课程」，避免一进详情就显示全部课程
     const taskCourseNames = status.courses && status.courses.length > 0 ? status.courses : []
@@ -407,16 +473,24 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+            className="space-y-5"
         >
-            <Button variant="ghost" onClick={onBack} className="mb-4 sm:mb-6 gap-2 text-sm sm:text-base">
-                <ArrowLeft className="h-4 w-4" />
-                返回账号列表
-            </Button>
+            <div className="flex items-center justify-between gap-3">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onBack}
+                    className="-ml-2 gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    返回账号列表
+                </Button>
+            </div>
 
-            <Card className="mb-4 sm:mb-6">
+            <Card className="overflow-hidden">
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                         <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -453,17 +527,17 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                                     <span>{getPlatformName(config.accountType)}</span>
                                     {config.url && <span className="truncate">· {config.url}</span>}
                                 </div>
-                                <div className="flex items-center justify-between gap-2 text-xs sm:text-sm">
-                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                <div className="flex max-w-xs items-center gap-2 text-xs sm:text-sm">
+                                    <div className="flex min-w-0 items-center gap-2 text-muted-foreground">
                                         <KeyRound className="h-3 w-3 sm:h-4 sm:w-4" />
-                                        <span className="font-mono">
+                                        <span className="truncate font-mono">
                                             {showPassword ? config.password : maskText(config.password)}
                                         </span>
                                     </div>
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-6 w-6"
+                                        className="h-6 w-6 shrink-0"
                                         onClick={() => setShowPassword(!showPassword)}
                                     >
                                         {showPassword ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
@@ -531,9 +605,19 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                 </CardContent>
             </Card>
 
-            <Card className="mb-4 sm:mb-6 relative overflow-hidden">
-                <CardHeader>
-                    <h3 className="text-lg sm:text-xl font-semibold text-foreground">功能配置</h3>
+            <Card className="relative overflow-hidden">
+                <CardHeader className="pb-4">
+                    <div className="flex items-start gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            <SlidersHorizontal className="h-4 w-4" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-semibold text-foreground sm:text-lg">功能配置</h3>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                课程选择、视频模式、答题模式与通知设置
+                            </p>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent className={`space-y-6 ${isRunning ? "opacity-60 pointer-events-none" : ""}`}>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -578,6 +662,28 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                         </div>
                     </div>
 
+                    {config.accountType === "XUEXITONG" && (
+                        <div className="space-y-2">
+                            <Label>登录方式</Label>
+                            <Select
+                                value={config.loginMode === "app" ? "app" : "web"}
+                                onValueChange={(value) => updateConfig({ loginMode: value })}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="web">网页登录</SelectItem>
+                                    <SelectItem value="app">APP 登录（自动获取人脸签名）</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                APP 登录会走学习通 App 端协议，自动拿到人脸签名 cid/sc，不再需要手动配置；
+                                触发短信/图形验证码时会在页面弹窗提示输入。该模式下多课程/多任务点会退化为串行。
+                            </p>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>视频模式</Label>
@@ -585,7 +691,7 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                                 value={String(config.coursesCustom.videoModel)}
                                 onValueChange={(value) => updateCoursesCustom({ videoModel: Number(value) })}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -624,7 +730,7 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                                 value={String(config.coursesCustom.autoExam)}
                                 onValueChange={(value) => updateCoursesCustom({ autoExam: Number(value) })}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -643,6 +749,49 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                         </div>
                     </div>
 
+                    {config.accountType === "XUEXITONG" && (
+                        <div className="space-y-2">
+                            <Label>学习通任务开关</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div>
+                                        <Label className="text-sm">章节测验</Label>
+                                        <p className="text-xs text-muted-foreground mt-1">课程树里的章测任务点</p>
+                                    </div>
+                                    <Switch
+                                        checked={(config.coursesCustom.cxChapterTestSw ?? 1) !== 0}
+                                        onCheckedChange={(checked) =>
+                                            updateCoursesCustom({ cxChapterTestSw: checked ? 1 : 0 })
+                                        }
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div>
+                                        <Label className="text-sm">作业</Label>
+                                        <p className="text-xs text-muted-foreground mt-1">作业列表</p>
+                                    </div>
+                                    <Switch
+                                        checked={(config.coursesCustom.cxWorkSw ?? 1) !== 0}
+                                        onCheckedChange={(checked) => updateCoursesCustom({ cxWorkSw: checked ? 1 : 0 })}
+                                    />
+                                </div>
+                                <div className="flex items-center justify-between rounded-lg border p-3">
+                                    <div>
+                                        <Label className="text-sm">考试</Label>
+                                        <p className="text-xs text-muted-foreground mt-1">考试列表</p>
+                                    </div>
+                                    <Switch
+                                        checked={(config.coursesCustom.cxExamSw ?? 1) !== 0}
+                                        onCheckedChange={(checked) => updateCoursesCustom({ cxExamSw: checked ? 1 : 0 })}
+                                    />
+                                </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                章节测验/作业/考试都按上方「答题模式」作答，未开启答题模式时只做视频。
+                            </p>
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>交卷方式</Label>
@@ -650,7 +799,7 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                                 value={String(config.coursesCustom.examAutoSubmit)}
                                 onValueChange={(value) => updateCoursesCustom({ examAutoSubmit: Number(value) })}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -665,7 +814,7 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                                 value={String(config.coursesCustom.shuffleSw)}
                                 onValueChange={(value) => updateCoursesCustom({ shuffleSw: Number(value) })}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -813,11 +962,14 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
 
             {/* 任务进度 + 运行日志 */}
             {(hasStarted || isRunning) && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <Card>
-                        <CardHeader>
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+                    <Card className="overflow-hidden">
+                        <CardHeader className="pb-4">
                             <div className="flex items-center justify-between gap-2">
-                                <h3 className="text-lg font-semibold text-foreground">任务进度</h3>
+                                <div className="flex items-center gap-2">
+                                    <BarChart3 className="h-4 w-4 text-primary" />
+                                    <h3 className="text-base font-semibold text-foreground">任务进度</h3>
+                                </div>
                                 {isRunning && (
                                     <span className="flex items-center gap-1.5 text-xs font-medium text-primary">
                                         <span className="relative flex h-2 w-2">
@@ -867,9 +1019,12 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                         </CardContent>
                     </Card>
 
-                    <Card className="flex flex-col">
-                        <CardHeader>
-                            <h3 className="text-lg font-semibold text-foreground">运行日志</h3>
+                    <Card className="flex flex-col overflow-hidden">
+                        <CardHeader className="pb-4">
+                            <div className="flex items-center gap-2">
+                                <Terminal className="h-4 w-4 text-primary" />
+                                <h3 className="text-base font-semibold text-foreground">运行日志</h3>
+                            </div>
                             <p className="text-xs text-muted-foreground">最近 300 行，每 2 秒刷新</p>
                         </CardHeader>
                         <CardContent className="flex-1">
@@ -896,6 +1051,61 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                     </Card>
                 </div>
             )}
+
+            <Dialog
+                open={!!loginChallenge}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setLoginChallenge(null)
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>需要验证码</DialogTitle>
+                        <DialogDescription>{loginChallenge?.prompt || "学习通登录需要验证码"}</DialogDescription>
+                    </DialogHeader>
+                    {loginChallenge?.phone && (
+                        <p className="text-sm text-muted-foreground">手机号：{loginChallenge.phone}</p>
+                    )}
+                    {loginChallenge?.image && (
+                        <img
+                            src={`data:image/png;base64,${loginChallenge.image}`}
+                            alt="验证码"
+                            className="mx-auto rounded-md border"
+                        />
+                    )}
+                    <Input
+                        value={loginCodeInput}
+                        onChange={(e) => setLoginCodeInput(e.target.value)}
+                        placeholder="请输入验证码"
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                                void handleSubmitLoginCode()
+                            }
+                        }}
+                    />
+                    <div className="flex justify-end gap-2">
+                        {loginChallenge?.canSendSms && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleSendLoginCode}
+                                disabled={isSendingLoginCode}
+                            >
+                                {isSendingLoginCode ? "发送中..." : "发送验证码"}
+                            </Button>
+                        )}
+                        <Button
+                            type="button"
+                            onClick={handleSubmitLoginCode}
+                            disabled={isSubmittingLoginCode || !loginCodeInput.trim()}
+                        >
+                            {isSubmittingLoginCode ? "提交中..." : "确定"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </motion.div>
     )
 }

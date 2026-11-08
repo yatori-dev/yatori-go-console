@@ -12,6 +12,7 @@ import (
 	"yatori-go-console/dao"
 	"yatori-go-console/global"
 	"yatori-go-console/logic/progress"
+	"yatori-go-console/logic/runner"
 	"yatori-go-console/web/activity"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,7 @@ func ServiceInit() {
 	}
 	global.GlobalDB = dbInit
 	progress.Init(dbInit)
+	runner.SetWebMode(true)
 
 	// 数据库里存在全局设置时覆盖 config.yaml（账号配置已迁移到数据库）
 	if setting, err := dao.LoadSetting(dbInit); err == nil && setting != nil {

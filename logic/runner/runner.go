@@ -9,17 +9,19 @@
 // 平台差异由 core 的 adapter 处理，console 只负责配置映射、节奏控制和日志输出。
 //
 // 已知差异（v3 公共接口暂未覆盖的旧 console 能力）：
-//   - 学习通章测：v3 暂未暴露章测接口，遇到时跳过并提示；
+//   - 学习通章测：通过可选的 yatori.ChapterTester 接口处理；
 //   - 学习通内置 AI：v3 暂未暴露，按普通 AI 答题处理；
 //   - 英华去红模式、代理定时轮换、学习通多任务点并发：v3 统一 Client 不再支持，按普通/串行处理。
 package runner
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,12 +32,21 @@ import (
 	"yatori-go-console/logic/progress"
 	utils2 "yatori-go-console/utils"
 	"yatori-go-console/utils/logbuf"
+	"yatori-go-console/utils/logincode"
 
 	yatori "github.com/yatori-dev/yatori-go-core/v3"
 	lg "github.com/yatori-dev/yatori-go-core/v3/utils/log"
 )
 
 var soundMut sync.Mutex
+
+// webMode 标记当前进程是 Web 控制台模式，登录验证码走前端弹窗而不是终端。
+var webMode atomic.Bool
+
+// SetWebMode 由 web 服务启动时调用。
+func SetWebMode(enabled bool) {
+	webMode.Store(enabled)
+}
 
 // NewClient 按 console 账号配置创建并登录一个 v3 Client。
 func NewClient(ctx context.Context, setting config.Setting, user config.User) (yatori.Client, error) {
@@ -64,14 +75,19 @@ func NewClient(ctx context.Context, setting config.Setting, user config.User) (y
 }
 
 func login(ctx context.Context, client yatori.Client, user config.User) error {
+	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+		return client.Login(ctx)
+	}
 	cookie := resolveCookie(user)
 	doLogin := func() error {
 		if yatori.Supports(client, yatori.CapCookieLogin) {
-			if cookie != "" {
-				return client.LoginWithCookie(ctx, cookie)
-			}
+			// 真密码优先走 App 登录（本地生成 deviceInfo -> cid/sc）；
+			// 只有密码为空或密码本身就是 Cookie 时才用 Cookie 登录。
 			if looksLikeCookie(user.Password) {
 				return client.LoginWithCookie(ctx, user.Password)
+			}
+			if strings.TrimSpace(user.Password) == "" && cookie != "" {
+				return client.LoginWithCookie(ctx, cookie)
 			}
 		}
 		return client.Login(ctx)
@@ -161,7 +177,61 @@ func buildOptions(setting config.Setting, user config.User) yatori.Options {
 	if sign := buildFaceSignature(user.FaceSignature); sign != nil {
 		options.FaceSignature = sign
 	}
+	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+		options.LoginMode = yatori.LoginModeApp
+	} else {
+		options.LoginMode = yatori.LoginModeWeb
+	}
+	// Web 模式把验证码挑战交给前端弹窗；CLI 模式仍然走终端输入。
+	// 这里用显式标记，避免 DB 里的 basicSetting.webModel 为 0 时误判成 CLI。
+	if webMode.Load() || setting.BasicSetting.WebModel == 1 {
+		accountKey := logincode.Key(user.AccountType, user.Account)
+		options.LoginCodeProvider = func(ctx context.Context, req yatori.LoginCodeRequest) (string, error) {
+			logInfo(user, lg.Yellow, "登录需要验证码：", req.Prompt)
+			return logincode.Wait(ctx, accountKey, logincode.Challenge{
+				Kind:    req.Kind,
+				Prompt:  req.Prompt,
+				Phone:   req.Phone,
+				Image:   req.Image,
+				SendSMS: req.SendSMS,
+			}, 3*time.Minute)
+		}
+	} else {
+		options.LoginCodeProvider = promptLoginCode
+	}
 	return options
+}
+
+var loginCodeMu sync.Mutex
+
+// promptLoginCode 在控制台里让用户手动输入图片/短信验证码。
+func promptLoginCode(_ context.Context, req yatori.LoginCodeRequest) (string, error) {
+	loginCodeMu.Lock()
+	defer loginCodeMu.Unlock()
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		prompt = "请输入验证码"
+	}
+	if len(req.Image) > 0 {
+		path := filepath.Join("assets", fmt.Sprintf("captcha_%d.png", time.Now().UnixNano()))
+		if err := os.MkdirAll("assets", 0755); err == nil {
+			if err := os.WriteFile(path, req.Image, 0644); err == nil {
+				fmt.Printf("\n[验证码] %s\n图片已保存: %s\n", prompt, path)
+			}
+		}
+	} else {
+		fmt.Printf("\n[验证码] %s\n", prompt)
+	}
+	if req.Phone != "" {
+		fmt.Printf("手机号: %s\n", req.Phone)
+	}
+	fmt.Print("请输入验证码后回车: ")
+	reader := bufio.NewReader(os.Stdin)
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(line), nil
 }
 
 // buildFaceSignature 把 console 配置映射成 core 的人脸签名参数。
@@ -223,7 +293,11 @@ func RunClient(ctx context.Context, client yatori.Client, setting config.Setting
 	logInfo(user, lg.Purple, "课程列表拉取完毕，共 ", fmt.Sprintf("%d", len(courses)), " 门课程")
 	logInfo(user, "本次视频模式：", videoModeDescription(client.Platform(), user.CoursesCustom.VideoModel))
 	if client.Platform() == yatori.XueXiTong && user.CoursesCustom.CxChapterTestSw != nil && *user.CoursesCustom.CxChapterTestSw == 1 {
-		logInfo(user, lg.Yellow, "提示：yatori-go-core v3 暂未提供学习通章测接口，本次将跳过章测")
+		if _, ok := client.(chapterTester); !ok {
+			logInfo(user, lg.Yellow, "提示：当前 SDK 未提供学习通章测接口，本次将跳过章测")
+		} else {
+			logInfo(user, "学习通章测：已开启，将按答题模式自动处理章节测验")
+		}
 	}
 	if client.Platform() == yatori.XueXiTong && user.CoursesCustom.AutoExam == 3 {
 		logInfo(user, lg.Yellow, "提示：v3 SDK 暂未提供学习通内置AI答题入口，本次按普通AI答题处理")
@@ -391,6 +465,12 @@ func nodeWorkerCount(user config.User) int {
 //   - 不支持 Cookie 登录的平台（英华等）退回一次完整登录，和老版多开一致。
 func buildWorkerClients(ctx context.Context, base yatori.Client, setting config.Setting, user config.User, count int) []yatori.Client {
 	if count <= 1 {
+		return []yatori.Client{base}
+	}
+	// APP 登录模式：每个并发会话都要重新走 App 登录（可能触发短信验证码），
+	// 而且克隆客户端拿不到 base 的人脸签名 cid/sc，视频人脸校验会失败，所以退化为单客户端。
+	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+		logInfo(user, lg.Yellow, "APP 登录模式暂不启用多会话并发，已回退为串行执行")
 		return []yatori.Client{base}
 	}
 	// 没有可用的账号凭据时无法“多开”，直接按单客户端串行
@@ -711,6 +791,7 @@ func runCourse(ctx context.Context, client yatori.Client, setting config.Setting
 	}
 
 	if user.CoursesCustom.AutoExam != 0 {
+		processChapterTests(ctx, client, user, course, tree, stop)
 		processWorks(ctx, client, user, course, stop)
 		processExams(ctx, client, user, course, stop)
 	}
@@ -881,6 +962,60 @@ func logStudyResult(user config.User, node yatori.Node, result *yatori.StudyResu
 		message = "ok"
 	}
 	logInfo(user, "【", node.Name, "】 ", "学习进度：", lg.Green, fmt.Sprintf("%.1f%%", result.Progress), lg.Default, " ", message)
+}
+
+// processChapterTests 处理章节树里的章测任务点（学习通）。
+func processChapterTests(ctx context.Context, client yatori.Client, user config.User, course yatori.Course, tree []yatori.Node, stop *atomic.Bool) {
+	if client.Platform() != yatori.XueXiTong {
+		return
+	}
+	if user.CoursesCustom.CxChapterTestSw == nil || *user.CoursesCustom.CxChapterTestSw != 1 {
+		return
+	}
+	tester, ok := client.(chapterTester)
+	if !ok {
+		return
+	}
+	source := answerSource(client.Platform(), user)
+	submit := user.CoursesCustom.ExamAutoSubmit == 1
+	accountKey := progress.AccountKey(user.AccountType, user.Account)
+
+	handled := 0
+	for _, node := range yatori.Flatten(tree) {
+		if stopRequested(stop) {
+			return
+		}
+		if node.Kind != yatori.NodeWork || node.Completed {
+			continue
+		}
+		handled++
+		work := yatori.Work{
+			ID:       node.ID,
+			CourseID: course.ID,
+			Name:     node.Name,
+			Raw:      node.Raw,
+		}
+		result, err := tester.DoChapterTest(ctx, yatori.WorkRequest{
+			Course: course,
+			Work:   work,
+			Source: source,
+			Submit: submit,
+		})
+		logAnswerResult(user, course, "章节测验", node.Name, result, err)
+		if err == nil && result != nil && result.Submitted {
+			progress.MarkDone(accountKey, course.ID, node.ID)
+		}
+	}
+	if handled == 0 {
+		logInfo(user, "【", course.Name, "】 没有待处理的章节测验")
+	}
+}
+
+// chapterTester 与 core 新增的 ChapterTester 接口结构一致。
+// 这里用本地接口而不是直接引用 yatori.ChapterTester，这样在 core 还没发版时也能编译，
+// 运行时再按客户端是否真的实现来决定是否启用章测。
+type chapterTester interface {
+	DoChapterTest(ctx context.Context, req yatori.WorkRequest) (*yatori.AnswerResult, error)
 }
 
 func processWorks(ctx context.Context, client yatori.Client, user config.User, course yatori.Course, stop *atomic.Bool) {

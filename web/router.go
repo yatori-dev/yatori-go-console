@@ -17,6 +17,9 @@ func (router Group) ApiV1Router() {
 	router.GET("/v1/getAccountCourseList/:uid", userApi.AccountCourseListController)  // 获取课程列表
 	router.GET("/v1/accountStatus/:uid", userApi.AccountStatusController)             // 任务状态
 	router.GET("/v1/accountLog/:uid", userApi.AccountLogController)                   // 账号运行日志
+	router.GET("/v1/accountLoginCode/:uid", userApi.AccountLoginCodeController)       // 登录验证码状态
+	router.POST("/v1/accountLoginCode/:uid", userApi.SubmitLoginCodeController)       // 提交登录验证码
+	router.POST("/v1/accountLoginCode/:uid/send", userApi.SendLoginCodeController)    // 发送短信验证码
 	router.POST("/v1/startBrush/:uid", userApi.StartBrushController)                  // 启动刷课
 	router.GET("/v1/startBrush/:uid", userApi.StartBrushController)                   // 兼容旧调用
 	router.POST("/v1/stopBrush/:uid", userApi.StopBrushController)                    // 停止刷课

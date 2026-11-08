@@ -26,6 +26,7 @@ users:
     remarkName: "" # 可选备注名，不填可以直接把这一行删掉，比如填“张三-学习通”
     account: "账号" #账号
     password: "密码" #密码，智慧职教推荐使用Cookie登录方式
+    loginMode: "web" # 学习通登录方式：web=网页登录（默认），app=Android App 登录（自动获取人脸签名 cid/sc）
     isProxy: 0 # 是否开启代理，0为关闭，1为开启
     informEmails: [] # 任务执行完毕后需要发送的邮箱（不填默认不发）
     coursesCustom:

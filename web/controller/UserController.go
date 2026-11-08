@@ -73,6 +73,21 @@ func (UserApi) AccountLogController(c *gin.Context) {
 	service.AccountLogService(c)
 }
 
+// 查询登录验证码挑战
+func (UserApi) AccountLoginCodeController(c *gin.Context) {
+	service.AccountLoginCodeService(c)
+}
+
+// 提交登录验证码
+func (UserApi) SubmitLoginCodeController(c *gin.Context) {
+	service.SubmitLoginCodeService(c)
+}
+
+// 发送短信验证码
+func (UserApi) SendLoginCodeController(c *gin.Context) {
+	service.SendLoginCodeService(c)
+}
+
 // 读取全局设置
 func (UserApi) GetSettingController(c *gin.Context) {
 	service.GetSettingService(c)

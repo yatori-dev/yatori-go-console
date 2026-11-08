@@ -27,6 +27,8 @@ export type AccountConfig = {
     remarkName?: string
     account: string
     password: string
+    // 学习通登录方式：web（默认）/ app（App 端登录，会自动拿到人脸签名 cid/sc）
+    loginMode?: string
     isProxy: number
     informEmails: string[]
     coursesCustom: CoursesCustom
@@ -97,6 +99,7 @@ export const defaultAccountConfig = (): AccountConfig => ({
     remarkName: '',
     account: '',
     password: '',
+    loginMode: 'web',
     isProxy: 0,
     informEmails: [],
     coursesCustom: defaultCoursesCustom(),
@@ -193,6 +196,43 @@ export const getAccountLog = async (uid: string, limit = 300): Promise<ApiRespon
         }>
     } catch (error: any) {
         return { code: 500, message: error.response?.data?.message || '获取运行日志失败', data: { lines: [] } }
+    }
+}
+
+export type LoginCodeChallenge = {
+    kind: string
+    prompt: string
+    phone: string
+    image?: string
+    canSendSms: boolean
+}
+
+export const getAccountLoginCode = async (
+    uid: string,
+): Promise<ApiResponse<{ pending: boolean; challenge?: LoginCodeChallenge }>> => {
+    try {
+        return (await apiClient.get(`/v1/accountLoginCode/${uid}`)) as ApiResponse<{
+            pending: boolean
+            challenge?: LoginCodeChallenge
+        }>
+    } catch (error: any) {
+        return { code: 500, message: error.response?.data?.message || '获取验证码状态失败', data: { pending: false } }
+    }
+}
+
+export const submitAccountLoginCode = async (uid: string, code: string): Promise<ApiResponse> => {
+    try {
+        return (await apiClient.post(`/v1/accountLoginCode/${uid}`, { code })) as ApiResponse
+    } catch (error: any) {
+        return { code: 500, message: error.response?.data?.message || '提交验证码失败' }
+    }
+}
+
+export const sendAccountLoginCodeSms = async (uid: string): Promise<ApiResponse> => {
+    try {
+        return (await apiClient.post(`/v1/accountLoginCode/${uid}/send`)) as ApiResponse
+    } catch (error: any) {
+        return { code: 500, message: error.response?.data?.message || '发送验证码失败' }
     }
 }
 

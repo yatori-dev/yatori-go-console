@@ -89,6 +89,7 @@ type User struct {
 	Password      string         `json:"password"`
 	Cookie        string         `json:"cookie,omitempty" yaml:"cookie,omitempty"`         //学习通 App 完整 Cookie（含 k8s/vc3）；设置后优先用 Cookie 登录
 	CookieFile    string         `json:"cookieFile,omitempty" yaml:"cookieFile,omitempty"` //Cookie 文件路径，避免把长 Cookie 写进配置
+	LoginMode     string         `json:"loginMode,omitempty" yaml:"loginMode,omitempty"`   //登录模式：web（默认）/ app
 	IsProxy       int            `json:"isProxy" yaml:"isProxy"`                           //是否代理IP
 	InformEmails  []string       `json:"informEmails" yaml:"informEmails"`
 	FaceSignature *FaceSignature `json:"faceSignature,omitempty" yaml:"faceSignature,omitempty"`

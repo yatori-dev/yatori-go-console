@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	//github.com/faiface/beep v1.1.0
 	github.com/spf13/viper v1.21.0
-	github.com/yatori-dev/yatori-go-core/v3 v3.0.7
+	github.com/yatori-dev/yatori-go-core/v3 v3.0.12
 	golang.org/x/sys v0.49.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
@@ -80,5 +80,5 @@ require (
 	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 )
 
-// 本地联调 core 时请用 go work（go.work 不入库），不要在这里写 replace，
-// 否则 GitHub Actions 上没有同级目录会直接失败。
+// 本地联调 core 用：临时指向本地未发布的 core，push 前记得手动删除这一行。
+//replace github.com/yatori-dev/yatori-go-core/v3 => ../yatori-go-core

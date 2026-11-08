@@ -1,142 +1,125 @@
 "use client"
 
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Users, Bot, ChevronLeft, ChevronRight, Menu, X } from "lucide-react"
+import { Users, Bot, X } from "lucide-react"
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const pathname = usePathname()
+type SidebarProps = {
+    mobileOpen: boolean
+    onMobileOpenChange: (open: boolean) => void
+    collapsed: boolean
+}
 
-  const navItems = [
-    {
-      href: "/accounts",
-      label: "账号管理",
-      icon: Users,
-    },
-    {
-      href: "/questions",
-      label: "AI 配置",
-      icon: Bot,
-    },
-  ]
+const NAV_ITEMS = [
+    { href: "/accounts", label: "账号管理", icon: Users },
+    { href: "/questions", label: "AI 配置", icon: Bot },
+]
 
-  const handleMobileNavClick = () => {
-    setMobileMenuOpen(false)
-  }
+export function Sidebar({ mobileOpen, onMobileOpenChange, collapsed }: SidebarProps) {
+    const pathname = usePathname()
 
-  return (
-    <>
-      <button
-        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-card border border-border shadow-lg hover:bg-accent transition-colors"
-        aria-label="切换菜单"
-      >
-        {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-      </button>
-
-      {mobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 bg-background/80 backdrop-blur-sm z-40"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      <aside
-        className={cn(
-          "flex flex-col bg-sidebar border-r border-sidebar-border transition-all duration-300 ease-in-out",
-          // 桌面端
-          "hidden lg:flex",
-          collapsed ? "lg:w-20" : "lg:w-64",
-          // 移动端
-          "fixed lg:relative inset-y-0 left-0 z-40",
-          "w-64",
-          mobileMenuOpen ? "flex" : "hidden lg:flex",
-        )}
-      >
-        {/* Logo区域 */}
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-          <button onClick={() => setCollapsed(!collapsed)} className="flex items-center gap-3 w-full group">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground transition-transform group-hover:scale-105">
-              <span className="font-bold text-lg">Y</span>
-            </div>
-            {!collapsed && (
-              <div className="flex-1 text-left">
-                <h2 className="text-sm font-semibold text-sidebar-foreground">Yatori</h2>
-                <p className="text-xs text-sidebar-foreground/60">课程管理系统</p>
-              </div>
-            )}
-          </button>
-          {!collapsed && (
-            <button
-              onClick={() => setCollapsed(!collapsed)}
-              className="hidden lg:block p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-          )}
-        </div>
-
-        {/* 展开按钮（收纳状态时显示） */}
-        {collapsed && (
-          <div className="hidden lg:flex justify-center p-2 border-b border-sidebar-border">
-            <button
-              onClick={() => setCollapsed(false)}
-              className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
-        )}
-
-        {/* 导航菜单 */}
-        <nav className="flex-1 p-4 space-y-2">
-          {navItems.map((item) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={handleMobileNavClick}
+    return (
+        <>
+            {/* 移动端遮罩 */}
+            <div
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200",
-                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                  isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm"
-                    : "text-sidebar-foreground/70",
-                  collapsed ? "lg:justify-center" : "",
+                    "fixed inset-0 z-40 bg-foreground/30 backdrop-blur-sm transition-opacity lg:hidden",
+                    mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
                 )}
-              >
-                <Icon className={cn("h-5 w-5 flex-shrink-0", isActive && "animate-in zoom-in-50 duration-200")} />
-                <span
-                  className={cn("font-medium text-sm animate-in fade-in-50 duration-200", collapsed && "lg:hidden")}
-                >
-                  {item.label}
-                </span>
-              </Link>
-            )
-          })}
-        </nav>
+                onClick={() => onMobileOpenChange(false)}
+                aria-hidden
+            />
 
-        {/* 底部信息 */}
-        <div className="p-4 border-t border-sidebar-border">
-          {!collapsed ? (
-            <div className="text-xs text-sidebar-foreground/50 animate-in fade-in-50 duration-200">
-              <p>版本 v1.0.0</p>
-              <p className="mt-1">© 2025 Yatori</p>
-            </div>
-          ) : (
-            <div className="hidden lg:flex justify-center">
-              <div className="h-2 w-2 rounded-full bg-sidebar-primary animate-pulse"></div>
-            </div>
-          )}
-        </div>
-      </aside>
-    </>
-  )
+            <aside
+                className={cn(
+                    "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-sidebar-border bg-sidebar",
+                    "transition-[transform,width] duration-300 ease-out",
+                    "lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:shrink-0 lg:translate-x-0",
+                    collapsed ? "lg:w-[76px]" : "lg:w-64",
+                    mobileOpen ? "translate-x-0" : "-translate-x-full",
+                )}
+            >
+                {/* 品牌 / 折叠 */}
+                <div
+                    className={cn(
+                        "flex h-16 items-center gap-3 border-b border-sidebar-border px-4",
+                        collapsed && "lg:justify-center lg:px-0",
+                    )}
+                >
+                    <Link href="/accounts" className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground shadow-sm">
+                            Y
+                        </div>
+                        {!collapsed && (
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold leading-5 text-sidebar-foreground">Yatori</p>
+                                <p className="truncate text-[11px] leading-4 text-sidebar-foreground/55">刷课控制台</p>
+                            </div>
+                        )}
+                    </Link>
+
+                    <button
+                        onClick={() => onMobileOpenChange(false)}
+                        className="ml-auto rounded-md p-1.5 text-sidebar-foreground/60 transition-colors hover:bg-sidebar-accent lg:hidden"
+                        aria-label="关闭菜单"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {/* 折叠/展开按钮由 DashboardShell 贴在侧边栏右侧，避免放在侧栏内部 */}
+
+                {/* 导航 */}
+                <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+                    {!collapsed && (
+                        <p className="px-2 pb-2 pt-1 text-[11px] font-medium uppercase tracking-wider text-sidebar-foreground/40">
+                            导航
+                        </p>
+                    )}
+                    {NAV_ITEMS.map((item) => {
+                        const Icon = item.icon
+                        const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
+
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={() => onMobileOpenChange(false)}
+                                title={collapsed ? item.label : undefined}
+                                className={cn(
+                                    "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
+                                    collapsed && "lg:justify-center lg:px-0",
+                                    isActive
+                                        ? "bg-sidebar-accent font-semibold text-sidebar-accent-foreground"
+                                        : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                                )}
+                            >
+                                {isActive && (
+                                    <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-sidebar-primary" />
+                                )}
+                                <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive && "text-sidebar-primary")} />
+                                {!collapsed && <span className="truncate">{item.label}</span>}
+                            </Link>
+                        )
+                    })}
+                </nav>
+
+                {/* 底部 */}
+                <div className={cn("border-t border-sidebar-border p-3", collapsed && "lg:px-0")}>
+                    {collapsed ? (
+                        <div className="hidden justify-center lg:flex">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 rounded-lg bg-sidebar-accent/60 px-3 py-2">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            <span className="text-[11px] text-sidebar-foreground/70">服务运行中</span>
+                            <span className="ml-auto text-[11px] text-sidebar-foreground/40">v2.6</span>
+                        </div>
+                    )}
+                </div>
+            </aside>
+        </>
+    )
 }
