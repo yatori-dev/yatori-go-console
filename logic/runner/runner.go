@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -75,8 +74,17 @@ func NewClient(ctx context.Context, setting config.Setting, user config.User) (y
 	return client, nil
 }
 
+func usesAppLogin(mode string) bool {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "app", "android":
+		return true
+	default:
+		return false
+	}
+}
+
 func login(ctx context.Context, client yatori.Client, user config.User) error {
-	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+	if usesAppLogin(user.LoginMode) {
 		return client.Login(ctx)
 	}
 	cookie := resolveCookie(user)
@@ -178,7 +186,7 @@ func buildOptions(setting config.Setting, user config.User) yatori.Options {
 	if sign := buildFaceSignature(user.FaceSignature); sign != nil {
 		options.FaceSignature = sign
 	}
-	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+	if usesAppLogin(user.LoginMode) {
 		options.LoginMode = yatori.LoginModeApp
 	} else {
 		options.LoginMode = yatori.LoginModeWeb
@@ -228,22 +236,18 @@ func promptLoginCode(ctx context.Context, req yatori.LoginCodeRequest) (string, 
 	}
 	reader := bufio.NewReader(os.Stdin)
 	if req.SendSMS != nil {
-		fmt.Print("输入 1 并回车发送短信验证码（直接回车取消）: ")
-		confirm, err := reader.ReadString('\n')
+		fmt.Print("发送短信验证码？输入 y 确认: ")
+		answer, err := reader.ReadString('\n')
 		if err != nil {
 			return "", err
 		}
-		if strings.TrimSpace(confirm) != "1" {
-			return "", errors.New("用户取消发送短信验证码")
+		if !strings.EqualFold(strings.TrimSpace(answer), "y") {
+			return "", errors.New("已取消发送短信验证码")
 		}
 		if err := req.SendSMS(ctx); err != nil {
-			// 请求 URL 可能包含手机号和图片验证码，仅保留底层错误。
-			var urlErr *url.Error
-			if errors.As(err, &urlErr) {
-				err = urlErr.Err
-			}
 			return "", fmt.Errorf("发送短信验证码失败: %w", err)
 		}
+		fmt.Println("已请求发送短信验证码")
 	}
 	fmt.Print("请输入验证码后回车: ")
 	line, err := reader.ReadString('\n')
@@ -488,7 +492,7 @@ func buildWorkerClients(ctx context.Context, base yatori.Client, setting config.
 	}
 	// APP 登录模式：每个并发会话都要重新走 App 登录（可能触发短信验证码），
 	// 而且克隆客户端拿不到 base 的人脸签名 cid/sc，视频人脸校验会失败，所以退化为单客户端。
-	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+	if usesAppLogin(user.LoginMode) {
 		logInfo(user, lg.Yellow, "APP 登录模式暂不启用多会话并发，已回退为串行执行")
 		return []yatori.Client{base}
 	}
