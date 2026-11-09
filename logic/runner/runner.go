@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -205,7 +206,7 @@ func buildOptions(setting config.Setting, user config.User) yatori.Options {
 var loginCodeMu sync.Mutex
 
 // promptLoginCode 在控制台里让用户手动输入图片/短信验证码。
-func promptLoginCode(_ context.Context, req yatori.LoginCodeRequest) (string, error) {
+func promptLoginCode(ctx context.Context, req yatori.LoginCodeRequest) (string, error) {
 	loginCodeMu.Lock()
 	defer loginCodeMu.Unlock()
 	prompt := strings.TrimSpace(req.Prompt)
@@ -225,8 +226,26 @@ func promptLoginCode(_ context.Context, req yatori.LoginCodeRequest) (string, er
 	if req.Phone != "" {
 		fmt.Printf("手机号: %s\n", req.Phone)
 	}
-	fmt.Print("请输入验证码后回车: ")
 	reader := bufio.NewReader(os.Stdin)
+	if req.SendSMS != nil {
+		fmt.Print("输入 1 并回车发送短信验证码（直接回车取消）: ")
+		confirm, err := reader.ReadString('\n')
+		if err != nil {
+			return "", err
+		}
+		if strings.TrimSpace(confirm) != "1" {
+			return "", errors.New("用户取消发送短信验证码")
+		}
+		if err := req.SendSMS(ctx); err != nil {
+			// 请求 URL 可能包含手机号和图片验证码，仅保留底层错误。
+			var urlErr *url.Error
+			if errors.As(err, &urlErr) {
+				err = urlErr.Err
+			}
+			return "", fmt.Errorf("发送短信验证码失败: %w", err)
+		}
+	}
+	fmt.Print("请输入验证码后回车: ")
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
