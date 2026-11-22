@@ -35,6 +35,11 @@ func ServiceInit() {
 	}
 	activity.SetDefaultSetting(global.Setting)
 
+	// 将二进制内嵌的前端释放到 assets/frontend，保证单独运行二进制也能访问 Web 页面。
+	if err := prepareEmbeddedFrontend(); err != nil {
+		log.Printf("准备内嵌前端失败: %v", err)
+	}
+
 	// 初始化服务器（可用 YATORI_WEB_ADDR 覆盖监听地址）
 	addr := os.Getenv("YATORI_WEB_ADDR")
 	if addr == "" {
@@ -96,16 +101,17 @@ func serverInit() *gin.Engine {
 }
 
 // webRootDir 返回前端静态资源目录。
-// 优先使用 frontend/out（Next.js 本地构建产物），其次使用打包后的 assets/web。
+// 优先使用运行时释放的 assets/frontend（二进制内嵌产物），其次使用
+// frontend/out（本地开发构建产物），最后使用旧的 assets/web。
 func webRootDir() string {
-	for _, dir := range []string{"./frontend/out", "./assets/web"} {
+	for _, dir := range []string{"./assets/frontend", "./frontend/out", "./assets/web"} {
 		if info, err := os.Stat(dir); err == nil && info.IsDir() {
 			if _, err := os.Stat(filepath.Join(dir, "index.html")); err == nil {
 				return dir
 			}
 		}
 	}
-	return "./assets/web"
+	return "./assets/frontend"
 }
 
 // serveWeb 处理 Next.js 静态导出路由：

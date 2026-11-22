@@ -102,7 +102,7 @@ export const getVideoModeDescription = (platformCode: string, mode: number): str
     }
     if (platformCode === 'YINGHUA') {
         if (mode === 2) {
-            return '暴力模式：快速提交任务点，跑完后自动执行一次去红'
+            return '暴力模式：按 2.6.2 的 30 秒一次心跳提交进度，跑完后自动执行一次去红'
         }
         if (mode === 3) {
             return '去红模式：对已有进度但未完成的任务点重复提交当前进度，清理红标（不学习新节点）'

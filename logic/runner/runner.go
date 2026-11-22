@@ -33,6 +33,7 @@ import (
 	utils2 "yatori-go-console/utils"
 	"yatori-go-console/utils/logbuf"
 	"yatori-go-console/utils/logincode"
+	"yatori-go-console/utils/loginstate"
 
 	yatori "github.com/yatori-dev/yatori-go-core/v3"
 	lg "github.com/yatori-dev/yatori-go-core/v3/utils/log"
@@ -48,8 +49,86 @@ func SetWebMode(enabled bool) {
 	webMode.Store(enabled)
 }
 
+// normalizeLoginMode 统一登录方式写法：兼容历史配置里的 Android/mobile 等值。
+func normalizeLoginMode(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "app", "android", "mobile", "phone", "app-login", "applogin":
+		return "app"
+	default:
+		return "web"
+	}
+}
+
+func isAppLogin(user config.User) bool {
+	return normalizeLoginMode(user.LoginMode) == "app"
+}
+
 // NewClient 按 console 账号配置创建并登录一个 v3 Client。
 func NewClient(ctx context.Context, setting config.Setting, user config.User) (yatori.Client, error) {
+	client, err := newLoggedInClient(ctx, setting, user)
+	if err != nil {
+		return nil, err
+	}
+	// APP 登录拿到的是 App 会话，部分账号访问 Web 课程接口会被重定向到登录页。
+	// 先把 App 登录返回的 puid 补成 _uid cookie，尽量用同一份会话打通 Web 接口，
+	// 这样不需要再登录一次、再输一次验证码。
+	if isAppLogin(user) {
+		accountKey := logincode.Key(user.AccountType, user.Account)
+		if loginstate.AppUnsupported(accountKey) {
+			logInfo(user, lg.Yellow, "该账号 App 会话无法访问课程接口，本次直接使用网页登录")
+			fallback := user
+			fallback.LoginMode = "web"
+			return newLoggedInClient(ctx, setting, fallback)
+		}
+		if ensureWebUIDCookie(ctx, client) {
+			logInfo(user, "APP 登录已补齐 Web 会话（_uid），尝试复用同一个登录态")
+		} else {
+			logInfo(user, lg.Yellow, "APP 登录未拿到可复用的 Web 会话（缺少 _uid）")
+		}
+		session := client.Session()
+		logInfo(user, lg.DarkGray, fmt.Sprintf("App 会话 cookie: _uid=%t _d=%t vc3=%t",
+			cookiePresent(session.Cookie, "_uid"),
+			cookiePresent(session.Cookie, "_d"),
+			cookiePresent(session.Cookie, "vc3")))
+		if _, probeErr := client.Courses(ctx); probeErr == nil {
+			logInfo(user, "APP 登录会话可直接访问课程接口")
+		} else if isLoginPageError(probeErr) {
+			loginstate.MarkAppUnsupported(accountKey)
+			logInfo(user, lg.Yellow, "APP 登录会话无法访问课程接口，已自动回退网页登录（下次将直接使用网页登录）")
+			_ = client.Close()
+			fallback := user
+			fallback.LoginMode = "web"
+			return newLoggedInClient(ctx, setting, fallback)
+		}
+	}
+	return client, nil
+}
+
+// ensureWebUIDCookie 把 App 登录拿到的 puid 补成 Web 接口需要的 _uid cookie，
+// 并重新装载到客户端，让课程/章节等 Web 接口复用同一份 App 会话。
+func ensureWebUIDCookie(ctx context.Context, client yatori.Client) bool {
+	session := client.Session()
+	cookie := strings.TrimSpace(session.Cookie)
+	if cookie == "" {
+		return false
+	}
+	uid := strings.TrimSpace(session.UserID)
+	if uid == "" {
+		uid = strings.TrimSpace(session.Extra["userID"])
+	}
+	if uid == "" {
+		return false
+	}
+	if strings.Contains(cookie, "_uid=") {
+		return true
+	}
+	if err := client.LoginWithCookie(ctx, cookie+"; _uid="+uid); err != nil {
+		return false
+	}
+	return true
+}
+
+func newLoggedInClient(ctx context.Context, setting config.Setting, user config.User) (yatori.Client, error) {
 	platform, err := ParsePlatform(user.AccountType)
 	if err != nil {
 		return nil, err
@@ -74,8 +153,30 @@ func NewClient(ctx context.Context, setting config.Setting, user config.User) (y
 	return client, nil
 }
 
+// cookiePresent 判断 cookie 串里是否包含指定名称的 cookie。
+func cookiePresent(cookie, name string) bool {
+	for _, part := range strings.Split(cookie, ";") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, name+"=") {
+			return true
+		}
+	}
+	return false
+}
+
+// isLoginPageError 判断接口是否返回了登录页 HTML（而不是 JSON）。
+func isLoginPageError(err error) bool {
+	if err == nil {
+		return false
+	}
+	text := strings.ToLower(err.Error())
+	return strings.Contains(text, "invalid character '<'") ||
+		strings.Contains(text, "<html") ||
+		strings.Contains(text, "<!doctype html")
+}
+
 func login(ctx context.Context, client yatori.Client, user config.User) error {
-	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+	if isAppLogin(user) {
 		return client.Login(ctx)
 	}
 	cookie := resolveCookie(user)
@@ -177,7 +278,7 @@ func buildOptions(setting config.Setting, user config.User) yatori.Options {
 	if sign := buildFaceSignature(user.FaceSignature); sign != nil {
 		options.FaceSignature = sign
 	}
-	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+	if isAppLogin(user) {
 		options.LoginMode = yatori.LoginModeApp
 	} else {
 		options.LoginMode = yatori.LoginModeWeb
@@ -205,7 +306,8 @@ func buildOptions(setting config.Setting, user config.User) yatori.Options {
 var loginCodeMu sync.Mutex
 
 // promptLoginCode 在控制台里让用户手动输入图片/短信验证码。
-func promptLoginCode(_ context.Context, req yatori.LoginCodeRequest) (string, error) {
+// 短信验证码会自动触发一次发送，避免只提示不发送。
+func promptLoginCode(ctx context.Context, req yatori.LoginCodeRequest) (string, error) {
 	loginCodeMu.Lock()
 	defer loginCodeMu.Unlock()
 	prompt := strings.TrimSpace(req.Prompt)
@@ -224,6 +326,21 @@ func promptLoginCode(_ context.Context, req yatori.LoginCodeRequest) (string, er
 	}
 	if req.Phone != "" {
 		fmt.Printf("手机号: %s\n", req.Phone)
+	}
+	if req.SendSMS != nil {
+		sendCtx := ctx
+		if sendCtx == nil {
+			sendCtx = context.Background()
+		}
+		sendCtx, cancel := context.WithTimeout(sendCtx, 30*time.Second)
+		fmt.Println("正在发送短信验证码...")
+		err := req.SendSMS(sendCtx)
+		cancel()
+		if err != nil {
+			fmt.Printf("短信发送失败：%v\n", err)
+		} else {
+			fmt.Println("验证码已发送，请查收短信")
+		}
 	}
 	fmt.Print("请输入验证码后回车: ")
 	reader := bufio.NewReader(os.Stdin)
@@ -366,7 +483,9 @@ const (
 func fastStudy(platform yatori.Platform, mode int) bool {
 	switch platform {
 	case yatori.YingHua:
-		return mode == 2
+		// 英华 2.6.2 的暴力模式也是按 5 秒一次心跳提交，
+		// 不是一次性提交 100%，否则服务端会判定提交频率/进度异常。
+		return false
 	case yatori.HaiQiKeJi, yatori.ENAAE, yatori.CQIE, yatori.WeLearn:
 		return mode == 2
 	}
@@ -469,7 +588,7 @@ func buildWorkerClients(ctx context.Context, base yatori.Client, setting config.
 	}
 	// APP 登录模式：每个并发会话都要重新走 App 登录（可能触发短信验证码），
 	// 而且克隆客户端拿不到 base 的人脸签名 cid/sc，视频人脸校验会失败，所以退化为单客户端。
-	if strings.EqualFold(strings.TrimSpace(user.LoginMode), "app") {
+	if isAppLogin(user) {
 		logInfo(user, lg.Yellow, "APP 登录模式暂不启用多会话并发，已回退为串行执行")
 		return []yatori.Client{base}
 	}
@@ -711,6 +830,8 @@ func runCourse(ctx context.Context, client yatori.Client, setting config.Setting
 	}
 
 	var firstErr error
+	tester, chapterSource, chapterSubmit, chapterOn := chapterTestContext(client, user)
+	chapterTestsHandled := false
 	if user.CoursesCustom.VideoModel != 0 {
 		// 平台的课程完成率/卡片状态有缓存，这里把平台已完成的节点和我们提交成功过的
 		// 节点合并成一份本地进度，既用于跳过，也用于课程进度显示。
@@ -742,26 +863,43 @@ func runCourse(ctx context.Context, client yatori.Client, setting config.Setting
 				strconv.Itoa(studyTotal), " 个")
 		}
 		studyIndex := 0
-		pending := make([]yatori.Node, 0, studyTotal)
+		pendingStudy := make([]yatori.Node, 0, studyTotal)
 		for _, node := range studyNodes {
-			// 平台或本地记录已经完成的节点不再重复提交
 			if isNodeFinished(node) || doneNodes[node.ID] {
 				continue
 			}
-			pending = append(pending, node)
+			pendingStudy = append(pendingStudy, node)
 		}
 
-		if concurrentNodes(client.Platform(), user.CoursesCustom.VideoModel) && len(nodePool) > 1 && len(pending) > 1 {
-			if nodeErr := studyNodesConcurrent(ctx, nodePool, user, course, pending, stop); nodeErr != nil && firstErr == nil {
+		// 普通模式严格按章节树顺序处理：视频和章测按原顺序交错执行，
+		// 不把所有视频提前，也不把所有章测提前，避免破坏平台的顺序限制。
+		pendingOrdered := buildPendingOrdered(nodes, doneNodes, chapterOn)
+		orderedTotal := len(pendingOrdered)
+
+		if concurrentNodes(client.Platform(), user.CoursesCustom.VideoModel) && len(nodePool) > 1 && len(pendingStudy) > 1 {
+			if nodeErr := studyNodesConcurrent(ctx, nodePool, user, course, pendingStudy, stop); nodeErr != nil && firstErr == nil {
 				firstErr = nodeErr
 			}
+			if chapterOn {
+				processChapterTests(ctx, client, user, course, tree, stop)
+				chapterTestsHandled = true
+			}
 		} else {
-			for _, node := range pending {
+			if chapterOn && user.CoursesCustom.AutoExam == 0 {
+				logInfo(user, "【", course.Name, "】 答题模式为 0：章节测验只读取题目，不会自动作答；如需作答请在账号详情设置答题模式")
+			}
+			for _, node := range pendingOrdered {
 				if stopRequested(stop) {
 					return firstErr
 				}
 				studyIndex++
-				logInfo(user, "【", course.Name, "】 节点 ", fmt.Sprintf("%d/%d", studyIndex, studyTotal), "：", node.Name)
+				logInfo(user, "【", course.Name, "】 节点 ", fmt.Sprintf("%d/%d", studyIndex, orderedTotal), "：", node.Name)
+				if node.Kind == yatori.NodeWork {
+					if chapterOn {
+						processChapterTestNode(ctx, tester, user, course, node, chapterSource, chapterSubmit, accountKey)
+					}
+					continue
+				}
 				completed, nodeErr := studyNode(ctx, client, user, course, node, stop)
 				if completed {
 					progress.MarkDone(accountKey, course.ID, node.ID)
@@ -770,8 +908,10 @@ func runCourse(ctx context.Context, client yatori.Client, setting config.Setting
 				if nodeErr != nil && firstErr == nil {
 					firstErr = nodeErr
 				}
-				// 普通模式在节点之间随机等待，避免看起来“一口气把所有节点同时跑了”
-				if isSerialStudyMode(client.Platform(), user.CoursesCustom.VideoModel) && studyIndex < studyTotal {
+				// 普通模式在节点之间随机等待，避免看起来“一口气把所有节点同时跑了”；
+				// 如果下一个节点是章测则不再额外等待，保持章测紧跟章节顺序执行。
+				nextIsChapter := studyIndex < orderedTotal && pendingOrdered[studyIndex].Kind == yatori.NodeWork
+				if isSerialStudyMode(client.Platform(), user.CoursesCustom.VideoModel) && studyIndex < orderedTotal && !nextIsChapter {
 					waitSeconds := 10 + rand.Intn(51)
 					logInfo(user, "普通模式：等待 ", strconv.Itoa(waitSeconds), " 秒后继续下一个节点")
 					time.Sleep(time.Duration(waitSeconds) * time.Second)
@@ -779,6 +919,7 @@ func runCourse(ctx context.Context, client yatori.Client, setting config.Setting
 					time.Sleep(5 * time.Second)
 				}
 			}
+			chapterTestsHandled = chapterOn
 		}
 
 		// 英华暴力模式：老版跑完会延迟一分钟自动执行一次去红
@@ -790,14 +931,45 @@ func runCourse(ctx context.Context, client yatori.Client, setting config.Setting
 		}
 	}
 
-	if user.CoursesCustom.AutoExam != 0 {
+	if chapterOn && !chapterTestsHandled {
 		processChapterTests(ctx, client, user, course, tree, stop)
+	}
+
+	if user.CoursesCustom.AutoExam != 0 {
 		processWorks(ctx, client, user, course, stop)
 		processExams(ctx, client, user, course, stop)
 	}
 
 	logInfo(user, "【", course.Name, "】 >>> ", lg.Green, "课程处理完毕")
 	return firstErr
+}
+
+// buildPendingOrdered 按章节树原始顺序构建待处理队列。
+// 视频/文档和章测不分组，保持平台返回的先后关系；concurrent 模式仍单独走 pendingStudy。
+func buildPendingOrdered(nodes []yatori.Node, doneNodes map[string]bool, chapterOn bool) []yatori.Node {
+	pending := make([]yatori.Node, 0, len(nodes))
+	for _, node := range nodes {
+		if chapterOn && node.Kind == yatori.NodeWork {
+			if !node.Completed && !doneNodes[node.ID] {
+				pending = append(pending, node)
+			}
+			continue
+		}
+		if isNodeSkipped(node) {
+			continue
+		}
+		if isNodeFinished(node) || doneNodes[node.ID] {
+			continue
+		}
+		pending = append(pending, node)
+	}
+	return pending
+}
+
+// studyProgressStep 返回进度提交的步长和间隔。
+// 英华 2.6.2 是每 30 秒提交一次心跳，其它平台同样保持 30 秒。
+func studyProgressStep(_ yatori.Platform) (time.Duration, time.Duration) {
+	return 30 * time.Second, 30 * time.Second
 }
 
 func studyNode(ctx context.Context, client yatori.Client, user config.User, course yatori.Course, node yatori.Node, stop *atomic.Bool) (bool, error) {
@@ -816,8 +988,11 @@ func studyNode(ctx context.Context, client yatori.Client, user config.User, cour
 
 	// 学习通的 2/3 是老版本的「多课程 / 多任务点」，不是秒刷，仍然走正常学习流程。
 	// 其他平台的 2 档是暴力/秒刷；ICVE、码上研训一次提交即完成，也直接走单次提交。
+	// 英华视频/音频必须走增量心跳，即使已看了一部分也不能直接一次提交 100%。
 	fast := fastStudy(client.Platform(), mode)
-	if resume || fast || (node.Kind != yatori.NodeVideo && node.Kind != yatori.NodeAudio) {
+	forceProgress := client.Platform() == yatori.YingHua &&
+		(node.Kind == yatori.NodeVideo || node.Kind == yatori.NodeAudio)
+	if !forceProgress && (resume || fast || (node.Kind != yatori.NodeVideo && node.Kind != yatori.NodeAudio)) {
 		studyMode := yatori.StudyModeNormal
 		if fast {
 			studyMode = yatori.StudyModeFast
@@ -870,11 +1045,22 @@ func studyNode(ctx context.Context, client yatori.Client, user config.User, cour
 	}
 
 	position := time.Duration(float64(node.Duration) * clamp(node.Progress, 0, 100) / 100)
-	step := 30 * time.Second
+	step, interval := studyProgressStep(client.Platform())
+	if client.Platform() == yatori.YingHua {
+		// 英华 start 本身也是一次提交，先等一个心跳间隔再提交第一个进度，
+		// 避免出现 start + progress 两次请求紧挨着（看起来像 1 秒一次）。
+		time.Sleep(interval)
+	}
 	if step > node.Duration {
 		step = node.Duration
 	}
-	for attempts := 0; attempts < 500 && position < node.Duration; attempts++ {
+	maxAttempts := 500
+	if step > 0 {
+		if needed := int(node.Duration/step) + 10; needed > maxAttempts {
+			maxAttempts = needed
+		}
+	}
+	for attempts := 0; attempts < maxAttempts && position < node.Duration; attempts++ {
 		if stopRequested(stop) {
 			return false, nil
 		}
@@ -897,7 +1083,7 @@ func studyNode(ctx context.Context, client yatori.Client, user config.User, cour
 		if result.Completed || result.Progress >= 99.9 || position >= node.Duration {
 			break
 		}
-		time.Sleep(30 * time.Second)
+		time.Sleep(interval)
 	}
 
 	result, err := studyWithRetry(ctx, client, yatori.StudyRequest{
@@ -966,18 +1152,13 @@ func logStudyResult(user config.User, node yatori.Node, result *yatori.StudyResu
 
 // processChapterTests 处理章节树里的章测任务点（学习通）。
 func processChapterTests(ctx context.Context, client yatori.Client, user config.User, course yatori.Course, tree []yatori.Node, stop *atomic.Bool) {
-	if client.Platform() != yatori.XueXiTong {
-		return
-	}
-	if user.CoursesCustom.CxChapterTestSw == nil || *user.CoursesCustom.CxChapterTestSw != 1 {
-		return
-	}
-	tester, ok := client.(chapterTester)
+	tester, source, submit, ok := chapterTestContext(client, user)
 	if !ok {
 		return
 	}
-	source := answerSource(client.Platform(), user)
-	submit := user.CoursesCustom.ExamAutoSubmit == 1
+	if user.CoursesCustom.AutoExam == 0 {
+		logInfo(user, "【", course.Name, "】 答题模式为 0：章节测验只读取题目，不会自动作答；如需作答请在账号详情设置答题模式")
+	}
 	accountKey := progress.AccountKey(user.AccountType, user.Account)
 
 	handled := 0
@@ -989,25 +1170,43 @@ func processChapterTests(ctx context.Context, client yatori.Client, user config.
 			continue
 		}
 		handled++
-		work := yatori.Work{
-			ID:       node.ID,
-			CourseID: course.ID,
-			Name:     node.Name,
-			Raw:      node.Raw,
-		}
-		result, err := tester.DoChapterTest(ctx, yatori.WorkRequest{
-			Course: course,
-			Work:   work,
-			Source: source,
-			Submit: submit,
-		})
-		logAnswerResult(user, course, "章节测验", node.Name, result, err)
-		if err == nil && result != nil && result.Submitted {
-			progress.MarkDone(accountKey, course.ID, node.ID)
-		}
+		processChapterTestNode(ctx, tester, user, course, node, source, submit, accountKey)
 	}
 	if handled == 0 {
 		logInfo(user, "【", course.Name, "】 没有待处理的章节测验")
+	}
+}
+
+func chapterTestContext(client yatori.Client, user config.User) (chapterTester, yatori.AnswerSource, bool, bool) {
+	if client.Platform() != yatori.XueXiTong {
+		return nil, yatori.AnswerSourceManual, false, false
+	}
+	if user.CoursesCustom.CxChapterTestSw == nil || *user.CoursesCustom.CxChapterTestSw != 1 {
+		return nil, yatori.AnswerSourceManual, false, false
+	}
+	tester, ok := client.(chapterTester)
+	if !ok {
+		return nil, yatori.AnswerSourceManual, false, false
+	}
+	return tester, answerSource(client.Platform(), user), user.CoursesCustom.ExamAutoSubmit == 1, true
+}
+
+func processChapterTestNode(ctx context.Context, tester chapterTester, user config.User, course yatori.Course, node yatori.Node, source yatori.AnswerSource, submit bool, accountKey string) {
+	work := yatori.Work{
+		ID:       node.ID,
+		CourseID: course.ID,
+		Name:     node.Name,
+		Raw:      node.Raw,
+	}
+	result, err := tester.DoChapterTest(ctx, yatori.WorkRequest{
+		Course: course,
+		Work:   work,
+		Source: source,
+		Submit: submit,
+	})
+	logAnswerResult(user, course, "章节测验", node.Name, result, err)
+	if err == nil && result != nil && (result.Submitted || strings.Contains(result.Message, "已完成")) {
+		progress.MarkDone(accountKey, course.ID, node.ID)
 	}
 }
 
@@ -1088,7 +1287,8 @@ func processExams(ctx context.Context, client yatori.Client, user config.User, c
 		if stopRequested(stop) {
 			return
 		}
-		if !examAllowed(user, course.Name, exam.Name) || isFinishedStatus(exam.Status) {
+		retake := strings.EqualFold(strings.TrimSpace(exam.Extra["retake"]), "true")
+		if !examAllowed(user, course.Name, exam.Name) || (isFinishedStatus(exam.Status) && !retake) {
 			continue
 		}
 		result, err := client.DoExam(ctx, yatori.ExamRequest{Course: course, Exam: exam, Source: source, Submit: submit})

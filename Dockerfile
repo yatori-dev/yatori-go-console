@@ -31,6 +31,9 @@ RUN GOFLAGS=-mod=mod go mod download
 # 复制所有源码
 COPY . .
 
+# 把前端构建产物放进 frontend/out，供 go:embed 打进二进制
+COPY --from=frontend /frontend/out ./frontend/out
+
 # ✅ 同步和清理依赖，避免 go.mod 不一致问题
 RUN GOFLAGS=-mod=mod go mod tidy
 
@@ -60,8 +63,8 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 # ✅ 拷贝可执行文件到系统路径
 COPY --from=builder /xvexitong /usr/local/bin/xvexitong
 
-# ✅ 拷贝 Next.js 静态导出页面（Web 管理模式）
-COPY --from=frontend /frontend/out ./frontend/out
+# ✅ 前端已通过 go:embed 打进二进制，启动时会自动释放到 assets/frontend
+# 不再需要单独拷贝 frontend/out，镜像可以只依赖单个可执行文件
 
 # ✅ 容器启动命令
 ENTRYPOINT ["/usr/local/bin/xvexitong"]

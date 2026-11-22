@@ -81,4 +81,4 @@ require (
 )
 
 // 本地联调 core 用：临时指向本地未发布的 core，push 前记得手动删除这一行。
-//replace github.com/yatori-dev/yatori-go-core/v3 => ../yatori-go-core
+replace github.com/yatori-dev/yatori-go-core/v3 => ../yatori-go-core

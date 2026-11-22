@@ -23,6 +23,7 @@ import (
 	"yatori-go-console/utils"
 	"yatori-go-console/utils/logbuf"
 	"yatori-go-console/utils/logincode"
+	"yatori-go-console/utils/loginstate"
 	"yatori-go-console/web/activity"
 
 	"github.com/gin-gonic/gin"
@@ -154,6 +155,7 @@ func DeleteUserService(c *gin.Context) {
 	global.DeleteUserActivity(user.Uid)
 	logbuf.Clear(logbuf.Key(user.AccountType, user.Account))
 	logincode.Clear(logincode.Key(user.AccountType, user.Account))
+	loginstate.Clear(logincode.Key(user.AccountType, user.Account))
 	progress.Clear(progress.AccountKey(user.AccountType, user.Account))
 	if err := dao.DeleteUser(global.GlobalDB, &pojo.UserPO{Uid: user.Uid}); err != nil {
 		fail(c, err.Error())

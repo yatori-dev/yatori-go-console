@@ -787,7 +787,7 @@ export function AccountDetail({ account, onBack, onChanged }: AccountDetailProps
                                 </div>
                             </div>
                             <p className="text-xs text-muted-foreground">
-                                章节测验/作业/考试都按上方「答题模式」作答，未开启答题模式时只做视频。
+                                章节测验开关独立生效；答题模式为 0 时只读取题目，不会自动作答/提交。
                             </p>
                         </div>
                     )}
