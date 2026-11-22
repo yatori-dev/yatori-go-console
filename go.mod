@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	//github.com/faiface/beep v1.1.0
 	github.com/spf13/viper v1.21.0
-	github.com/yatori-dev/yatori-go-core/v3 v3.0.12
+	github.com/yatori-dev/yatori-go-core/v3 v3.1.0
 	golang.org/x/sys v0.49.0
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
@@ -81,4 +81,4 @@ require (
 )
 
 // 本地联调 core 用：临时指向本地未发布的 core，push 前记得手动删除这一行。
-replace github.com/yatori-dev/yatori-go-core/v3 => ../yatori-go-core
+//replace github.com/yatori-dev/yatori-go-core/v3 => ../yatori-go-core
