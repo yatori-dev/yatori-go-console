@@ -39,7 +39,7 @@ func TestFastStudyMapping(t *testing.T) {
 		want     bool
 	}{
 		{yatori.YingHua, 1, false},
-		{yatori.YingHua, 2, true},
+		{yatori.YingHua, 2, false},
 		{yatori.YingHua, 3, false},
 		{yatori.HaiQiKeJi, 2, true},
 		{yatori.ENAAE, 2, true},
@@ -68,6 +68,17 @@ func TestSerialStudyMode(t *testing.T) {
 	}
 	if isSerialStudyMode(yatori.YingHua, 1) {
 		t.Fatal("英华普通模式不需要 10-60 秒间隔")
+	}
+}
+
+func TestStudyProgressStep(t *testing.T) {
+	step, interval := studyProgressStep(yatori.YingHua)
+	if step != 30*time.Second || interval != 30*time.Second {
+		t.Fatalf("英华应按 30 秒心跳提交，实际 step=%v interval=%v", step, interval)
+	}
+	step, interval = studyProgressStep(yatori.XueXiTong)
+	if step != 30*time.Second || interval != 30*time.Second {
+		t.Fatalf("学习通应保持 30 秒步长，实际 step=%v interval=%v", step, interval)
 	}
 }
 
